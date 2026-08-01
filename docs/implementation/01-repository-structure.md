@@ -4,7 +4,27 @@
 
 This document defines the initial source-code structure for Project Sentinel.
 
-The structure must preserve module ownership, framework independence, testability, and clear dependency direction.
+The structure must preserve:
+
+* Module ownership.
+* framework independence.
+* testability.
+* explicit dependency direction.
+* separation between repository orchestration and the Laravel application.
+
+---
+
+## Repository Model
+
+Project Sentinel uses a monorepo-style structure.
+
+The Laravel modular monolith is located at:
+
+```text
+apps/platform/
+```
+
+Repository-level Docker, documentation, scripts, assets, and future reusable packages remain outside the Laravel application.
 
 ---
 
@@ -12,27 +32,67 @@ The structure must preserve module ownership, framework independence, testabilit
 
 ```text
 project-sentinel/
+├── .github/
+│   ├── ISSUE_TEMPLATE/
+│   └── workflows/
 ├── apps/
 │   └── platform/
 │       ├── app/
 │       ├── bootstrap/
 │       ├── config/
 │       ├── database/
-│       ├── docs/
-│       └── public/
-│       └── resources/
-|       ├── routes/
-|       ├── src/
-|       ├── storage/
-|       ├── tests/
-|       ├── composer.json
+│       ├── public/
+│       ├── resources/
+│       ├── routes/
+│       ├── src/
+│       ├── storage/
+│       ├── tests/
+│       ├── artisan
+│       ├── composer.json
+│       ├── package.json
+│       └── phpunit.xml
+├── assets/
+├── docker/
+│   ├── nginx/
+│   ├── php/
+│   │   └── Dockerfile
+│   └── postgres/
+├── docs/
+├── packages/
+├── scripts/
+├── .env.example
+├── .gitignore
 ├── compose.yaml
-└── Dockerfile
+└── README.md
 ```
 
 `apps/platform/src/` contains Sentinel’s framework-independent modules.
 
-`apps/platform/app/` contains Laravel runtime adapters.
+`apps/platform/app/` contains Laravel runtime and infrastructure adapters.
+
+The repository root contains orchestration, documentation, and shared project assets.
+
+---
+
+## Laravel Application Root
+
+Unless otherwise stated, paths in this document are relative to:
+
+```text
+apps/platform/
+```
+
+For example:
+
+```text
+src/Incident/
+```
+
+means:
+
+```text
+apps/platform/src/Incident/
+```
 
 ---
 
@@ -59,7 +119,9 @@ src/
 └── Workflow/
 ```
 
-Each directory represents one documented module.
+Each directory represents one documented Sentinel module.
+
+Modules should be created incrementally as implementation reaches them.
 
 ---
 
@@ -85,7 +147,7 @@ src/Incident/
 
 Not every module requires every directory.
 
-Directories should be created only when they contain real code.
+A directory should be created only when it contains real code.
 
 ---
 
@@ -94,12 +156,12 @@ Directories should be created only when they contain real code.
 The Domain layer contains:
 
 * Entities.
-  * Value Objects.
-  * lifecycle rules.
-  * domain services.
-  * domain events.
-  * repository interfaces.
-  * domain exceptions.
+* Value Objects.
+* lifecycle rules.
+* domain services.
+* domain events.
+* repository interfaces.
+* domain exceptions.
 
 Example:
 
@@ -120,7 +182,15 @@ src/Incident/Domain/
     └── InvalidIncidentTransition.php
 ```
 
-Domain code must not depend on Laravel or infrastructure classes.
+Domain code must not depend on:
+
+* Laravel.
+* Eloquent.
+* HTTP.
+* Redis.
+* queues.
+* external provider SDKs.
+* infrastructure implementations.
 
 ---
 
@@ -131,11 +201,12 @@ The Application layer coordinates domain behavior.
 It contains:
 
 * Commands.
-  * Queries.
-  * handlers.
-  * authorization Policies.
-  * transaction orchestration.
-  * application DTOs.
+* Queries.
+* handlers.
+* authorization Policies.
+* transaction orchestration.
+* application DTOs.
+* public use-case interfaces.
 
 Example:
 
@@ -156,31 +227,31 @@ src/Incident/Application/
     └── IncidentView.php
 ```
 
-Handlers invoke domain behavior through repository and service interfaces.
+Handlers invoke domain behavior through repository and infrastructure interfaces.
 
 ---
 
 ## Contracts
 
-`Contract/` contains stable interfaces exposed outside the module when necessary.
+`Contract/` contains stable interfaces or data contracts exposed outside the module when necessary.
 
-Examples:
+Example:
 
 ```text
 src/Incident/Contract/
 ├── IncidentReader.php
-├── IncidentCommandBus.php
 └── IncidentReference.php
 ```
 
-Internal classes should not be exposed merely for convenience.
+Internal module classes must not be exposed merely for convenience.
 
-Most module integration should use:
+Module integration should normally use:
 
 * Commands.
-  * Queries.
-  * domain events.
-  * narrow public interfaces.
+* Queries.
+* domain events.
+* narrow public interfaces.
+* immutable Resource references.
 
 ---
 
@@ -204,11 +275,13 @@ app/
     ├── Authorization/
     ├── Storage/
     ├── Search/
-    ├── Providers/
+    ├── ExternalProviders/
     └── Observability/
 ```
 
-Laravel classes adapt framework behavior to module contracts.
+Laravel classes adapt framework and infrastructure behavior to module contracts.
+
+They must not own domain rules.
 
 ---
 
@@ -219,17 +292,23 @@ HTTP classes should be grouped by module.
 ```text
 app/Http/
 ├── Controllers/
-│   ├── Incident/
+│   ├── Organization/
+│   ├── Application/
+│   ├── Event/
 │   ├── Alert/
-│   └── Event/
+│   └── Incident/
 ├── Requests/
-│   ├── Incident/
+│   ├── Organization/
+│   ├── Application/
+│   ├── Event/
 │   ├── Alert/
-│   └── Event/
+│   └── Incident/
 └── Resources/
-    ├── Incident/
+    ├── Organization/
+    ├── Application/
+    ├── Event/
     ├── Alert/
-    └── Event/
+    └── Incident/
 ```
 
 Controllers must remain thin.
@@ -237,16 +316,18 @@ Controllers must remain thin.
 They should:
 
 1. Receive validated input.
-   2. resolve Tenant Context.
-   3. create a command or query.
-   4. invoke its handler.
-   5. return the mapped response.
+2. resolve authentication and Tenant Context.
+3. construct a command or query.
+4. invoke the appropriate handler.
+5. map the result to an HTTP response.
+
+Controllers must not contain lifecycle or business rules.
 
 ---
 
 ## Persistence Adapters
 
-Infrastructure repository implementations should be grouped by module.
+Infrastructure repository implementations should be grouped by owning module.
 
 ```text
 app/Infrastructure/Persistence/
@@ -260,11 +341,11 @@ app/Infrastructure/Persistence/
 
 Eloquent models are persistence records, not domain Entities.
 
-Repository mappers translate between persistence and domain representations.
+Repository mappers translate between persistence records and domain objects.
 
 ---
 
-## Database Migrations
+## Database Structure
 
 ```text
 database/
@@ -273,7 +354,15 @@ database/
 └── seeders/
 ```
 
-Migration filenames should identify the owning module where practical.
+Actual migrations belong inside:
+
+```text
+apps/platform/database/migrations/
+```
+
+Documentation-only migration directories must not be used.
+
+Migration filenames should identify the owned Resource clearly.
 
 Example:
 
@@ -283,26 +372,42 @@ Example:
 2026_08_02_000003_create_projects_table.php
 ```
 
-Every tenant-owned table must include `organization_id`.
+Every tenant-owned table must include:
+
+```text
+organization_id
+```
+
+Primary Resource identifiers use UUIDv7 and PostgreSQL native `uuid`.
 
 ---
 
 ## Queue Jobs
 
-Laravel Jobs adapt Queue messages to application commands.
+Laravel Jobs adapt queue messages to module commands and handlers.
 
 ```text
 app/Jobs/
 ├── Outbox/
 ├── Event/
 ├── Alert/
+├── Incident/
 ├── Notification/
 ├── Workflow/
 ├── Plugin/
 └── Agent/
 ```
 
-Jobs must contain identifiers and execution context, not serialized domain Entities.
+Jobs must contain:
+
+* Resource identifiers.
+* Organization context.
+* acting identity reference.
+* correlation identifier.
+* causation identifier.
+* payload Version.
+
+Jobs must not serialize complete mutable domain Entities.
 
 ---
 
@@ -324,7 +429,7 @@ src/Shared/
 
 The Shared Kernel must remain small and stable.
 
-Feature-specific helpers do not belong here.
+Feature-specific helpers and business rules do not belong in it.
 
 ---
 
@@ -334,6 +439,7 @@ Feature-specific helpers do not belong here.
 tests/
 ├── Unit/
 │   ├── Shared/
+│   ├── Organization/
 │   ├── Incident/
 │   └── Alert/
 ├── Application/
@@ -352,25 +458,39 @@ Test domain objects without Laravel or external infrastructure.
 
 ### Application Tests
 
-Test handlers using fake repositories and adapters.
+Test commands, queries, handlers, and Policies using fake repositories and adapters.
 
 ### Integration Tests
 
-Test PostgreSQL, Redis, repositories, Outbox, and Queue behavior.
+Test:
+
+* PostgreSQL repositories.
+* Redis.
+* queues.
+* Outbox publication.
+* transaction behavior.
+* external adapters where appropriate.
 
 ### Feature Tests
 
-Test HTTP contracts, authentication, authorization, and tenant isolation.
+Test:
+
+* HTTP contracts.
+* authentication.
+* authorization.
+* tenant isolation.
+* validation.
+* API error responses.
 
 ### Architecture Tests
 
-Prevent invalid dependencies between modules and layers.
+Prevent invalid dependencies between modules, layers, and runtime code.
 
 ---
 
 ## Namespace Convention
 
-Suggested namespace mapping:
+Framework-independent Sentinel classes use:
 
 ```text
 Sentinel\Shared\
@@ -385,24 +505,32 @@ Laravel runtime classes remain under:
 App\
 ```
 
-Composer should map:
+The Laravel application’s `composer.json` should include:
 
 ```json
 {
   "autoload": {
     "psr-4": {
       "App\\": "app/",
-      "Sentinel\\": "src/"
+      "Sentinel\\": "src/",
+      "Database\\Factories\\": "database/factories/",
+      "Database\\Seeders\\": "database/seeders/"
     }
   }
 }
+```
+
+After changing autoload configuration, run:
+
+```bash
+composer dump-autoload
 ```
 
 ---
 
 ## Dependency Rules
 
-Allowed:
+Allowed dependency direction:
 
 ```text
 app/
@@ -411,10 +539,17 @@ app/
 → src/Shared
 ```
 
-Prohibited:
+Also allowed:
 
 ```text
-src/Domain
+Module Application
+→ another module's public Contract
+```
+
+Prohibited dependencies:
+
+```text
+src/*/Domain
 → app/
 
 Module A Domain
@@ -424,7 +559,10 @@ Module A
 → Module B internal Entity
 
 Domain
-→ Eloquent or Laravel facades
+→ Eloquent
+
+Domain
+→ Laravel facades
 ```
 
 Architecture tests should enforce these rules.
@@ -454,7 +592,7 @@ Processor
 CommonUtils
 ```
 
-A class name should communicate one responsibility.
+A class name should communicate one clear responsibility.
 
 ---
 
@@ -477,13 +615,17 @@ final readonly class ResolveIncident
 }
 ```
 
-One handler should own each command or query.
+Each command or query should have one responsible handler.
+
+Commands express intent to change state.
+
+Queries retrieve information without changing authoritative state.
 
 ---
 
 ## Configuration
 
-Module configuration should live under:
+Module-related runtime configuration should live under:
 
 ```text
 config/sentinel/
@@ -500,20 +642,26 @@ config/sentinel/
 └── retention.php
 ```
 
-Tenant-managed configuration belongs in authoritative database Resources, not deployment files.
+Deployment configuration belongs in environment variables or infrastructure configuration.
+
+Tenant-managed settings belong in authoritative database Resources.
+
+Secrets must use approved secret-management references.
 
 ---
 
 ## Routes
 
-Routes should be split by API area where useful.
+Routes should be split by API area when useful.
 
 ```text
 routes/
 ├── api.php
 ├── api/
 │   ├── organizations.php
+│   ├── projects.php
 │   ├── applications.php
+│   ├── environments.php
 │   ├── events.php
 │   ├── alerts.php
 │   └── incidents.php
@@ -524,9 +672,57 @@ Route files must not contain business logic.
 
 ---
 
+## Root Docker Structure
+
+Docker orchestration belongs at the repository root.
+
+```text
+project-sentinel/
+├── compose.yaml
+└── docker/
+    ├── php/
+    │   └── Dockerfile
+    ├── nginx/
+    │   └── default.conf
+    └── postgres/
+```
+
+Docker services should mount or build from:
+
+```text
+./apps/platform
+```
+
+The Laravel application must not contain a second unrelated Docker orchestration structure unless a specific need is documented.
+
+---
+
+## Packages Directory
+
+The root `packages/` directory is reserved for future reusable packages.
+
+Possible future packages include:
+
+```text
+packages/
+├── php-sdk/
+├── laravel-sdk/
+└── plugin-sdk/
+```
+
+The main Sentinel domain modules must remain inside:
+
+```text
+apps/platform/src/
+```
+
+They should not be extracted into packages prematurely.
+
+---
+
 ## Initial Implementation Scope
 
-Do not create every empty module directory immediately.
+Do not create every module directory immediately.
 
 Start with:
 
@@ -534,17 +730,22 @@ Start with:
 src/
 ├── Shared/
 ├── IdentityAccess/
-├── Organization/
-├── Project/
-├── Application/
-├── Environment/
-├── Event/
-├── Alert/
-├── Incident/
-└── Notification/
+└── Organization/
 ```
 
-Add later modules when their implementation phase begins.
+Add the following when their implementation phase begins:
+
+```text
+Project
+Application
+Environment
+Event
+Alert
+Incident
+Notification
+```
+
+Advanced modules should be created only when work begins on them.
 
 ---
 
@@ -553,39 +754,43 @@ Add later modules when their implementation phase begins.
 The following are prohibited:
 
 * Business logic inside controllers.
-  * Eloquent models used as domain Entities.
-  * one global `Services` directory.
-  * one global `Repositories` directory.
-  * module-specific logic inside the Shared Kernel.
-  * direct imports from another module’s internal folders.
-  * jobs containing serialized mutable domain objects.
-  * framework dependencies inside domain code.
-  * empty abstraction layers without current value.
-  * creating the entire future directory tree before implementation requires it.
+* Eloquent models used as domain Entities.
+* one global `Services` directory.
+* one global `Repositories` directory.
+* module-specific logic inside the Shared Kernel.
+* direct imports from another module’s internal folders.
+* Jobs containing serialized mutable domain objects.
+* framework dependencies inside domain code.
+* duplicate migration directories outside the Laravel application.
+* empty abstraction layers without current value.
+* creating the entire future directory tree before implementation requires it.
+* placing the Laravel application directly in the repository root.
 
 ---
 
 ## Business Rules
 
-* Framework-independent modules live under `apps/platform/src/`.
-  * Laravel runtime adapters live under `apps/platform/app/`.
-  * each module owns its Domain and Application layers.
-  * repository interfaces belong to the owning module.
-  * repository implementations belong to infrastructure.
-  * Eloquent records are not domain Entities.
-  * commands and queries express business intent.
-  * tests mirror module and layer boundaries.
-  * architecture tests enforce dependency rules.
-  * directories are created incrementally as real code is introduced.
+* The Laravel modular monolith lives under `apps/platform/`.
+* framework-independent modules live under `apps/platform/src/`.
+* Laravel runtime adapters live under `apps/platform/app/`.
+* repository-level Docker, documentation, assets, and scripts remain at the root.
+* each module owns its Domain and Application layers.
+* repository interfaces belong to the owning module.
+* repository implementations belong to infrastructure.
+* Eloquent records are not domain Entities.
+* commands and queries express business intent.
+* tests mirror module and layer boundaries.
+* architecture tests enforce dependency rules.
+* directories are created incrementally as real code is introduced.
 
 ---
 
 ## Related Documents
 
 * `docs/implementation/00-implementation-plan.md`
-  * `docs/implementation/02-mvp-roadmap.md`
-  * `docs/modules/00-module-architecture.md`
-  * `docs/modules/01-shared-kernel.md`
-  * `docs/modules/18-laravel-runtime-adapter.md`
-  * `docs/deployment/01-local-development.md`
-  * `docs/deployment/02-docker-environment.md`
+* `docs/implementation/02-mvp-roadmap.md`
+* `docs/modules/00-module-architecture.md`
+* `docs/modules/01-shared-kernel.md`
+* `docs/modules/18-laravel-runtime-adapter.md`
+* `docs/deployment/01-local-development.md`
+* `docs/deployment/02-docker-environment.md`
