@@ -32,26 +32,26 @@ Milestone 2 — Shared Platform Foundation
 * [x] Tenant Context.
 * [x] Domain Event contract.
 * [x] Resource Version.
+* [x] Optimistic concurrency primitives.
 
 ## In Progress
 
-* [ ] Optimistic concurrency primitives.
+* [ ] Transaction Manager contract.
 
 ## Remaining Shared Platform Foundation
 
-* [ ] Transaction Manager contract.
 * [ ] Outbox message foundation.
 * [ ] Common domain and application errors.
 * [ ] Audit-recording contract.
 
 ## Next Recommended Task
 
-Implement framework-independent optimistic concurrency primitives with:
+Implement the framework-independent Transaction Manager contract with:
 
-* shared expected-version and current-version representations.
-* a dedicated concurrency-conflict error contract.
-* module-safe usage patterns that keep conflict handling explicit.
-* focused tests for conflict detection and expected-version matching.
+* begin/commit/rollback boundaries for application use cases.
+* clear contract semantics for transactional execution blocks.
+* compatibility with outbox publication flow.
+* focused tests validating success and rollback behavior expectations.
 
 ## Status Update Rules
 
