@@ -6,6 +6,7 @@ namespace Sentinel\IdentityAccess\Domain\Entity;
 
 use DateTimeImmutable;
 use Sentinel\IdentityAccess\Domain\Event\MembershipActivated;
+use Sentinel\IdentityAccess\Domain\Event\MembershipCreated;
 use Sentinel\IdentityAccess\Domain\Event\MembershipInvited;
 use Sentinel\IdentityAccess\Domain\Event\MembershipRemoved;
 use Sentinel\IdentityAccess\Domain\Event\MembershipSuspended;
@@ -68,6 +69,44 @@ final class Membership
             memberIdentityId: $userIdentityId,
             actorIdentityId: $actorIdentityId,
             membershipStatus: MembershipStatus::INVITED,
+            aggregateVersion: $membership->version->value(),
+        ));
+    }
+
+    public static function establishActive(
+        string $id,
+        string $organizationId,
+        string $userIdentityId,
+        string $actorIdentityId,
+        DateTimeImmutable $at,
+        string $eventId,
+        string $correlationId,
+        ?string $causationId = null,
+    ): self {
+        $membership = new self(
+            id: MembershipId::fromString($id),
+            organizationId: OrganizationId::fromString($organizationId),
+            userIdentityId: IdentityId::fromString($userIdentityId),
+            status: MembershipStatus::ACTIVE,
+            createdAt: $at,
+            updatedAt: $at,
+            activatedAt: $at,
+            suspendedAt: null,
+            removedAt: null,
+            version: ResourceVersion::fromInt(1),
+        );
+
+        return $membership->withEvent(MembershipCreated::fromValues(
+            eventId: $eventId,
+            organizationId: $organizationId,
+            occurredAt: $at,
+            correlationId: $correlationId,
+            causationId: $causationId,
+            membershipId: $id,
+            memberIdentityId: $userIdentityId,
+            actorIdentityId: $actorIdentityId,
+            membershipStatus: MembershipStatus::ACTIVE,
+            aggregateVersion: $membership->version->value(),
         ));
     }
 
@@ -219,6 +258,7 @@ final class Membership
             memberIdentityId: $this->userIdentityId->value(),
             actorIdentityId: $actorIdentityId,
             membershipStatus: MembershipStatus::ACTIVE,
+            aggregateVersion: $membership->version->value(),
         ));
     }
 
@@ -257,6 +297,7 @@ final class Membership
             memberIdentityId: $this->userIdentityId->value(),
             actorIdentityId: $actorIdentityId,
             membershipStatus: MembershipStatus::SUSPENDED,
+            aggregateVersion: $membership->version->value(),
         ));
     }
 
@@ -295,6 +336,7 @@ final class Membership
             memberIdentityId: $this->userIdentityId->value(),
             actorIdentityId: $actorIdentityId,
             membershipStatus: MembershipStatus::REMOVED,
+            aggregateVersion: $membership->version->value(),
         ));
     }
 

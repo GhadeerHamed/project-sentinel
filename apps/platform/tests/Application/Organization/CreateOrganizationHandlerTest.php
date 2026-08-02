@@ -9,12 +9,18 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Sentinel\IdentityAccess\Domain\Entity\Membership;
+use Sentinel\IdentityAccess\Domain\Entity\RoleAssignment;
 use Sentinel\IdentityAccess\Domain\Entity\User;
 use Sentinel\IdentityAccess\Domain\Exception\MembershipNotFound;
 use Sentinel\IdentityAccess\Domain\Exception\UserNotFound;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
+use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
+use Sentinel\IdentityAccess\Domain\Repository\RoleProvisioningRepository;
 use Sentinel\IdentityAccess\Domain\Repository\UserRepository;
 use Sentinel\IdentityAccess\Domain\ValueObject\MembershipId;
+use Sentinel\IdentityAccess\Domain\ValueObject\RoleAssignmentId;
+use Sentinel\IdentityAccess\Domain\ValueObject\RoleId;
+use Sentinel\IdentityAccess\Domain\ValueObject\RoleKey;
 use Sentinel\Organization\Application\Command\CreateOrganizationCommand;
 use Sentinel\Organization\Application\Handler\CreateOrganizationHandler;
 use Sentinel\Organization\Application\Policy\OrganizationCreationPolicy;
@@ -41,7 +47,7 @@ use Sentinel\Shared\Domain\Transaction\TransactionManager;
 final class CreateOrganizationHandlerTest extends TestCase
 {
     #[Test]
-    public function it_creates_organization_initial_membership_outbox_and_audit_atomically(): void
+    public function it_creates_organization_founding_membership_owner_assignment_outbox_and_audit_atomically(): void
     {
         $fixture = $this->fixture();
 
@@ -50,31 +56,33 @@ final class CreateOrganizationHandlerTest extends TestCase
         self::assertInstanceOf(CreateOrganizationResult::class, $result);
         self::assertSame('01890f7a-5b7c-7cc0-98c4-dc0c0c075001', $result->organizationId()->value());
         self::assertSame('01890f7a-5b7c-7cc0-98c4-dc0c0c075002', $result->creatorMembershipId()->value());
+        self::assertSame('01890f7a-5b7c-7cc0-98c4-dc0c0c075003', $result->initialRoleAssignmentId()->value());
 
         self::assertCount(1, $fixture->organizationRepository->persisted());
         self::assertCount(1, $fixture->membershipRepository->persisted());
+        self::assertCount(1, $fixture->roleAssignmentRepository->persisted());
         self::assertSame('active', array_values($fixture->membershipRepository->persisted())[0]->status()->value);
-        self::assertSame(2, array_values($fixture->membershipRepository->persisted())[0]->version()->value());
+        self::assertSame(1, array_values($fixture->membershipRepository->persisted())[0]->version()->value());
 
+        self::assertSame(['organization.created', 'membership.created', 'role.assigned'], $fixture->outboxStore->persistedEventTypes());
+        self::assertSame([1, 1, 1], $fixture->outboxStore->persistedEventSchemaVersions());
+        self::assertSame([1, 1, 1], $fixture->outboxStore->persistedAggregateVersions());
         self::assertSame(
-            ['organization.created', 'membership.invited', 'membership.activated'],
-            $fixture->outboxStore->persistedEventTypes(),
-        );
-        self::assertSame(
-            [
-                '01890f7a-5b7c-7cc0-98c4-dc0c0c075006',
-                '01890f7a-5b7c-7cc0-98c4-dc0c0c075007',
-                '01890f7a-5b7c-7cc0-98c4-dc0c0c075008',
-            ],
-            $fixture->outboxStore->persistedMessageIds(),
+            ['organization', 'membership', 'role_assignment'],
+            $fixture->outboxStore->persistedAggregateTypes(),
         );
 
-        self::assertCount(1, $fixture->auditRecorder->persisted());
-        self::assertSame('organization.create', $fixture->auditRecorder->persisted()[0]->action());
+        self::assertSame(3, count($fixture->auditRecorder->persisted()));
         self::assertSame(
-            '2026-08-02T16:00:00+00:00',
-            $fixture->auditRecorder->persisted()[0]->occurredAt()->format(DATE_ATOM),
+            ['organization.create', 'membership.create', 'role.assign'],
+            array_map(static fn (AuditRecord $record): string => $record->action(), $fixture->auditRecorder->persisted()),
         );
+
+        self::assertSame(RoleKey::organizationOwner()->value(), $fixture->roleProvisioningRepository->lastRoleKey?->value());
+        self::assertSame($result->organizationId()->value(), $fixture->roleProvisioningRepository->lastOrganizationId?->value());
+
+        self::assertSame(1, $fixture->policy->calls);
+        self::assertSame($fixture->command->creator()->identityId(), $fixture->policy->lastCreator?->identityId());
 
         self::assertSame(1, $fixture->transactionManager->beginCount);
         self::assertSame(1, $fixture->transactionManager->commitCount);
@@ -92,6 +100,22 @@ final class CreateOrganizationHandlerTest extends TestCase
     }
 
     #[Test]
+    public function it_rejects_non_user_creator_identity_types(): void
+    {
+        $fixture = $this->fixture(creatorIdentityType: 'plugin');
+
+        try {
+            $fixture->handler->handle($fixture->command);
+            self::fail('Expected non-user creator identity to be rejected.');
+        } catch (ApplicationOperationFailure $error) {
+            self::assertSame(ErrorCategory::FORBIDDEN, $error->category());
+            self::assertCount(0, $fixture->organizationRepository->persisted());
+            self::assertCount(0, $fixture->membershipRepository->persisted());
+            self::assertCount(0, $fixture->roleAssignmentRepository->persisted());
+        }
+    }
+
+    #[Test]
     public function it_rejects_non_authenticatable_creator_statuses(): void
     {
         foreach (['suspended', 'disabled', 'compromised'] as $status) {
@@ -104,6 +128,7 @@ final class CreateOrganizationHandlerTest extends TestCase
                 self::assertSame(ErrorCategory::INVALID_STATE, $error->category());
                 self::assertCount(0, $fixture->organizationRepository->persisted());
                 self::assertCount(0, $fixture->membershipRepository->persisted());
+                self::assertCount(0, $fixture->roleAssignmentRepository->persisted());
                 self::assertCount(0, $fixture->outboxStore->persisted());
                 self::assertCount(0, $fixture->auditRecorder->persisted());
                 self::assertSame(1, $fixture->transactionManager->rollBackCount);
@@ -123,16 +148,17 @@ final class CreateOrganizationHandlerTest extends TestCase
             self::assertSame(ErrorCategory::FORBIDDEN, $error->category());
             self::assertCount(0, $fixture->organizationRepository->persisted());
             self::assertCount(0, $fixture->membershipRepository->persisted());
+            self::assertCount(0, $fixture->roleAssignmentRepository->persisted());
             self::assertCount(0, $fixture->outboxStore->persisted());
             self::assertCount(0, $fixture->auditRecorder->persisted());
         }
     }
 
     #[Test]
-    public function transaction_failure_rolls_back_all_side_effects(): void
+    public function organization_repository_failure_rolls_back_entire_use_case(): void
     {
         $fixture = $this->fixture();
-        $fixture->transactionManager->failAfterOperation = true;
+        $fixture->organizationRepository->failOnSave = true;
 
         $this->expectException(RuntimeException::class);
 
@@ -141,6 +167,7 @@ final class CreateOrganizationHandlerTest extends TestCase
         } finally {
             self::assertCount(0, $fixture->organizationRepository->persisted());
             self::assertCount(0, $fixture->membershipRepository->persisted());
+            self::assertCount(0, $fixture->roleAssignmentRepository->persisted());
             self::assertCount(0, $fixture->outboxStore->persisted());
             self::assertCount(0, $fixture->auditRecorder->persisted());
             self::assertSame(1, $fixture->transactionManager->rollBackCount);
@@ -148,7 +175,7 @@ final class CreateOrganizationHandlerTest extends TestCase
     }
 
     #[Test]
-    public function repository_failure_rolls_back_entire_use_case(): void
+    public function membership_repository_failure_rolls_back_entire_use_case(): void
     {
         $fixture = $this->fixture();
         $fixture->membershipRepository->failOnSave = true;
@@ -160,6 +187,27 @@ final class CreateOrganizationHandlerTest extends TestCase
         } finally {
             self::assertCount(0, $fixture->organizationRepository->persisted());
             self::assertCount(0, $fixture->membershipRepository->persisted());
+            self::assertCount(0, $fixture->roleAssignmentRepository->persisted());
+            self::assertCount(0, $fixture->outboxStore->persisted());
+            self::assertCount(0, $fixture->auditRecorder->persisted());
+            self::assertSame(1, $fixture->transactionManager->rollBackCount);
+        }
+    }
+
+    #[Test]
+    public function role_assignment_failure_rolls_back_entire_use_case(): void
+    {
+        $fixture = $this->fixture();
+        $fixture->roleAssignmentRepository->failOnAssign = true;
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            $fixture->handler->handle($fixture->command);
+        } finally {
+            self::assertCount(0, $fixture->organizationRepository->persisted());
+            self::assertCount(0, $fixture->membershipRepository->persisted());
+            self::assertCount(0, $fixture->roleAssignmentRepository->persisted());
             self::assertCount(0, $fixture->outboxStore->persisted());
             self::assertCount(0, $fixture->auditRecorder->persisted());
             self::assertSame(1, $fixture->transactionManager->rollBackCount);
@@ -179,6 +227,27 @@ final class CreateOrganizationHandlerTest extends TestCase
         } finally {
             self::assertCount(0, $fixture->organizationRepository->persisted());
             self::assertCount(0, $fixture->membershipRepository->persisted());
+            self::assertCount(0, $fixture->roleAssignmentRepository->persisted());
+            self::assertCount(0, $fixture->outboxStore->persisted());
+            self::assertCount(0, $fixture->auditRecorder->persisted());
+            self::assertSame(1, $fixture->transactionManager->rollBackCount);
+        }
+    }
+
+    #[Test]
+    public function audit_failure_rolls_back_entire_use_case(): void
+    {
+        $fixture = $this->fixture();
+        $fixture->auditRecorder->failOnRecordCall = 3;
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            $fixture->handler->handle($fixture->command);
+        } finally {
+            self::assertCount(0, $fixture->organizationRepository->persisted());
+            self::assertCount(0, $fixture->membershipRepository->persisted());
+            self::assertCount(0, $fixture->roleAssignmentRepository->persisted());
             self::assertCount(0, $fixture->outboxStore->persisted());
             self::assertCount(0, $fixture->auditRecorder->persisted());
             self::assertSame(1, $fixture->transactionManager->rollBackCount);
@@ -207,6 +276,7 @@ final class CreateOrganizationHandlerTest extends TestCase
         } finally {
             self::assertCount(1, $fixture->organizationRepository->persisted());
             self::assertCount(0, $fixture->membershipRepository->persisted());
+            self::assertCount(0, $fixture->roleAssignmentRepository->persisted());
             self::assertCount(0, $fixture->outboxStore->persisted());
             self::assertCount(0, $fixture->auditRecorder->persisted());
         }
@@ -228,6 +298,7 @@ final class CreateOrganizationHandlerTest extends TestCase
     private function fixture(
         bool $includeCreator = true,
         string $creatorStatus = 'active',
+        string $creatorIdentityType = 'user',
         bool $policyAllows = true,
         ?string $organizationIdOverride = null,
     ): CreateOrganizationFixture {
@@ -245,6 +316,9 @@ final class CreateOrganizationHandlerTest extends TestCase
             '01890f7a-5b7c-7cc0-98c4-dc0c0c075007',
             '01890f7a-5b7c-7cc0-98c4-dc0c0c075008',
             '01890f7a-5b7c-7cc0-98c4-dc0c0c075009',
+            '01890f7a-5b7c-7cc0-98c4-dc0c0c075010',
+            '01890f7a-5b7c-7cc0-98c4-dc0c0c075011',
+            '01890f7a-5b7c-7cc0-98c4-dc0c0c075012',
         ];
         $uuidGenerator = new FakeUuidGenerator($ids);
         $policy = new FakeOrganizationCreationPolicy($policyAllows);
@@ -265,11 +339,14 @@ final class CreateOrganizationHandlerTest extends TestCase
 
         $organizationRepository = new FakeOrganizationRepository;
         $membershipRepository = new FakeMembershipRepository;
+        $roleAssignmentRepository = new FakeRoleAssignmentRepository;
+        $roleProvisioningRepository = new FakeRoleProvisioningRepository(RoleId::fromString('01890f7a-5b7c-7cc0-98c4-dc0c0c075099'));
         $outboxStore = new FakeOutboxMessageStore;
         $auditRecorder = new FakeAuditRecorder;
 
         $transactionManager->register($organizationRepository);
         $transactionManager->register($membershipRepository);
+        $transactionManager->register($roleAssignmentRepository);
         $transactionManager->register($outboxStore);
         $transactionManager->register($auditRecorder);
 
@@ -277,6 +354,8 @@ final class CreateOrganizationHandlerTest extends TestCase
             userRepository: $userRepository,
             organizationRepository: $organizationRepository,
             membershipRepository: $membershipRepository,
+            roleAssignmentRepository: $roleAssignmentRepository,
+            roleProvisioningRepository: $roleProvisioningRepository,
             organizationCreationPolicy: $policy,
             uuidGenerator: $uuidGenerator,
             clock: $clock,
@@ -289,9 +368,9 @@ final class CreateOrganizationHandlerTest extends TestCase
             organizationName: 'Sentinel Org',
             organizationSlug: 'sentinel-org',
             creatorIdentityId: $creatorIdentityId,
-            creatorIdentityType: 'user',
-            correlationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c075010',
-            causationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c075011',
+            creatorIdentityType: $creatorIdentityType,
+            correlationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c075090',
+            causationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c075091',
         );
 
         return new CreateOrganizationFixture(
@@ -301,8 +380,11 @@ final class CreateOrganizationHandlerTest extends TestCase
             transactionManager: $transactionManager,
             organizationRepository: $organizationRepository,
             membershipRepository: $membershipRepository,
+            roleAssignmentRepository: $roleAssignmentRepository,
+            roleProvisioningRepository: $roleProvisioningRepository,
             outboxStore: $outboxStore,
             auditRecorder: $auditRecorder,
+            policy: $policy,
         );
     }
 }
@@ -316,8 +398,11 @@ final readonly class CreateOrganizationFixture
         public FakeTransactionManager $transactionManager,
         public FakeOrganizationRepository $organizationRepository,
         public FakeMembershipRepository $membershipRepository,
+        public FakeRoleAssignmentRepository $roleAssignmentRepository,
+        public FakeRoleProvisioningRepository $roleProvisioningRepository,
         public FakeOutboxMessageStore $outboxStore,
         public FakeAuditRecorder $auditRecorder,
+        public FakeOrganizationCreationPolicy $policy,
     ) {}
 }
 
@@ -430,14 +515,21 @@ final class FakeUuidGenerator implements UuidV7Generator
     }
 }
 
-final readonly class FakeOrganizationCreationPolicy implements OrganizationCreationPolicy
+final class FakeOrganizationCreationPolicy implements OrganizationCreationPolicy
 {
+    public int $calls = 0;
+
+    public ?IdentityReference $lastCreator = null;
+
     public function __construct(
         private bool $allows,
     ) {}
 
     public function allows(IdentityReference $creator): bool
     {
+        $this->calls++;
+        $this->lastCreator = $creator;
+
         return $this->allows;
     }
 }
@@ -612,6 +704,89 @@ final class FakeMembershipRepository implements FakeTransactionalParticipant, Me
     }
 }
 
+final class FakeRoleAssignmentRepository implements FakeTransactionalParticipant, RoleAssignmentRepository
+{
+    /** @var array<string, RoleAssignment> */
+    private array $persisted = [];
+
+    /** @var array<string, RoleAssignment> */
+    private array $pending = [];
+
+    public bool $failOnAssign = false;
+
+    public function assign(RoleAssignment $assignment): void
+    {
+        if ($this->failOnAssign) {
+            throw new RuntimeException('Role assignment save failed.');
+        }
+
+        $this->pending[$assignment->id()->value()] = $assignment;
+    }
+
+    public function revoke(
+        RoleAssignmentId $assignmentId,
+        OrganizationId $organizationId,
+        IdentityId $revokedBy,
+        DateTimeImmutable $revokedAt,
+    ): void {
+        throw new RuntimeException('Not implemented in test fake.');
+    }
+
+    public function activeForIdentity(
+        OrganizationId $organizationId,
+        IdentityId $identityId,
+        DateTimeImmutable $at,
+    ): array {
+        throw new RuntimeException('Not implemented in test fake.');
+    }
+
+    /**
+     * @return array<string, RoleAssignment>
+     */
+    public function persisted(): array
+    {
+        return $this->persisted;
+    }
+
+    public function beginTransaction(): void
+    {
+        $this->pending = [];
+    }
+
+    public function commitTransaction(): void
+    {
+        foreach ($this->pending as $id => $assignment) {
+            $this->persisted[$id] = $assignment;
+        }
+
+        $this->pending = [];
+    }
+
+    public function rollBackTransaction(): void
+    {
+        $this->pending = [];
+    }
+}
+
+final class FakeRoleProvisioningRepository implements RoleProvisioningRepository
+{
+    public ?OrganizationId $lastOrganizationId = null;
+
+    public ?RoleKey $lastRoleKey = null;
+
+    public function __construct(
+        private readonly RoleId $resolvedRoleId,
+    ) {}
+
+    public function provisionRole(OrganizationId $organizationId, RoleKey $roleKey): RoleId
+    {
+        $this->lastOrganizationId = $organizationId;
+        $this->lastRoleKey = $roleKey;
+
+        return $this->resolvedRoleId;
+    }
+}
+
 final class FakeOutboxMessageStore implements FakeTransactionalParticipant, OutboxMessageStore
 {
     /** @var list<OutboxMessage> */
@@ -655,12 +830,34 @@ final class FakeOutboxMessageStore implements FakeTransactionalParticipant, Outb
     }
 
     /**
-     * @return list<string>
+     * @return list<int>
      */
-    public function persistedMessageIds(): array
+    public function persistedEventSchemaVersions(): array
     {
         return array_map(
-            static fn (OutboxMessage $message): string => $message->jsonSerialize()['id'],
+            static fn (OutboxMessage $message): int => $message->jsonSerialize()['event_version'],
+            $this->persisted,
+        );
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function persistedAggregateVersions(): array
+    {
+        return array_map(
+            static fn (OutboxMessage $message): int => $message->jsonSerialize()['aggregate_version'],
+            $this->persisted,
+        );
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function persistedAggregateTypes(): array
+    {
+        return array_map(
+            static fn (OutboxMessage $message): string => $message->jsonSerialize()['aggregate_type'],
             $this->persisted,
         );
     }
@@ -690,11 +887,15 @@ final class FakeAuditRecorder implements AuditRecorder, FakeTransactionalPartici
     /** @var list<AuditRecord> */
     private array $pending = [];
 
-    public bool $failOnRecord = false;
+    public ?int $failOnRecordCall = null;
+
+    private int $recordCalls = 0;
 
     public function record(AuditRecord $auditRecord): void
     {
-        if ($this->failOnRecord) {
+        $this->recordCalls++;
+
+        if ($this->failOnRecordCall !== null && $this->recordCalls === $this->failOnRecordCall) {
             throw new RuntimeException('Audit recording failed.');
         }
 

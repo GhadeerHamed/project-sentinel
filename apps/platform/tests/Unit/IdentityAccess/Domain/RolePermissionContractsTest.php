@@ -14,6 +14,9 @@ use Sentinel\IdentityAccess\Domain\Exception\CrossOrganizationAssignment;
 use Sentinel\IdentityAccess\Domain\Exception\InvalidRoleAssignmentTransition;
 use Sentinel\IdentityAccess\Domain\Repository\PermissionAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
+use Sentinel\IdentityAccess\Domain\Repository\RoleProvisioningRepository;
+use Sentinel\IdentityAccess\Domain\ValueObject\RoleKey;
+use Sentinel\Shared\Domain\Event\AggregateDomainEvent;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 
 final class RolePermissionContractsTest extends TestCase
@@ -22,9 +25,11 @@ final class RolePermissionContractsTest extends TestCase
     public function it_defines_explicit_role_and_permission_assignment_contracts(): void
     {
         $roleAssignments = new ReflectionClass(RoleAssignmentRepository::class);
+        $roleProvisioning = new ReflectionClass(RoleProvisioningRepository::class);
         $permissions = new ReflectionClass(PermissionAssignmentRepository::class);
 
         self::assertTrue($roleAssignments->isInterface());
+        self::assertTrue($roleProvisioning->isInterface());
         self::assertTrue($permissions->isInterface());
 
         $activeForIdentity = $roleAssignments->getMethod('activeForIdentity');
@@ -38,6 +43,13 @@ final class RolePermissionContractsTest extends TestCase
 
         self::assertInstanceOf(ReflectionNamedType::class, $permissionsParameters[0]->getType());
         self::assertSame(OrganizationId::class, $permissionsParameters[0]->getType()->getName());
+
+        $provisionRole = $roleProvisioning->getMethod('provisionRole');
+        $provisionParameters = $provisionRole->getParameters();
+        self::assertInstanceOf(ReflectionNamedType::class, $provisionParameters[0]->getType());
+        self::assertSame(OrganizationId::class, $provisionParameters[0]->getType()->getName());
+        self::assertInstanceOf(ReflectionNamedType::class, $provisionParameters[1]->getType());
+        self::assertSame(RoleKey::class, $provisionParameters[1]->getType()->getName());
     }
 
     #[Test]
@@ -80,5 +92,29 @@ final class RolePermissionContractsTest extends TestCase
             revokedAt: new DateTimeImmutable('2026-08-02T14:43:00+00:00'),
             revokedByIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e17',
         );
+    }
+
+    #[Test]
+    public function it_records_role_assigned_event_once_for_new_assignment(): void
+    {
+        $assignment = RoleAssignment::assign(
+            id: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e21',
+            organizationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e22',
+            identityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e23',
+            roleId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e24',
+            roleOrganizationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e22',
+            assignedByIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e25',
+            assignedAt: new DateTimeImmutable('2026-08-02T14:44:00+00:00'),
+            eventId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e26',
+            correlationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e27',
+        );
+
+        $events = $assignment->pullDomainEvents();
+        self::assertCount(1, $events);
+        self::assertInstanceOf(AggregateDomainEvent::class, $events[0]);
+        self::assertSame('role.assigned', $events[0]->eventName());
+        self::assertSame('role_assignment', $events[0]->aggregateType());
+        self::assertSame(1, $events[0]->aggregateVersion()->value());
+        self::assertCount(0, $assignment->pullDomainEvents());
     }
 }

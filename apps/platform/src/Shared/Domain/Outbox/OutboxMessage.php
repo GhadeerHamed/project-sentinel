@@ -7,7 +7,7 @@ namespace Sentinel\Shared\Domain\Outbox;
 use DateTimeImmutable;
 use JsonSerializable;
 use Sentinel\Shared\Domain\Concurrency\ResourceVersion;
-use Sentinel\Shared\Domain\Event\DomainEvent;
+use Sentinel\Shared\Domain\Event\AggregateDomainEvent;
 use Sentinel\Shared\Domain\Event\EventId;
 use Sentinel\Shared\Domain\Identifier\CausationId;
 use Sentinel\Shared\Domain\Identifier\CorrelationId;
@@ -83,10 +83,7 @@ final readonly class OutboxMessage implements JsonSerializable
 
     public static function fromDomainEvent(
         string $id,
-        DomainEvent $event,
-        string $aggregateType,
-        string $aggregateId,
-        int $aggregateVersion,
+        AggregateDomainEvent $event,
         DateTimeImmutable $createdAt,
     ): self {
         return self::fromValues(
@@ -95,9 +92,9 @@ final readonly class OutboxMessage implements JsonSerializable
             eventId: $event->eventId()->value(),
             eventType: $event->eventName(),
             eventVersion: $event->eventVersion(),
-            aggregateType: $aggregateType,
-            aggregateId: $aggregateId,
-            aggregateVersion: $aggregateVersion,
+            aggregateType: $event->aggregateType(),
+            aggregateId: $event->aggregateId(),
+            aggregateVersion: $event->aggregateVersion()->value(),
             payload: $event->payload(),
             occurredAt: $event->occurredAt(),
             createdAt: $createdAt,

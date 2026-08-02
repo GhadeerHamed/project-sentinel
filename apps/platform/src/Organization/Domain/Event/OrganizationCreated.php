@@ -6,14 +6,15 @@ namespace Sentinel\Organization\Domain\Event;
 
 use DateTimeImmutable;
 use Sentinel\Organization\Domain\ValueObject\OrganizationStatus;
-use Sentinel\Shared\Domain\Event\DomainEvent;
+use Sentinel\Shared\Domain\Concurrency\ResourceVersion;
+use Sentinel\Shared\Domain\Event\AggregateDomainEvent;
 use Sentinel\Shared\Domain\Event\EventId;
 use Sentinel\Shared\Domain\Identifier\CausationId;
 use Sentinel\Shared\Domain\Identifier\CorrelationId;
 use Sentinel\Shared\Domain\Identity\IdentityId;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 
-final readonly class OrganizationCreated implements DomainEvent
+final readonly class OrganizationCreated implements AggregateDomainEvent
 {
     private function __construct(
         private EventId $eventId,
@@ -25,6 +26,7 @@ final readonly class OrganizationCreated implements DomainEvent
         private string $organizationName,
         private string $organizationSlug,
         private OrganizationStatus $organizationStatus,
+        private ResourceVersion $aggregateVersion,
     ) {}
 
     public static function fromValues(
@@ -37,6 +39,7 @@ final readonly class OrganizationCreated implements DomainEvent
         string $organizationName,
         string $organizationSlug,
         OrganizationStatus $organizationStatus,
+        int $aggregateVersion,
     ): self {
         return new self(
             eventId: EventId::fromString($eventId),
@@ -48,6 +51,7 @@ final readonly class OrganizationCreated implements DomainEvent
             organizationName: $organizationName,
             organizationSlug: $organizationSlug,
             organizationStatus: $organizationStatus,
+            aggregateVersion: ResourceVersion::fromInt($aggregateVersion),
         );
     }
 
@@ -104,6 +108,21 @@ final readonly class OrganizationCreated implements DomainEvent
     public function eventVersion(): int
     {
         return 1;
+    }
+
+    public function aggregateType(): string
+    {
+        return 'organization';
+    }
+
+    public function aggregateId(): string
+    {
+        return $this->organizationId->value();
+    }
+
+    public function aggregateVersion(): ResourceVersion
+    {
+        return $this->aggregateVersion;
     }
 
     public function payload(): array

@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace Sentinel\IdentityAccess\Domain\Entity;
 
 use DateTimeImmutable;
+use Sentinel\IdentityAccess\Domain\Event\RoleAssigned;
 use Sentinel\IdentityAccess\Domain\Exception\CrossOrganizationAssignment;
 use Sentinel\IdentityAccess\Domain\Exception\InvalidRoleAssignmentTransition;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleAssignmentId;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleId;
+use Sentinel\Shared\Domain\Event\DomainEvent;
 use Sentinel\Shared\Domain\Identity\IdentityId;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 
-final readonly class RoleAssignment
+final class RoleAssignment
 {
     private function __construct(
         private RoleAssignmentId $id,
@@ -24,7 +26,47 @@ final readonly class RoleAssignment
         private ?DateTimeImmutable $expiresAt,
         private ?DateTimeImmutable $revokedAt,
         private ?IdentityId $revokedByIdentityId,
+        /** @var list<DomainEvent> */
+        private array $recordedEvents = [],
     ) {}
+
+    public static function assign(
+        string $id,
+        string $organizationId,
+        string $identityId,
+        string $roleId,
+        string $roleOrganizationId,
+        string $assignedByIdentityId,
+        DateTimeImmutable $assignedAt,
+        string $eventId,
+        string $correlationId,
+        ?string $causationId = null,
+        ?DateTimeImmutable $expiresAt = null,
+    ): self {
+        $assignment = self::fromValues(
+            id: $id,
+            organizationId: $organizationId,
+            identityId: $identityId,
+            roleId: $roleId,
+            roleOrganizationId: $roleOrganizationId,
+            assignedByIdentityId: $assignedByIdentityId,
+            assignedAt: $assignedAt,
+            expiresAt: $expiresAt,
+        );
+
+        return $assignment->withEvent(RoleAssigned::fromValues(
+            eventId: $eventId,
+            organizationId: $organizationId,
+            occurredAt: $assignedAt,
+            correlationId: $correlationId,
+            causationId: $causationId,
+            roleAssignmentId: $id,
+            identityId: $identityId,
+            roleId: $roleId,
+            assignedByIdentityId: $assignedByIdentityId,
+            aggregateVersion: 1,
+        ));
+    }
 
     public static function fromValues(
         string $id,
@@ -114,6 +156,7 @@ final readonly class RoleAssignment
             expiresAt: $this->expiresAt,
             revokedAt: $revokedAt,
             revokedByIdentityId: IdentityId::fromString($revokedByIdentityId),
+            recordedEvents: $this->recordedEvents,
         );
     }
 
@@ -128,5 +171,32 @@ final readonly class RoleAssignment
         }
 
         return true;
+    }
+
+    /**
+     * @return list<DomainEvent>
+     */
+    public function pullDomainEvents(): array
+    {
+        $events = $this->recordedEvents;
+        $this->recordedEvents = [];
+
+        return $events;
+    }
+
+    private function withEvent(DomainEvent $event): self
+    {
+        return new self(
+            id: $this->id,
+            organizationId: $this->organizationId,
+            identityId: $this->identityId,
+            roleId: $this->roleId,
+            assignedByIdentityId: $this->assignedByIdentityId,
+            assignedAt: $this->assignedAt,
+            expiresAt: $this->expiresAt,
+            revokedAt: $this->revokedAt,
+            revokedByIdentityId: $this->revokedByIdentityId,
+            recordedEvents: [...$this->recordedEvents, $event],
+        );
     }
 }

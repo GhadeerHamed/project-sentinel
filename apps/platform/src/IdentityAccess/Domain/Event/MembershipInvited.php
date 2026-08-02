@@ -7,14 +7,15 @@ namespace Sentinel\IdentityAccess\Domain\Event;
 use DateTimeImmutable;
 use Sentinel\IdentityAccess\Domain\ValueObject\MembershipId;
 use Sentinel\IdentityAccess\Domain\ValueObject\MembershipStatus;
-use Sentinel\Shared\Domain\Event\DomainEvent;
+use Sentinel\Shared\Domain\Concurrency\ResourceVersion;
+use Sentinel\Shared\Domain\Event\AggregateDomainEvent;
 use Sentinel\Shared\Domain\Event\EventId;
 use Sentinel\Shared\Domain\Identifier\CausationId;
 use Sentinel\Shared\Domain\Identifier\CorrelationId;
 use Sentinel\Shared\Domain\Identity\IdentityId;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 
-final readonly class MembershipInvited implements DomainEvent
+final readonly class MembershipInvited implements AggregateDomainEvent
 {
     private function __construct(
         private EventId $eventId,
@@ -26,6 +27,7 @@ final readonly class MembershipInvited implements DomainEvent
         private IdentityId $memberIdentityId,
         private IdentityId $actorIdentityId,
         private MembershipStatus $membershipStatus,
+        private ResourceVersion $aggregateVersion,
     ) {}
 
     public static function fromValues(
@@ -38,6 +40,7 @@ final readonly class MembershipInvited implements DomainEvent
         string $memberIdentityId,
         string $actorIdentityId,
         MembershipStatus $membershipStatus,
+        int $aggregateVersion,
     ): self {
         return new self(
             eventId: EventId::fromString($eventId),
@@ -49,6 +52,7 @@ final readonly class MembershipInvited implements DomainEvent
             memberIdentityId: IdentityId::fromString($memberIdentityId),
             actorIdentityId: IdentityId::fromString($actorIdentityId),
             membershipStatus: $membershipStatus,
+            aggregateVersion: ResourceVersion::fromInt($aggregateVersion),
         );
     }
 
@@ -105,6 +109,21 @@ final readonly class MembershipInvited implements DomainEvent
     public function eventVersion(): int
     {
         return 1;
+    }
+
+    public function aggregateType(): string
+    {
+        return 'membership';
+    }
+
+    public function aggregateId(): string
+    {
+        return $this->membershipId->value();
+    }
+
+    public function aggregateVersion(): ResourceVersion
+    {
+        return $this->aggregateVersion;
     }
 
     public function payload(): array

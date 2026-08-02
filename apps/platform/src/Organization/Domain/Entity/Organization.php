@@ -63,6 +63,7 @@ final class Organization
             organizationName: $organization->name,
             organizationSlug: $organization->slug,
             organizationStatus: $organization->status,
+            aggregateVersion: $organization->version->value(),
         ));
     }
 
@@ -175,6 +176,7 @@ final class Organization
             causationId: $causationId,
             actorIdentityId: $actorIdentityId,
             organizationStatus: OrganizationStatus::SUSPENDED,
+            aggregateVersion: $organization->version->value(),
         ));
     }
 
@@ -199,6 +201,7 @@ final class Organization
             causationId: $causationId,
             actorIdentityId: $actorIdentityId,
             organizationStatus: OrganizationStatus::ACTIVE,
+            aggregateVersion: $organization->version->value(),
         ));
     }
 
@@ -226,6 +229,7 @@ final class Organization
             causationId: $causationId,
             actorIdentityId: $actorIdentityId,
             organizationStatus: OrganizationStatus::ARCHIVED,
+            aggregateVersion: $organization->version->value(),
         ));
     }
 

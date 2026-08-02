@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Sentinel\IdentityAccess\Domain\Entity\Membership;
 use Sentinel\IdentityAccess\Domain\Event\MembershipActivated;
+use Sentinel\IdentityAccess\Domain\Event\MembershipCreated;
 use Sentinel\IdentityAccess\Domain\Event\MembershipInvited;
 use Sentinel\IdentityAccess\Domain\Event\MembershipRemoved;
 use Sentinel\IdentityAccess\Domain\Event\MembershipSuspended;
@@ -84,6 +85,29 @@ final class MembershipTest extends TestCase
         self::assertCount(1, $removedEvents);
         self::assertInstanceOf(MembershipRemoved::class, $removedEvents[0]);
         self::assertCount(0, $removed->pullDomainEvents());
+    }
+
+    #[Test]
+    public function it_establishes_founding_membership_as_active_without_invitation_event(): void
+    {
+        $membership = Membership::establishActive(
+            id: '01890f7a-5b7c-7cc0-98c4-dc0c0c073daa',
+            organizationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073dab',
+            userIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073dac',
+            actorIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073dad',
+            at: new DateTimeImmutable('2026-08-02T14:15:00+00:00'),
+            eventId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073dae',
+            correlationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073daf',
+        );
+
+        self::assertSame('active', $membership->status()->value);
+        self::assertSame(1, $membership->version()->value());
+
+        $events = $membership->pullDomainEvents();
+        self::assertCount(1, $events);
+        self::assertInstanceOf(MembershipCreated::class, $events[0]);
+        self::assertSame(1, $events[0]->aggregateVersion()->value());
+        self::assertSame('membership.created', $events[0]->eventName());
     }
 
     #[Test]

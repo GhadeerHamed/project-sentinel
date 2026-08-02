@@ -12,7 +12,8 @@ use Sentinel\IdentityAccess\Domain\Event\MembershipInvited;
 use Sentinel\IdentityAccess\Domain\ValueObject\MembershipStatus;
 use Sentinel\Organization\Domain\Event\OrganizationCreated;
 use Sentinel\Organization\Domain\ValueObject\OrganizationStatus;
-use Sentinel\Shared\Domain\Event\DomainEvent;
+use Sentinel\Shared\Domain\Concurrency\ResourceVersion;
+use Sentinel\Shared\Domain\Event\AggregateDomainEvent;
 use Sentinel\Shared\Domain\Event\EventId;
 use Sentinel\Shared\Domain\Identifier\CausationId;
 use Sentinel\Shared\Domain\Identifier\CorrelationId;
@@ -42,9 +43,6 @@ final class OutboxMessageTest extends TestCase
         $message = OutboxMessage::fromDomainEvent(
             id: '01890f7a-5b7c-7cc0-98c4-dc0c0c073b05',
             event: $event,
-            aggregateType: 'alert',
-            aggregateId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073b06',
-            aggregateVersion: 3,
             createdAt: new DateTimeImmutable('2026-08-02T10:00:01+00:00'),
         );
 
@@ -95,14 +93,12 @@ final class OutboxMessageTest extends TestCase
             organizationName: 'Sentinel Org',
             organizationSlug: 'sentinel-org',
             organizationStatus: OrganizationStatus::ACTIVE,
+            aggregateVersion: 1,
         );
 
         $message = OutboxMessage::fromDomainEvent(
             id: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c05',
             event: $event,
-            aggregateType: 'organization',
-            aggregateId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c02',
-            aggregateVersion: 1,
             createdAt: new DateTimeImmutable('2026-08-02T11:00:01+00:00'),
         );
 
@@ -129,14 +125,12 @@ final class OutboxMessageTest extends TestCase
             memberIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c15',
             actorIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c16',
             membershipStatus: MembershipStatus::INVITED,
+            aggregateVersion: 1,
         );
 
         $message = OutboxMessage::fromDomainEvent(
             id: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c17',
             event: $event,
-            aggregateType: 'membership',
-            aggregateId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c14',
-            aggregateVersion: 1,
             createdAt: new DateTimeImmutable('2026-08-02T12:00:01+00:00'),
         );
 
@@ -148,7 +142,7 @@ final class OutboxMessageTest extends TestCase
     }
 }
 
-final readonly class ExampleDomainEvent implements DomainEvent
+final readonly class ExampleDomainEvent implements AggregateDomainEvent
 {
     public function __construct(
         private EventId $eventId,
@@ -201,5 +195,20 @@ final readonly class ExampleDomainEvent implements DomainEvent
             'actor_identity_id' => IdentityId::fromString('01890f7a-5b7c-7cc0-98c4-dc0c0c073b07')->value(),
             'alert_id' => '01890f7a-5b7c-7cc0-98c4-dc0c0c073b06',
         ];
+    }
+
+    public function aggregateType(): string
+    {
+        return 'alert';
+    }
+
+    public function aggregateId(): string
+    {
+        return '01890f7a-5b7c-7cc0-98c4-dc0c0c073b06';
+    }
+
+    public function aggregateVersion(): ResourceVersion
+    {
+        return ResourceVersion::fromInt(3);
     }
 }

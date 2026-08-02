@@ -38,7 +38,7 @@ Milestone 3 — Identity and Organization
 * [x] Common domain and application errors.
 * [x] Audit-recording contract.
 * [x] Identity and organization domain foundations.
-* [x] Create Organization application slice (domain-transaction orchestration with initial Membership, Outbox, and Audit).
+* [x] Create Organization application slice (organization + founding active Membership via `membership.created` + owner-role provisioning/assignment via `RoleKey=organization_owner`, including `role.assigned` Outbox + Audit).
 
 ## In Progress
 

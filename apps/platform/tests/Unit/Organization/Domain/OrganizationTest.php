@@ -38,6 +38,7 @@ final class OrganizationTest extends TestCase
         $createdEvents = $organization->pullDomainEvents();
         self::assertCount(1, $createdEvents);
         self::assertInstanceOf(OrganizationCreated::class, $createdEvents[0]);
+        self::assertSame(1, $createdEvents[0]->aggregateVersion()->value());
         self::assertCount(0, $organization->pullDomainEvents());
     }
 
@@ -83,6 +84,7 @@ final class OrganizationTest extends TestCase
         $suspendedEvents = $suspended->pullDomainEvents();
         self::assertCount(1, $suspendedEvents);
         self::assertInstanceOf(OrganizationSuspended::class, $suspendedEvents[0]);
+        self::assertSame(3, $suspendedEvents[0]->aggregateVersion()->value());
         self::assertCount(0, $suspended->pullDomainEvents());
 
         $reactivated = $suspended->reactivate(
@@ -96,6 +98,7 @@ final class OrganizationTest extends TestCase
         $reactivatedEvents = $reactivated->pullDomainEvents();
         self::assertCount(1, $reactivatedEvents);
         self::assertInstanceOf(OrganizationReactivated::class, $reactivatedEvents[0]);
+        self::assertSame(4, $reactivatedEvents[0]->aggregateVersion()->value());
         self::assertCount(0, $reactivated->pullDomainEvents());
 
         $archived = $reactivated->archive(
@@ -109,6 +112,7 @@ final class OrganizationTest extends TestCase
         $archivedEvents = $archived->pullDomainEvents();
         self::assertCount(1, $archivedEvents);
         self::assertInstanceOf(OrganizationArchived::class, $archivedEvents[0]);
+        self::assertSame(5, $archivedEvents[0]->aggregateVersion()->value());
         self::assertCount(0, $archived->pullDomainEvents());
     }
 

@@ -542,3 +542,34 @@ After completing a capability:
 Never modify architectural instructions silently.
 
 When a permanent change to `AGENTS.md` is necessary, explain the reason in the completion report.
+
+Agent Context and Output Limits
+
+Minimize unnecessary context and output.
+
+Read docs/implementation/NEXT.md before implementation.
+Read only documentation directly relevant to the current capability.
+Use repository search to locate relevant sections instead of reading every document.
+Do not restate documentation or these instructions.
+Do not perform a broad architecture audit unless explicitly requested.
+Do not print complete files unless explicitly requested.
+Do not list unchanged files.
+Do not explain obvious implementation details.
+Keep plans to five bullets or fewer.
+Keep completion reports to twenty lines or fewer.
+Report only decisions, changed files, verification results, and blockers.
+Implement one bounded capability per task.
+Stop for clarification only when authoritative documents genuinely conflict.
+Prefer targeted tests during development, followed by the complete quality command.
+
+## Task Ownership
+
+`docs/implementation/NEXT.md` is controlled by the project owner or architect.
+
+Coding agents must not modify, replace, or expand `NEXT.md`.
+
+After completing the current task, the agent must:
+
+1. Update `docs/implementation/STATUS.md`.
+2. Report the recommended next task.
+3. Wait for the project owner or architect to approve and update `NEXT.md`.
