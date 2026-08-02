@@ -32,6 +32,15 @@ final class OptimisticConcurrencyPrimitivesTest extends TestCase
     }
 
     #[Test]
+    public function expected_version_none_matches_only_when_current_version_is_none(): void
+    {
+        $expected = ExpectedVersion::none();
+
+        self::assertTrue($expected->matches(CurrentVersion::none()));
+        self::assertFalse($expected->matches(CurrentVersion::fromInt(1)));
+    }
+
+    #[Test]
     public function it_throws_a_dedicated_conflict_when_expected_and_current_do_not_match(): void
     {
         $expected = ExpectedVersion::fromInt(5);

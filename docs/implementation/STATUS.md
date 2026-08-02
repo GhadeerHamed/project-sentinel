@@ -38,20 +38,21 @@ Milestone 3 — Identity and Organization
 * [x] Common domain and application errors.
 * [x] Audit-recording contract.
 * [x] Identity and organization domain foundations.
+* [x] Create Organization application slice (domain-transaction orchestration with initial Membership, Outbox, and Audit).
 
 ## In Progress
 
-* [ ] IdentityAccess and Organization application use cases and repository-backed persistence preparation.
+* [ ] PostgreSQL persistence for the Create Organization application slice.
 
 ## Remaining Milestone 3 Foundation
 
-* [ ] IdentityAccess application use-case handlers and policies.
-* [ ] Organization application use-case handlers.
-* [ ] Repository-backed persistence preparation for IdentityAccess and Organization aggregates.
+* [ ] PostgreSQL persistence adapters for Create Organization slice repositories, Outbox, and Audit.
+* [ ] Additional IdentityAccess application use-case handlers and policies.
+* [ ] Additional Organization application use-case handlers.
 
 ## Next Recommended Task
 
-IdentityAccess and Organization application use cases and repository-backed persistence preparation
+PostgreSQL persistence for the Create Organization application slice
 
 ## Status Update Rules
 

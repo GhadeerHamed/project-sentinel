@@ -36,9 +36,17 @@ final class OptimisticConcurrencyConflict extends RuntimeException implements Co
 
     private static function format(ExpectedVersion $expectedVersion): string
     {
+        if ($expectedVersion->isAny()) {
+            return 'any';
+        }
+
+        if ($expectedVersion->isNone()) {
+            return 'none';
+        }
+
         $value = $expectedVersion->value();
 
-        return $value === null ? 'any' : (string) $value->value();
+        return $value === null ? 'none' : (string) $value->value();
     }
 
     private static function formatCurrent(CurrentVersion $currentVersion): string
