@@ -37,23 +37,25 @@ Milestone 3 — Identity and Organization
 * [x] Outbox message foundation.
 * [x] Common domain and application errors.
 * [x] Audit-recording contract.
+* [x] Identity and organization domain foundations.
 
 ## In Progress
 
-* [ ] Identity and organization domain foundations.
+* [ ] Authentication and tenant-resolution foundation.
 
-## Remaining Shared Platform Foundation
+## Remaining Milestone 3 Foundation
 
-* [ ] None.
+* [ ] Authentication and session or API-credential primitives.
+* [ ] Tenant-resolution and authorization foundation contracts.
 
 ## Next Recommended Task
 
-Implement framework-independent identity and organization domain foundations with:
+Implement the framework-independent authentication and tenant-resolution foundation with:
 
-* immutable User, Organization, and Membership primitives.
-* organization-scoped membership lifecycle invariants.
-* explicit role and permission assignment contracts.
-* focused domain tests for invariants and tenant isolation assumptions.
+* immutable authentication/session or API-credential envelope primitives.
+* explicit membership and identity checks for tenant access eligibility.
+* framework-independent tenant-resolution contract inputs and outputs.
+* focused tests for revoked access, suspended identity/membership, and cross-organization rejection.
 
 ## Status Update Rules
 
