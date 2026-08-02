@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Application Tests
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: apps/platform
+
+    env:
+      APP_NAME: Sentinel
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      APP_DEBUG: false
+      APP_URL: http://localhost
+
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: debug
+
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: sentinel_test
+      DB_USERNAME: sentinel
+      DB_PASSWORD: sentinel
+
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+
+      MAIL_MAILER: array
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: sentinel_test
+          POSTGRES_USER: sentinel
+          POSTGRES_PASSWORD: sentinel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U sentinel -d sentinel_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: >
+            bcmath,
+            curl,
+            intl,
+            mbstring,
+            pcntl,
+            pdo_pgsql,
+            redis,
+            zip
+          coverage: none
+          tools: composer:v2
+        env:
+          fail-fast: true
+
+      - name: Validate Composer configuration
+        run: composer validate --strict
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Verify platform requirements
+        run: composer check-platform-reqs
+
+      - name: Create application environment
+        run: cp .env.example .env
+
+      - name: Clear cached configuration
+        run: php artisan optimize:clear
+
+      - name: Verify Redis connection
+        run: |
+          php -r '
+              $redis = new Redis();
+              $redis->connect("127.0.0.1", 6379, 5);
+          
+              if ($redis->ping() !== true) {
+                  throw new RuntimeException("Redis health check failed.");
+              }
+          
+              echo "Redis connection successful." . PHP_EOL;
+          '
+
+      - name: Run database migrations
+        run: php artisan migrate --force
+
+      - name: Run automated tests
+        run: php artisan test
+
+      - name: Audit Composer dependencies
+        run: composer audit
+  ```
