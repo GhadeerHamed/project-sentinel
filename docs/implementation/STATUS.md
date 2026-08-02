@@ -31,14 +31,14 @@ Milestone 2 — Shared Platform Foundation
 * [x] Identity Reference.
 * [x] Tenant Context.
 * [x] Domain Event contract.
+* [x] Resource Version.
 
 ## In Progress
 
-* [ ] Resource Version.
+* [ ] Optimistic concurrency primitives.
 
 ## Remaining Shared Platform Foundation
 
-* [ ] Optimistic concurrency primitives.
 * [ ] Transaction Manager contract.
 * [ ] Outbox message foundation.
 * [ ] Common domain and application errors.
@@ -46,13 +46,12 @@ Milestone 2 — Shared Platform Foundation
 
 ## Next Recommended Task
 
-Implement the framework-independent Resource Version Value Object with:
+Implement framework-independent optimistic concurrency primitives with:
 
-* strict positive-integer validation.
-* immutable representation.
-* next-version increment behavior.
-* equality behavior.
-* focused unit tests for valid and invalid construction.
+* shared expected-version and current-version representations.
+* a dedicated concurrency-conflict error contract.
+* module-safe usage patterns that keep conflict handling explicit.
+* focused tests for conflict detection and expected-version matching.
 
 ## Status Update Rules
 
