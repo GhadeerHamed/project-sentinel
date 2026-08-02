@@ -364,6 +364,10 @@ Tests should cover, where relevant:
 
 Do not add meaningless tests merely to increase coverage.
 
+Avoid repetitive test duplication across thin wrappers that reuse an already-tested primitive.
+
+For Value Objects that only specialize an existing Shared primitive (for example by extending `ResourceId` without adding behavior), add focused type-specific tests and do not re-test the primitive's full validation/equality/serialization matrix unless the new type adds distinct behavior.
+
 ---
 
 ## Required Workflow

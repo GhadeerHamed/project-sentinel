@@ -27,14 +27,14 @@ Milestone 2 — Shared Platform Foundation
 * [x] UTC system-clock adapter.
 * [x] Clock service-container binding and tests.
 * [x] Correlation identifier.
+* [x] Causation identifier.
 
 ## In Progress
 
-* [ ] Causation identifier.
+* [ ] Identity Reference.
 
 ## Remaining Shared Platform Foundation
 
-* [ ] Identity Reference.
 * [ ] Tenant Context.
 * [ ] Domain Event contract.
 * [ ] Resource Version.
@@ -46,15 +46,13 @@ Milestone 2 — Shared Platform Foundation
 
 ## Next Recommended Task
 
-Implement the framework-independent Causation ID Value Object with:
+Implement the framework-independent Identity Reference Value Object with:
 
-* Strict validation.
-* UUIDv7 representation.
+* strict validation for identity type and identity id.
+* immutable representation.
 * equality behavior.
 * string and JSON serialization.
 * focused unit tests.
-
-Reuse existing Shared Kernel identifier primitives where appropriate. Do not duplicate UUID validation logic.
 
 ## Status Update Rules
 
