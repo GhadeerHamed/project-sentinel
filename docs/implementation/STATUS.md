@@ -26,14 +26,14 @@ Milestone 2 — Shared Platform Foundation
 * [x] Clock contract.
 * [x] UTC system-clock adapter.
 * [x] Clock service-container binding and tests.
+* [x] Correlation identifier.
 
 ## In Progress
 
-* [ ] Correlation identifier.
+* [ ] Causation identifier.
 
 ## Remaining Shared Platform Foundation
 
-* [ ] Causation identifier.
 * [ ] Identity Reference.
 * [ ] Tenant Context.
 * [ ] Domain Event contract.
@@ -46,7 +46,7 @@ Milestone 2 — Shared Platform Foundation
 
 ## Next Recommended Task
 
-Implement the framework-independent Correlation ID Value Object with:
+Implement the framework-independent Causation ID Value Object with:
 
 * Strict validation.
 * UUIDv7 representation.
