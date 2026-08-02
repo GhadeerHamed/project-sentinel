@@ -127,8 +127,8 @@ jobs:
       - name: Run database migrations
         run: php artisan migrate --force
 
-      - name: Run automated tests
-        run: php artisan test
+      - name: Run code quality checks
+        run: composer quality
 
       - name: Audit Composer dependencies
         run: composer audit
