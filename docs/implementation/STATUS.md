@@ -39,20 +39,19 @@ Milestone 3 — Identity and Organization
 * [x] Audit-recording contract.
 * [x] Identity and organization domain foundations.
 * [x] Create Organization application slice (organization + founding active Membership via `membership.created` + owner-role provisioning/assignment via `RoleKey=organization_owner`, including `role.assigned` Outbox + Audit).
+* [x] PostgreSQL persistence for the Create Organization application slice (migrations + Laravel adapters for TransactionManager, repositories, Outbox, and Audit with PostgreSQL integration coverage).
 
 ## In Progress
 
-* [ ] PostgreSQL persistence for the Create Organization application slice.
+* [ ] Additional IdentityAccess application use-case handlers and policies.
 
 ## Remaining Milestone 3 Foundation
 
-* [ ] PostgreSQL persistence adapters for Create Organization slice repositories, Outbox, and Audit.
-* [ ] Additional IdentityAccess application use-case handlers and policies.
 * [ ] Additional Organization application use-case handlers.
 
 ## Next Recommended Task
 
-PostgreSQL persistence for the Create Organization application slice
+Additional IdentityAccess application use-case handlers and policies
 
 ## Status Update Rules
 

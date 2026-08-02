@@ -1,38 +1,28 @@
 # Current Task
 
-Finalize built-in owner-role provisioning before PostgreSQL persistence.
+Replace the insecure Organization creation authorization adapter.
 
 ## Required
 
-* Determine whether built-in roles are global templates or Organization-owned records.
-* Define the smallest framework-independent provisioning contract for `organization_owner`.
-* Do not hide provisioning behind a read-only `resolveRoleId()` method.
-* Update Create Organization to provision and assign the owner role atomically.
-* Verify whether initial role assignment must emit a `role.assigned` Domain Event and Outbox message.
-* Add focused application tests.
+- Remove `AllowAllOrganizationCreationPolicy`.
+- Confirm the canonical Organization-creation rule from existing documentation.
+- If every active human User may create an Organization, implement a clearly named policy reflecting that rule.
+- If `organization.create` is a platform capability, add the smallest framework-independent capability-checking port.
+- Reject non-user, inactive, suspended, disabled, and compromised identities.
+- Keep authentication eligibility separate from authorization.
+- Add focused policy and handler tests.
+- Preserve existing persistence and transaction behavior.
 
 ## Excluded
 
-Do not add migrations, Eloquent, controllers, authentication, middleware, or HTTP code.
+Do not add controllers, routes, middleware, sessions, API tokens, or unrelated use cases.
 
 ## Verification
 
-Run targeted tests and:
-
-```bash
-docker compose exec app composer quality
-```
+Run targeted tests and `docker compose exec app composer quality`.
 
 Update `STATUS.md`; do not modify `NEXT.md`.
 
 ## Reporting
 
-Return only:
-
-* role ownership model selected
-* contracts changed
-* event behavior
-* tests result
-* remaining blocker
-
-Maximum 15 lines.
+Return only decisions, files changed, tests, and blockers. Maximum 15 lines.

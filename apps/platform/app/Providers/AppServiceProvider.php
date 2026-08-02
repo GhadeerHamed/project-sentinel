@@ -5,10 +5,28 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Infrastructure\Identifier\LaravelUuidV7Generator;
+use App\Infrastructure\Organization\Policy\AllowAllOrganizationCreationPolicy;
+use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
+use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlRoleAssignmentRepository;
+use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlRoleProvisioningRepository;
+use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlUserRepository;
+use App\Infrastructure\Persistence\Organization\Repositories\PgsqlOrganizationRepository;
+use App\Infrastructure\Persistence\Shared\Audit\PgsqlAuditRecorder;
+use App\Infrastructure\Persistence\Shared\Outbox\PgsqlOutboxMessageStore;
+use App\Infrastructure\Shared\Transaction\LaravelTransactionManager;
 use Illuminate\Support\ServiceProvider;
+use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
+use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
+use Sentinel\IdentityAccess\Domain\Repository\RoleProvisioningRepository;
+use Sentinel\IdentityAccess\Domain\Repository\UserRepository;
+use Sentinel\Organization\Application\Policy\OrganizationCreationPolicy;
+use Sentinel\Organization\Domain\Repository\OrganizationRepository;
+use Sentinel\Shared\Domain\Audit\AuditRecorder;
 use Sentinel\Shared\Domain\Identifier\UuidV7Generator;
+use Sentinel\Shared\Domain\Outbox\OutboxMessageStore;
 use Sentinel\Shared\Domain\Time\Clock;
 use Sentinel\Shared\Domain\Time\SystemClock;
+use Sentinel\Shared\Domain\Transaction\TransactionManager;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -22,6 +40,51 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             Clock::class,
             SystemClock::class,
+        );
+
+        $this->app->singleton(
+            TransactionManager::class,
+            LaravelTransactionManager::class,
+        );
+
+        $this->app->singleton(
+            UserRepository::class,
+            PgsqlUserRepository::class,
+        );
+
+        $this->app->singleton(
+            OrganizationRepository::class,
+            PgsqlOrganizationRepository::class,
+        );
+
+        $this->app->singleton(
+            MembershipRepository::class,
+            PgsqlMembershipRepository::class,
+        );
+
+        $this->app->singleton(
+            RoleProvisioningRepository::class,
+            PgsqlRoleProvisioningRepository::class,
+        );
+
+        $this->app->singleton(
+            RoleAssignmentRepository::class,
+            PgsqlRoleAssignmentRepository::class,
+        );
+
+        $this->app->singleton(
+            OutboxMessageStore::class,
+            PgsqlOutboxMessageStore::class,
+        );
+
+        $this->app->singleton(
+            AuditRecorder::class,
+            PgsqlAuditRecorder::class,
+        );
+
+        $this->app->singleton(
+            OrganizationCreationPolicy::class,
+            AllowAllOrganizationCreationPolicy::class,
         );
     }
 

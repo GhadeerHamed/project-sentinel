@@ -107,6 +107,9 @@ final readonly class CreateOrganizationHandler
                 causationId: $command->causationId()?->value(),
             );
 
+            $this->organizationRepository->save($organization, ExpectedVersion::none());
+            $this->membershipRepository->save($membership, ExpectedVersion::none());
+
             $ownerRoleId = $this->roleProvisioningRepository->provisionRole(
                 $organization->id(),
                 RoleKey::organizationOwner(),
@@ -125,8 +128,6 @@ final readonly class CreateOrganizationHandler
                 causationId: $command->causationId()?->value(),
             );
 
-            $this->organizationRepository->save($organization, ExpectedVersion::none());
-            $this->membershipRepository->save($membership, ExpectedVersion::none());
             $this->roleAssignmentRepository->assign($roleAssignment);
 
             /** @var list<AggregateDomainEvent> $events */
