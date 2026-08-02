@@ -132,4 +132,3 @@ jobs:
 
       - name: Audit Composer dependencies
         run: composer audit
-  ```
