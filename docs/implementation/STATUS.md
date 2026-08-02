@@ -34,24 +34,24 @@ Milestone 2 — Shared Platform Foundation
 * [x] Resource Version.
 * [x] Optimistic concurrency primitives.
 * [x] Transaction Manager contract.
+* [x] Outbox message foundation.
 
 ## In Progress
 
-* [ ] Outbox message foundation.
+* [ ] Common domain and application errors.
 
 ## Remaining Shared Platform Foundation
 
-* [ ] Common domain and application errors.
 * [ ] Audit-recording contract.
 
 ## Next Recommended Task
 
-Implement the framework-independent Outbox message foundation with:
+Implement framework-independent common domain and application error contracts with:
 
-* immutable outbox message envelope primitives.
-* event payload metadata suitable for async publication.
-* identifiers and timestamps aligned with Shared Kernel contracts.
-* focused tests for serialization-ready message construction.
+* shared base abstractions for domain rule and application orchestration failures.
+* explicit, typed error categories suitable for API and worker mapping.
+* immutable error context where applicable.
+* focused tests validating error typing and construction semantics.
 
 ## Status Update Rules
 
