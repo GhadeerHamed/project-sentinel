@@ -33,25 +33,25 @@ Milestone 2 — Shared Platform Foundation
 * [x] Domain Event contract.
 * [x] Resource Version.
 * [x] Optimistic concurrency primitives.
+* [x] Transaction Manager contract.
 
 ## In Progress
 
-* [ ] Transaction Manager contract.
+* [ ] Outbox message foundation.
 
 ## Remaining Shared Platform Foundation
 
-* [ ] Outbox message foundation.
 * [ ] Common domain and application errors.
 * [ ] Audit-recording contract.
 
 ## Next Recommended Task
 
-Implement the framework-independent Transaction Manager contract with:
+Implement the framework-independent Outbox message foundation with:
 
-* begin/commit/rollback boundaries for application use cases.
-* clear contract semantics for transactional execution blocks.
-* compatibility with outbox publication flow.
-* focused tests validating success and rollback behavior expectations.
+* immutable outbox message envelope primitives.
+* event payload metadata suitable for async publication.
+* identifiers and timestamps aligned with Shared Kernel contracts.
+* focused tests for serialization-ready message construction.
 
 ## Status Update Rules
 
