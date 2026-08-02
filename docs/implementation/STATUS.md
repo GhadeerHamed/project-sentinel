@@ -3,7 +3,7 @@
 ## Current Milestone
 
 ```text
-Milestone 2 — Shared Platform Foundation
+Milestone 3 — Identity and Organization
 ```
 
 ## Completed Foundation
@@ -36,23 +36,24 @@ Milestone 2 — Shared Platform Foundation
 * [x] Transaction Manager contract.
 * [x] Outbox message foundation.
 * [x] Common domain and application errors.
+* [x] Audit-recording contract.
 
 ## In Progress
 
-* [ ] Audit-recording contract.
+* [ ] Identity and organization domain foundations.
 
 ## Remaining Shared Platform Foundation
 
-* [ ] Audit-recording contract.
+* [ ] None.
 
 ## Next Recommended Task
 
-Implement the framework-independent audit-recording contract with:
+Implement framework-independent identity and organization domain foundations with:
 
-* immutable audit-record envelope primitives.
-* actor, tenant, action, resource, and timestamp metadata.
-* compatibility with correlation and causation identifiers.
-* focused tests validating construction and serialization semantics.
+* immutable User, Organization, and Membership primitives.
+* organization-scoped membership lifecycle invariants.
+* explicit role and permission assignment contracts.
+* focused domain tests for invariants and tenant isolation assumptions.
 
 ## Status Update Rules
 
