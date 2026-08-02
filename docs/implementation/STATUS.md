@@ -35,10 +35,11 @@ Milestone 2 — Shared Platform Foundation
 * [x] Optimistic concurrency primitives.
 * [x] Transaction Manager contract.
 * [x] Outbox message foundation.
+* [x] Common domain and application errors.
 
 ## In Progress
 
-* [ ] Common domain and application errors.
+* [ ] Audit-recording contract.
 
 ## Remaining Shared Platform Foundation
 
@@ -46,12 +47,12 @@ Milestone 2 — Shared Platform Foundation
 
 ## Next Recommended Task
 
-Implement framework-independent common domain and application error contracts with:
+Implement the framework-independent audit-recording contract with:
 
-* shared base abstractions for domain rule and application orchestration failures.
-* explicit, typed error categories suitable for API and worker mapping.
-* immutable error context where applicable.
-* focused tests validating error typing and construction semantics.
+* immutable audit-record envelope primitives.
+* actor, tenant, action, resource, and timestamp metadata.
+* compatibility with correlation and causation identifiers.
+* focused tests validating construction and serialization semantics.
 
 ## Status Update Rules
 
