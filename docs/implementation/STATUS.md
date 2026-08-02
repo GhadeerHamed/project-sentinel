@@ -40,6 +40,7 @@ Milestone 3 — Identity and Organization
 * [x] Identity and organization domain foundations.
 * [x] Create Organization application slice (organization + founding active Membership via `membership.created` + owner-role provisioning/assignment via `RoleKey=organization_owner`, including `role.assigned` Outbox + Audit).
 * [x] PostgreSQL persistence for the Create Organization application slice (migrations + Laravel adapters for TransactionManager, repositories, Outbox, and Audit with PostgreSQL integration coverage).
+* [x] Secure Organization creation authorization adapter replacement (`ActiveHumanUserMayCreateOrganizationPolicy`) with focused policy + handler coverage while preserving persistence/transaction behavior.
 
 ## In Progress
 

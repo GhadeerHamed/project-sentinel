@@ -1,28 +1,49 @@
 # Current Task
 
-Replace the insecure Organization creation authorization adapter.
+Implement Laravel authentication for human Users.
 
 ## Required
 
-- Remove `AllowAllOrganizationCreationPolicy`.
-- Confirm the canonical Organization-creation rule from existing documentation.
-- If every active human User may create an Organization, implement a clearly named policy reflecting that rule.
-- If `organization.create` is a platform capability, add the smallest framework-independent capability-checking port.
-- Reject non-user, inactive, suspended, disabled, and compromised identities.
-- Keep authentication eligibility separate from authorization.
-- Add focused policy and handler tests.
-- Preserve existing persistence and transaction behavior.
+- Confirm the documented authentication method before coding.
+- Authenticate against the existing `identity_users` persistence model.
+- Keep password credentials and hashes out of the Domain Entity.
+- Add a Laravel `Authenticatable` adapter mapped to `identity_users`.
+- Resolve an authenticated User into the existing `IdentityReference`.
+- Reject suspended, disabled, and compromised Users.
+- Implement session login, logout, and authentication tests.
+- Keep authentication separate from Organization Membership authorization.
 
 ## Excluded
 
-Do not add controllers, routes, middleware, sessions, API tokens, or unrelated use cases.
+Do not add:
+
+- tenant-resolution middleware
+- Organization authorization
+- API tokens
+- registration
+- password reset
+- social login
+- controllers unrelated to authentication
+- changes to the Create Organization workflow
 
 ## Verification
 
-Run targeted tests and `docker compose exec app composer quality`.
+Run targeted authentication tests and:
 
-Update `STATUS.md`; do not modify `NEXT.md`.
+```bash
+docker compose exec app composer quality
+```
 
-## Reporting
+Update STATUS.md; do not modify NEXT.md.
 
-Return only decisions, files changed, tests, and blockers. Maximum 15 lines.
+Reporting
+
+Return only:
+
+authentication model selected
+files changed
+security behavior
+test result
+blocker
+
+Maximum 15 lines.

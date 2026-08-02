@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Infrastructure\Identifier\LaravelUuidV7Generator;
-use App\Infrastructure\Organization\Policy\AllowAllOrganizationCreationPolicy;
+use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlRoleAssignmentRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlRoleProvisioningRepository;
@@ -84,7 +84,7 @@ final class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(
             OrganizationCreationPolicy::class,
-            AllowAllOrganizationCreationPolicy::class,
+            ActiveHumanUserMayCreateOrganizationPolicy::class,
         );
     }
 

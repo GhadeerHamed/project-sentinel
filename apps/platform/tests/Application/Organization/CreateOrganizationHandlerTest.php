@@ -112,6 +112,7 @@ final class CreateOrganizationHandlerTest extends TestCase
             self::assertCount(0, $fixture->organizationRepository->persisted());
             self::assertCount(0, $fixture->membershipRepository->persisted());
             self::assertCount(0, $fixture->roleAssignmentRepository->persisted());
+            self::assertSame(0, $fixture->policy->calls);
         }
     }
 
@@ -131,6 +132,7 @@ final class CreateOrganizationHandlerTest extends TestCase
                 self::assertCount(0, $fixture->roleAssignmentRepository->persisted());
                 self::assertCount(0, $fixture->outboxStore->persisted());
                 self::assertCount(0, $fixture->auditRecorder->persisted());
+                self::assertSame(0, $fixture->policy->calls);
                 self::assertSame(1, $fixture->transactionManager->rollBackCount);
             }
         }

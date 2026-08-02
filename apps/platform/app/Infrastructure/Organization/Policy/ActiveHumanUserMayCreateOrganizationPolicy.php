@@ -6,11 +6,12 @@ namespace App\Infrastructure\Organization\Policy;
 
 use Sentinel\Organization\Application\Policy\OrganizationCreationPolicy;
 use Sentinel\Shared\Domain\Identity\IdentityReference;
+use Sentinel\Shared\Domain\Identity\IdentityType;
 
-final class AllowAllOrganizationCreationPolicy implements OrganizationCreationPolicy
+final class ActiveHumanUserMayCreateOrganizationPolicy implements OrganizationCreationPolicy
 {
     public function allows(IdentityReference $creator): bool
     {
-        return true;
+        return $creator->identityType() === IdentityType::USER->value;
     }
 }

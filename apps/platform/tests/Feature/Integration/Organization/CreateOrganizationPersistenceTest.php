@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Integration\Organization;
 
-use App\Infrastructure\Organization\Policy\AllowAllOrganizationCreationPolicy;
+use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
 use App\Infrastructure\Persistence\IdentityAccess\Records\IdentityUserRecord;
 use App\Infrastructure\Persistence\IdentityAccess\Records\OrganizationRoleRecord;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
@@ -381,7 +381,7 @@ final class CreateOrganizationPersistenceTest extends TestCase
             membershipRepository: $membershipRepository ?? new PgsqlMembershipRepository,
             roleAssignmentRepository: new PgsqlRoleAssignmentRepository,
             roleProvisioningRepository: new PgsqlRoleProvisioningRepository($uuidGenerator),
-            organizationCreationPolicy: new AllowAllOrganizationCreationPolicy,
+            organizationCreationPolicy: new ActiveHumanUserMayCreateOrganizationPolicy,
             uuidGenerator: $uuidGenerator,
             clock: new FrozenClock($this->now()),
             transactionManager: new LaravelTransactionManager,
