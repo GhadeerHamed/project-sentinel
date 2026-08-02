@@ -30,14 +30,14 @@ Milestone 2 — Shared Platform Foundation
 * [x] Causation identifier.
 * [x] Identity Reference.
 * [x] Tenant Context.
+* [x] Domain Event contract.
 
 ## In Progress
 
-* [ ] Domain Event contract.
+* [ ] Resource Version.
 
 ## Remaining Shared Platform Foundation
 
-* [ ] Resource Version.
 * [ ] Optimistic concurrency primitives.
 * [ ] Transaction Manager contract.
 * [ ] Outbox message foundation.
@@ -46,12 +46,13 @@ Milestone 2 — Shared Platform Foundation
 
 ## Next Recommended Task
 
-Implement the framework-independent Domain Event contract with:
+Implement the framework-independent Resource Version Value Object with:
 
-* a shared envelope interface in the Shared Kernel.
-* event id, organization id, occurred-at, correlation id, optional causation id.
-* event name and version accessors.
-* focused unit tests or architecture tests validating contract shape and usage.
+* strict positive-integer validation.
+* immutable representation.
+* next-version increment behavior.
+* equality behavior.
+* focused unit tests for valid and invalid construction.
 
 ## Status Update Rules
 
