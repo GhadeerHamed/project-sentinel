@@ -6,6 +6,7 @@ namespace Sentinel\IdentityAccess\Domain\Entity;
 
 use DateTimeImmutable;
 use Sentinel\IdentityAccess\Domain\Exception\CrossOrganizationAssignment;
+use Sentinel\IdentityAccess\Domain\Exception\InvalidRoleAssignmentTransition;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleAssignmentId;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleId;
 use Sentinel\Shared\Domain\Identity\IdentityId;
@@ -99,6 +100,10 @@ final readonly class RoleAssignment
 
     public function revoke(DateTimeImmutable $revokedAt, string $revokedByIdentityId): self
     {
+        if ($this->revokedAt !== null) {
+            throw InvalidRoleAssignmentTransition::alreadyRevoked();
+        }
+
         return new self(
             id: $this->id,
             organizationId: $this->organizationId,

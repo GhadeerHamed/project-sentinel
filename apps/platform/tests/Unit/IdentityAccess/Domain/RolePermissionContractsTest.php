@@ -11,6 +11,7 @@ use ReflectionClass;
 use ReflectionNamedType;
 use Sentinel\IdentityAccess\Domain\Entity\RoleAssignment;
 use Sentinel\IdentityAccess\Domain\Exception\CrossOrganizationAssignment;
+use Sentinel\IdentityAccess\Domain\Exception\InvalidRoleAssignmentTransition;
 use Sentinel\IdentityAccess\Domain\Repository\PermissionAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
@@ -52,6 +53,32 @@ final class RolePermissionContractsTest extends TestCase
             roleOrganizationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e99',
             assignedByIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e05',
             assignedAt: new DateTimeImmutable('2026-08-02T14:40:00+00:00'),
+        );
+    }
+
+    #[Test]
+    public function it_rejects_repeated_role_assignment_revocation(): void
+    {
+        $this->expectException(InvalidRoleAssignmentTransition::class);
+
+        $assignment = RoleAssignment::fromValues(
+            id: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e11',
+            organizationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e12',
+            identityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e13',
+            roleId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e14',
+            roleOrganizationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e12',
+            assignedByIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e15',
+            assignedAt: new DateTimeImmutable('2026-08-02T14:41:00+00:00'),
+        );
+
+        $revoked = $assignment->revoke(
+            revokedAt: new DateTimeImmutable('2026-08-02T14:42:00+00:00'),
+            revokedByIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e16',
+        );
+
+        $revoked->revoke(
+            revokedAt: new DateTimeImmutable('2026-08-02T14:43:00+00:00'),
+            revokedByIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e17',
         );
     }
 }

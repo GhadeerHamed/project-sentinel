@@ -81,16 +81,12 @@ final readonly class OutboxMessage implements JsonSerializable
         );
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
     public static function fromDomainEvent(
         string $id,
         DomainEvent $event,
         string $aggregateType,
         string $aggregateId,
         int $aggregateVersion,
-        array $payload,
         DateTimeImmutable $createdAt,
     ): self {
         return self::fromValues(
@@ -102,7 +98,7 @@ final readonly class OutboxMessage implements JsonSerializable
             aggregateType: $aggregateType,
             aggregateId: $aggregateId,
             aggregateVersion: $aggregateVersion,
-            payload: $payload,
+            payload: $event->payload(),
             occurredAt: $event->occurredAt(),
             createdAt: $createdAt,
             correlationId: $event->correlationId()->value(),

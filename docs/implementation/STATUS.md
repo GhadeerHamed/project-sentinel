@@ -6,7 +6,7 @@
 Milestone 3 — Identity and Organization
 ```
 
-## Completed Foundation
+## ## Completed Contracts and Domain Foundations
 
 * [x] Laravel application initialization.
 * [x] Docker development environment.
@@ -41,21 +41,17 @@ Milestone 3 — Identity and Organization
 
 ## In Progress
 
-* [ ] Authentication and tenant-resolution foundation.
+* [ ] IdentityAccess and Organization application use cases and repository-backed persistence preparation.
 
 ## Remaining Milestone 3 Foundation
 
-* [ ] Authentication and session or API-credential primitives.
-* [ ] Tenant-resolution and authorization foundation contracts.
+* [ ] IdentityAccess application use-case handlers and policies.
+* [ ] Organization application use-case handlers.
+* [ ] Repository-backed persistence preparation for IdentityAccess and Organization aggregates.
 
 ## Next Recommended Task
 
-Implement the framework-independent authentication and tenant-resolution foundation with:
-
-* immutable authentication/session or API-credential envelope primitives.
-* explicit membership and identity checks for tenant access eligibility.
-* framework-independent tenant-resolution contract inputs and outputs.
-* focused tests for revoked access, suspended identity/membership, and cross-organization rejection.
+IdentityAccess and Organization application use cases and repository-backed persistence preparation
 
 ## Status Update Rules
 

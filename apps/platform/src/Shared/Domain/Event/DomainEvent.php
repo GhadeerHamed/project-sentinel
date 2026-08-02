@@ -24,4 +24,9 @@ interface DomainEvent
     public function eventName(): string;
 
     public function eventVersion(): int;
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function payload(): array;
 }

@@ -9,12 +9,9 @@ use Sentinel\IdentityAccess\Domain\Exception\InvalidIdentityAccessState;
 enum MembershipStatus: string
 {
     case INVITED = 'invited';
-    case PENDING = 'pending';
     case ACTIVE = 'active';
     case SUSPENDED = 'suspended';
     case REMOVED = 'removed';
-    case DECLINED = 'declined';
-    case EXPIRED = 'expired';
 
     public static function fromString(string $value): self
     {

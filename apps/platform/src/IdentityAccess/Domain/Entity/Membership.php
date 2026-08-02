@@ -5,14 +5,20 @@ declare(strict_types=1);
 namespace Sentinel\IdentityAccess\Domain\Entity;
 
 use DateTimeImmutable;
+use Sentinel\IdentityAccess\Domain\Event\MembershipActivated;
+use Sentinel\IdentityAccess\Domain\Event\MembershipInvited;
+use Sentinel\IdentityAccess\Domain\Event\MembershipRemoved;
+use Sentinel\IdentityAccess\Domain\Event\MembershipSuspended;
 use Sentinel\IdentityAccess\Domain\Exception\CrossOrganizationAssignment;
 use Sentinel\IdentityAccess\Domain\Exception\InvalidMembershipTransition;
 use Sentinel\IdentityAccess\Domain\ValueObject\MembershipId;
 use Sentinel\IdentityAccess\Domain\ValueObject\MembershipStatus;
+use Sentinel\Shared\Domain\Concurrency\ResourceVersion;
+use Sentinel\Shared\Domain\Event\DomainEvent;
 use Sentinel\Shared\Domain\Identity\IdentityId;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 
-final readonly class Membership
+final class Membership
 {
     private function __construct(
         private MembershipId $id,
@@ -24,7 +30,46 @@ final readonly class Membership
         private ?DateTimeImmutable $activatedAt,
         private ?DateTimeImmutable $suspendedAt,
         private ?DateTimeImmutable $removedAt,
+        private ResourceVersion $version,
+        /** @var list<DomainEvent> */
+        private array $recordedEvents = [],
     ) {}
+
+    public static function invite(
+        string $id,
+        string $organizationId,
+        string $userIdentityId,
+        string $actorIdentityId,
+        DateTimeImmutable $at,
+        string $eventId,
+        string $correlationId,
+        ?string $causationId = null,
+    ): self {
+        $membership = new self(
+            id: MembershipId::fromString($id),
+            organizationId: OrganizationId::fromString($organizationId),
+            userIdentityId: IdentityId::fromString($userIdentityId),
+            status: MembershipStatus::INVITED,
+            createdAt: $at,
+            updatedAt: $at,
+            activatedAt: null,
+            suspendedAt: null,
+            removedAt: null,
+            version: ResourceVersion::fromInt(1),
+        );
+
+        return $membership->withEvent(MembershipInvited::fromValues(
+            eventId: $eventId,
+            organizationId: $organizationId,
+            occurredAt: $at,
+            correlationId: $correlationId,
+            causationId: $causationId,
+            membershipId: $id,
+            memberIdentityId: $userIdentityId,
+            actorIdentityId: $actorIdentityId,
+            membershipStatus: MembershipStatus::INVITED,
+        ));
+    }
 
     public static function fromValues(
         string $id,
@@ -36,11 +81,12 @@ final readonly class Membership
         ?DateTimeImmutable $activatedAt = null,
         ?DateTimeImmutable $suspendedAt = null,
         ?DateTimeImmutable $removedAt = null,
+        int $version = 1,
     ): self {
         $membershipStatus = MembershipStatus::fromString($status);
 
         if ($membershipStatus === MembershipStatus::ACTIVE && $activatedAt === null) {
-            throw InvalidMembershipTransition::fromTo(MembershipStatus::PENDING, MembershipStatus::ACTIVE);
+            throw InvalidMembershipTransition::fromTo(MembershipStatus::INVITED, MembershipStatus::ACTIVE);
         }
 
         if ($membershipStatus === MembershipStatus::SUSPENDED && $suspendedAt === null) {
@@ -61,6 +107,7 @@ final readonly class Membership
             activatedAt: $activatedAt,
             suspendedAt: $suspendedAt,
             removedAt: $removedAt,
+            version: ResourceVersion::fromInt($version),
         );
     }
 
@@ -109,6 +156,22 @@ final readonly class Membership
         return $this->removedAt;
     }
 
+    public function version(): ResourceVersion
+    {
+        return $this->version;
+    }
+
+    /**
+     * @return list<DomainEvent>
+     */
+    public function pullDomainEvents(): array
+    {
+        $events = $this->recordedEvents;
+        $this->recordedEvents = [];
+
+        return $events;
+    }
+
     public function grantsOrganizationAccess(): bool
     {
         return $this->status->grantsAccess();
@@ -121,17 +184,18 @@ final readonly class Membership
         }
     }
 
-    public function activate(DateTimeImmutable $at): self
-    {
-        if (
-            $this->status !== MembershipStatus::INVITED
-            && $this->status !== MembershipStatus::PENDING
-            && $this->status !== MembershipStatus::SUSPENDED
-        ) {
+    public function activate(
+        DateTimeImmutable $at,
+        string $actorIdentityId,
+        string $eventId,
+        string $correlationId,
+        ?string $causationId = null,
+    ): self {
+        if ($this->status !== MembershipStatus::INVITED && $this->status !== MembershipStatus::SUSPENDED) {
             throw InvalidMembershipTransition::fromTo($this->status, MembershipStatus::ACTIVE);
         }
 
-        return new self(
+        $membership = new self(
             id: $this->id,
             organizationId: $this->organizationId,
             userIdentityId: $this->userIdentityId,
@@ -141,16 +205,35 @@ final readonly class Membership
             activatedAt: $at,
             suspendedAt: null,
             removedAt: $this->removedAt,
+            version: $this->version->next(),
+            recordedEvents: $this->recordedEvents,
         );
+
+        return $membership->withEvent(MembershipActivated::fromValues(
+            eventId: $eventId,
+            organizationId: $this->organizationId->value(),
+            occurredAt: $at,
+            correlationId: $correlationId,
+            causationId: $causationId,
+            membershipId: $this->id->value(),
+            memberIdentityId: $this->userIdentityId->value(),
+            actorIdentityId: $actorIdentityId,
+            membershipStatus: MembershipStatus::ACTIVE,
+        ));
     }
 
-    public function suspend(DateTimeImmutable $at): self
-    {
+    public function suspend(
+        DateTimeImmutable $at,
+        string $actorIdentityId,
+        string $eventId,
+        string $correlationId,
+        ?string $causationId = null,
+    ): self {
         if ($this->status !== MembershipStatus::ACTIVE) {
             throw InvalidMembershipTransition::fromTo($this->status, MembershipStatus::SUSPENDED);
         }
 
-        return new self(
+        $membership = new self(
             id: $this->id,
             organizationId: $this->organizationId,
             userIdentityId: $this->userIdentityId,
@@ -160,16 +243,35 @@ final readonly class Membership
             activatedAt: $this->activatedAt,
             suspendedAt: $at,
             removedAt: $this->removedAt,
+            version: $this->version->next(),
+            recordedEvents: $this->recordedEvents,
         );
+
+        return $membership->withEvent(MembershipSuspended::fromValues(
+            eventId: $eventId,
+            organizationId: $this->organizationId->value(),
+            occurredAt: $at,
+            correlationId: $correlationId,
+            causationId: $causationId,
+            membershipId: $this->id->value(),
+            memberIdentityId: $this->userIdentityId->value(),
+            actorIdentityId: $actorIdentityId,
+            membershipStatus: MembershipStatus::SUSPENDED,
+        ));
     }
 
-    public function remove(DateTimeImmutable $at): self
-    {
+    public function remove(
+        DateTimeImmutable $at,
+        string $actorIdentityId,
+        string $eventId,
+        string $correlationId,
+        ?string $causationId = null,
+    ): self {
         if ($this->status === MembershipStatus::REMOVED) {
             throw InvalidMembershipTransition::fromTo($this->status, MembershipStatus::REMOVED);
         }
 
-        return new self(
+        $membership = new self(
             id: $this->id,
             organizationId: $this->organizationId,
             userIdentityId: $this->userIdentityId,
@@ -179,6 +281,37 @@ final readonly class Membership
             activatedAt: $this->activatedAt,
             suspendedAt: $this->suspendedAt,
             removedAt: $at,
+            version: $this->version->next(),
+            recordedEvents: $this->recordedEvents,
+        );
+
+        return $membership->withEvent(MembershipRemoved::fromValues(
+            eventId: $eventId,
+            organizationId: $this->organizationId->value(),
+            occurredAt: $at,
+            correlationId: $correlationId,
+            causationId: $causationId,
+            membershipId: $this->id->value(),
+            memberIdentityId: $this->userIdentityId->value(),
+            actorIdentityId: $actorIdentityId,
+            membershipStatus: MembershipStatus::REMOVED,
+        ));
+    }
+
+    private function withEvent(DomainEvent $event): self
+    {
+        return new self(
+            id: $this->id,
+            organizationId: $this->organizationId,
+            userIdentityId: $this->userIdentityId,
+            status: $this->status,
+            createdAt: $this->createdAt,
+            updatedAt: $this->updatedAt,
+            activatedAt: $this->activatedAt,
+            suspendedAt: $this->suspendedAt,
+            removedAt: $this->removedAt,
+            version: $this->version,
+            recordedEvents: [...$this->recordedEvents, $event],
         );
     }
 }

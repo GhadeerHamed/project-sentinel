@@ -7,6 +7,7 @@ namespace Sentinel\IdentityAccess\Domain\Entity;
 use DateTimeImmutable;
 use Sentinel\IdentityAccess\Domain\Exception\InvalidIdentityAccessState;
 use Sentinel\IdentityAccess\Domain\ValueObject\IdentityStatus;
+use Sentinel\Shared\Domain\Concurrency\ResourceVersion;
 use Sentinel\Shared\Domain\Identity\IdentityId;
 
 final readonly class User
@@ -18,6 +19,7 @@ final readonly class User
         private IdentityStatus $status,
         private DateTimeImmutable $createdAt,
         private DateTimeImmutable $updatedAt,
+        private ResourceVersion $version,
     ) {}
 
     public static function fromValues(
@@ -27,6 +29,7 @@ final readonly class User
         string $status,
         DateTimeImmutable $createdAt,
         DateTimeImmutable $updatedAt,
+        int $version = 1,
     ): self {
         $normalizedEmail = strtolower(trim($email));
         $normalizedDisplayName = trim($displayName);
@@ -46,6 +49,7 @@ final readonly class User
             status: IdentityStatus::fromString($status),
             createdAt: $createdAt,
             updatedAt: $updatedAt,
+            version: ResourceVersion::fromInt($version),
         );
     }
 
@@ -82,5 +86,10 @@ final readonly class User
     public function canAuthenticate(): bool
     {
         return $this->status->isActive();
+    }
+
+    public function version(): ResourceVersion
+    {
+        return $this->version;
     }
 }

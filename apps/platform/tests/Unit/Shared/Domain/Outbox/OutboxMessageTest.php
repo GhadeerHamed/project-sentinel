@@ -8,10 +8,15 @@ use DateTimeImmutable;
 use JsonException;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Sentinel\IdentityAccess\Domain\Event\MembershipInvited;
+use Sentinel\IdentityAccess\Domain\ValueObject\MembershipStatus;
+use Sentinel\Organization\Domain\Event\OrganizationCreated;
+use Sentinel\Organization\Domain\ValueObject\OrganizationStatus;
 use Sentinel\Shared\Domain\Event\DomainEvent;
 use Sentinel\Shared\Domain\Event\EventId;
 use Sentinel\Shared\Domain\Identifier\CausationId;
 use Sentinel\Shared\Domain\Identifier\CorrelationId;
+use Sentinel\Shared\Domain\Identity\IdentityId;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 use Sentinel\Shared\Domain\Outbox\InvalidOutboxMessage;
 use Sentinel\Shared\Domain\Outbox\OutboxMessage;
@@ -40,14 +45,16 @@ final class OutboxMessageTest extends TestCase
             aggregateType: 'alert',
             aggregateId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073b06',
             aggregateVersion: 3,
-            payload: ['alert_id' => '01890f7a-5b7c-7cc0-98c4-dc0c0c073b06'],
             createdAt: new DateTimeImmutable('2026-08-02T10:00:01+00:00'),
         );
 
-        self::assertSame(
-            '{"id":"01890f7a-5b7c-7cc0-98c4-dc0c0c073b05","organization_id":"01890f7a-5b7c-7cc0-98c4-dc0c0c073b02","event_id":"01890f7a-5b7c-7cc0-98c4-dc0c0c073b01","event_type":"alert.created","event_version":1,"aggregate_type":"alert","aggregate_id":"01890f7a-5b7c-7cc0-98c4-dc0c0c073b06","aggregate_version":3,"payload":{"alert_id":"01890f7a-5b7c-7cc0-98c4-dc0c0c073b06"},"occurred_at":"2026-08-02T10:00:00+00:00","created_at":"2026-08-02T10:00:01+00:00","correlation_id":"01890f7a-5b7c-7cc0-98c4-dc0c0c073b03","causation_id":"01890f7a-5b7c-7cc0-98c4-dc0c0c073b04","published_at":null,"attempt_count":0,"status":"pending"}',
-            json_encode($message, JSON_THROW_ON_ERROR),
-        );
+        $serialized = $message->jsonSerialize();
+
+        self::assertSame('01890f7a-5b7c-7cc0-98c4-dc0c0c073b05', $serialized['id']);
+        self::assertSame('alert.created', $serialized['event_type']);
+        self::assertSame(1, $serialized['event_version']);
+        self::assertSame('01890f7a-5b7c-7cc0-98c4-dc0c0c073b06', $serialized['payload']['alert_id']);
+        self::assertSame('01890f7a-5b7c-7cc0-98c4-dc0c0c073b07', $serialized['payload']['actor_identity_id']);
     }
 
     #[Test]
@@ -70,6 +77,74 @@ final class OutboxMessageTest extends TestCase
             correlationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073b03',
             causationId: null,
         );
+    }
+
+    /**
+     * @throws JsonException
+     */
+    #[Test]
+    public function it_converts_organization_lifecycle_events_with_full_payload(): void
+    {
+        $event = OrganizationCreated::fromValues(
+            eventId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c01',
+            organizationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c02',
+            occurredAt: new DateTimeImmutable('2026-08-02T11:00:00+00:00'),
+            correlationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c03',
+            causationId: null,
+            actorIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c04',
+            organizationName: 'Sentinel Org',
+            organizationSlug: 'sentinel-org',
+            organizationStatus: OrganizationStatus::ACTIVE,
+        );
+
+        $message = OutboxMessage::fromDomainEvent(
+            id: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c05',
+            event: $event,
+            aggregateType: 'organization',
+            aggregateId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c02',
+            aggregateVersion: 1,
+            createdAt: new DateTimeImmutable('2026-08-02T11:00:01+00:00'),
+        );
+
+        $serialized = $message->jsonSerialize();
+
+        self::assertSame('organization.created', $serialized['event_type']);
+        self::assertSame('01890f7a-5b7c-7cc0-98c4-dc0c0c073c04', $serialized['payload']['actor_identity_id']);
+        self::assertSame('sentinel-org', $serialized['payload']['organization_slug']);
+    }
+
+    /**
+     * @throws JsonException
+     */
+    #[Test]
+    public function it_converts_membership_lifecycle_events_with_full_payload(): void
+    {
+        $event = MembershipInvited::fromValues(
+            eventId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c11',
+            organizationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c12',
+            occurredAt: new DateTimeImmutable('2026-08-02T12:00:00+00:00'),
+            correlationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c13',
+            causationId: null,
+            membershipId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c14',
+            memberIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c15',
+            actorIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c16',
+            membershipStatus: MembershipStatus::INVITED,
+        );
+
+        $message = OutboxMessage::fromDomainEvent(
+            id: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c17',
+            event: $event,
+            aggregateType: 'membership',
+            aggregateId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073c14',
+            aggregateVersion: 1,
+            createdAt: new DateTimeImmutable('2026-08-02T12:00:01+00:00'),
+        );
+
+        $serialized = $message->jsonSerialize();
+
+        self::assertSame('membership.invited', $serialized['event_type']);
+        self::assertSame('01890f7a-5b7c-7cc0-98c4-dc0c0c073c14', $serialized['payload']['membership_id']);
+        self::assertSame('invited', $serialized['payload']['membership_status']);
     }
 }
 
@@ -118,5 +193,13 @@ final readonly class ExampleDomainEvent implements DomainEvent
     public function eventVersion(): int
     {
         return $this->eventVersion;
+    }
+
+    public function payload(): array
+    {
+        return [
+            'actor_identity_id' => IdentityId::fromString('01890f7a-5b7c-7cc0-98c4-dc0c0c073b07')->value(),
+            'alert_id' => '01890f7a-5b7c-7cc0-98c4-dc0c0c073b06',
+        ];
     }
 }

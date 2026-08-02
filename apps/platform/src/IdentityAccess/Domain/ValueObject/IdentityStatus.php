@@ -8,11 +8,10 @@ use Sentinel\IdentityAccess\Domain\Exception\InvalidIdentityAccessState;
 
 enum IdentityStatus: string
 {
-    case PENDING = 'pending';
     case ACTIVE = 'active';
     case SUSPENDED = 'suspended';
-    case REVOKED = 'revoked';
-    case ARCHIVED = 'archived';
+    case DISABLED = 'disabled';
+    case COMPROMISED = 'compromised';
 
     public static function fromString(string $value): self
     {

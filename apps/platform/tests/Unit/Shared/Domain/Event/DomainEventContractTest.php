@@ -31,6 +31,7 @@ final class DomainEventContractTest extends TestCase
         $this->assertMethodReturnType($contract, 'causationId', CausationId::class, true);
         $this->assertMethodReturnType($contract, 'eventName', 'string', false);
         $this->assertMethodReturnType($contract, 'eventVersion', 'int', false);
+        $this->assertMethodReturnType($contract, 'payload', 'array', false);
     }
 
     #[Test]
@@ -55,6 +56,7 @@ final class DomainEventContractTest extends TestCase
         self::assertSame('01890f7a-5b7c-7cc0-98c4-dc0c0c073a04', $event->causationId()?->value());
         self::assertSame('alert.created', $event->eventName());
         self::assertSame(1, $event->eventVersion());
+        self::assertSame(['resource_id' => '01890f7a-5b7c-7cc0-98c4-dc0c0c073a05'], $event->payload());
     }
 
     private function assertMethodReturnType(
@@ -137,5 +139,10 @@ final readonly class ExampleDomainEvent implements DomainEvent
     public function eventVersion(): int
     {
         return $this->eventVersion;
+    }
+
+    public function payload(): array
+    {
+        return ['resource_id' => '01890f7a-5b7c-7cc0-98c4-dc0c0c073a05'];
     }
 }
