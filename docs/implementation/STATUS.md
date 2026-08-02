@@ -28,14 +28,14 @@ Milestone 2 — Shared Platform Foundation
 * [x] Clock service-container binding and tests.
 * [x] Correlation identifier.
 * [x] Causation identifier.
+* [x] Identity Reference.
 
 ## In Progress
 
-* [ ] Identity Reference.
+* [ ] Tenant Context.
 
 ## Remaining Shared Platform Foundation
 
-* [ ] Tenant Context.
 * [ ] Domain Event contract.
 * [ ] Resource Version.
 * [ ] Optimistic concurrency primitives.
@@ -46,13 +46,13 @@ Milestone 2 — Shared Platform Foundation
 
 ## Next Recommended Task
 
-Implement the framework-independent Identity Reference Value Object with:
+Implement the framework-independent Tenant Context Value Object with:
 
-* strict validation for identity type and identity id.
 * immutable representation.
+* organization id, acting identity, correlation id, and optional causation id.
+* construction-time validation using existing Shared Kernel identifiers.
 * equality behavior.
-* string and JSON serialization.
-* focused unit tests.
+* focused unit tests for valid and invalid construction.
 
 ## Status Update Rules
 
