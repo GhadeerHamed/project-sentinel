@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Infrastructure\Authentication\ActiveIdentityUserProvider;
 use App\Infrastructure\Identifier\LaravelUuidV7Generator;
 use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
@@ -14,6 +15,7 @@ use App\Infrastructure\Persistence\Organization\Repositories\PgsqlOrganizationRe
 use App\Infrastructure\Persistence\Shared\Audit\PgsqlAuditRecorder;
 use App\Infrastructure\Persistence\Shared\Outbox\PgsqlOutboxMessageStore;
 use App\Infrastructure\Shared\Transaction\LaravelTransactionManager;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
@@ -90,6 +92,11 @@ final class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        Auth::provider('identity_users', function ($app, array $config): ActiveIdentityUserProvider {
+            return new ActiveIdentityUserProvider(
+                hasher: $app['hash'],
+                model: $config['model'],
+            );
+        });
     }
 }

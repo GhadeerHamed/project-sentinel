@@ -1,6 +1,8 @@
 <?php
 
-use App\Models\User;
+declare(strict_types=1);
+
+use App\Infrastructure\Authentication\IdentityUserAuthenticatable;
 
 return [
 
@@ -63,8 +65,8 @@ return [
 
     'providers' => [
         'users' => [
-            'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', User::class),
+            'driver' => 'identity_users',
+            'model' => env('AUTH_MODEL', IdentityUserAuthenticatable::class),
         ],
 
         // 'users' => [
