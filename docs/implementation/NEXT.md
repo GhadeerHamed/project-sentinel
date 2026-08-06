@@ -1,49 +1,57 @@
 # Current Task
 
-Implement Laravel authentication for human Users.
+Expose the completed Create Organization application slice through an authenticated HTTP endpoint.
 
 ## Required
 
-- Confirm the documented authentication method before coding.
-- Authenticate against the existing `identity_users` persistence model.
-- Keep password credentials and hashes out of the Domain Entity.
-- Add a Laravel `Authenticatable` adapter mapped to `identity_users`.
-- Resolve an authenticated User into the existing `IdentityReference`.
-- Reject suspended, disabled, and compromised Users.
-- Implement session login, logout, and authentication tests.
-- Keep authentication separate from Organization Membership authorization.
+- Follow the existing Organization API documentation and route conventions.
+- Require the existing Laravel session authentication.
+- Resolve the authenticated `IdentityReference`.
+- Validate Organization name and slug using a Form Request.
+- Generate server-owned correlation metadata when it is not already supplied by trusted infrastructure.
+- Invoke `CreateOrganizationHandler`.
+- Return HTTP `201 Created` with:
+    - Organization ID.
+    - founding Membership ID.
+    - initial RoleAssignment ID.
+- Map typed application and domain errors to the documented HTTP responses.
+- Apply appropriate CSRF and rate-limiting protection.
+- Add focused feature tests.
+
+## Rules
+
+- Creating an Organization does not require `TenantContext`.
+- Continue using `ActiveHumanUserMayCreateOrganizationPolicy`.
+- Keep the controller thin.
+- Do not access Eloquent or repositories directly from the controller.
+- Do not duplicate handler business logic.
 
 ## Excluded
 
 Do not add:
 
-- tenant-resolution middleware
-- Organization authorization
-- API tokens
-- registration
-- password reset
-- social login
-- controllers unrelated to authentication
-- changes to the Create Organization workflow
+- Organization listing or update endpoints.
+- Organization-scoped permission Policies.
+- API tokens.
+- registration or password reset.
+- unrelated IdentityAccess use cases.
 
 ## Verification
 
-Run targeted authentication tests and:
+Run targeted feature tests and:
 
-```bash
-docker compose exec app composer quality
-```
+`docker compose exec app composer quality`
 
-Update STATUS.md; do not modify NEXT.md.
+Update `STATUS.md`; do not modify `NEXT.md`.
 
-Reporting
+## Reporting
 
 Return only:
 
-authentication model selected
-files changed
-security behavior
-test result
-blocker
+- route and response contract
+- files changed
+- error mapping
+- test result
+- remaining blocker
 
 Maximum 15 lines.

@@ -15,6 +15,7 @@ use App\Infrastructure\Persistence\Organization\Repositories\PgsqlOrganizationRe
 use App\Infrastructure\Persistence\Shared\Audit\PgsqlAuditRecorder;
 use App\Infrastructure\Persistence\Shared\Outbox\PgsqlOutboxMessageStore;
 use App\Infrastructure\Shared\Transaction\LaravelTransactionManager;
+use App\Infrastructure\Tenant\TenantContextStore;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
@@ -26,6 +27,7 @@ use Sentinel\Organization\Domain\Repository\OrganizationRepository;
 use Sentinel\Shared\Domain\Audit\AuditRecorder;
 use Sentinel\Shared\Domain\Identifier\UuidV7Generator;
 use Sentinel\Shared\Domain\Outbox\OutboxMessageStore;
+use Sentinel\Shared\Domain\Tenant\TenantContext;
 use Sentinel\Shared\Domain\Time\Clock;
 use Sentinel\Shared\Domain\Time\SystemClock;
 use Sentinel\Shared\Domain\Transaction\TransactionManager;
@@ -88,6 +90,12 @@ final class AppServiceProvider extends ServiceProvider
             OrganizationCreationPolicy::class,
             ActiveHumanUserMayCreateOrganizationPolicy::class,
         );
+
+        $this->app->scoped(TenantContextStore::class);
+
+        $this->app->scoped(TenantContext::class, function ($app): TenantContext {
+            return $app->make(TenantContextStore::class)->tenantContext();
+        });
     }
 
     public function boot(): void
