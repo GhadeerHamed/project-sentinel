@@ -344,6 +344,8 @@ Connects Roles to permissions.
 | `permission_id`          | UUID        | Required |
 | `granted_at`             | TIMESTAMPTZ | Required |
 | `granted_by_identity_id` | UUID        | Optional |
+| `revoked_at`             | TIMESTAMPTZ | Optional |
+| `revoked_by_identity_id` | UUID        | Optional |
 
 Primary key:
 
@@ -352,6 +354,8 @@ PRIMARY KEY (role_id, permission_id)
 ```
 
 A Role must not grant permissions prohibited by platform safety rules.
+
+Revocation is recorded by setting `revoked_at` and `revoked_by_identity_id`; a subsequent grant clears both fields.
 
 ---
 

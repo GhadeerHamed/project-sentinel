@@ -27,6 +27,8 @@ return new class extends Migration
             $table->uuid('permission_id');
             $table->timestampTz('granted_at');
             $table->uuid('granted_by_identity_id')->nullable();
+            $table->timestampTz('revoked_at')->nullable();
+            $table->uuid('revoked_by_identity_id')->nullable();
             $table->primary(['role_id', 'permission_id']);
             $table->foreign('role_id')->references('id')->on('organization_roles')->cascadeOnDelete();
             $table->foreign('permission_id')->references('id')->on('permissions')->cascadeOnDelete();

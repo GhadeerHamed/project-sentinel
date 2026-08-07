@@ -17,7 +17,11 @@ final readonly class ActiveMembershipWithPermissionMayUpdateOrganizationPolicy i
 {
     private const PERMISSION = 'organization.update';
 
-    public function __construct(private MembershipRepository $memberships, private PermissionAssignmentRepository $permissions, private Clock $clock) {}
+    public function __construct(
+        private MembershipRepository $memberships,
+        private PermissionAssignmentRepository $permissions,
+        private Clock $clock,
+    ) {}
 
     public function allows(TenantContext $tenantContext): bool
     {
@@ -35,7 +39,9 @@ final readonly class ActiveMembershipWithPermissionMayUpdateOrganizationPolicy i
 
         $requiredPermission = PermissionCode::fromString(self::PERMISSION);
 
-        return array_any($this->permissions->permissionsForIdentity($tenantContext->organizationId(), $identityId, $this->clock->now()), fn ($permission) => $permission->equals($requiredPermission));
-
+        return array_any(
+            $this->permissions->permissionsForIdentity($tenantContext->organizationId(), $identityId, $this->clock->now()),
+            static fn (PermissionCode $permission): bool => $permission->equals($requiredPermission),
+        );
     }
 }

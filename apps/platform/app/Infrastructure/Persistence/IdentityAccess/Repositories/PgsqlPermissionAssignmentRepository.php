@@ -6,6 +6,8 @@ namespace App\Infrastructure\Persistence\IdentityAccess\Repositories;
 
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
+use Sentinel\IdentityAccess\Domain\Exception\PermissionNotFound;
+use Sentinel\IdentityAccess\Domain\Exception\RoleNotFound;
 use Sentinel\IdentityAccess\Domain\Repository\PermissionAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\ValueObject\PermissionCode;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleId;
@@ -16,16 +18,31 @@ final class PgsqlPermissionAssignmentRepository implements PermissionAssignmentR
 {
     public function assignToRole(OrganizationId $organizationId, RoleId $roleId, PermissionCode $permissionCode, IdentityId $grantedBy, DateTimeImmutable $grantedAt): void
     {
-        $permissionId = DB::table('permissions')->where('code', $permissionCode->value())->value('id');
-        if (! is_string($permissionId)) {
-            return;
-        }
-        DB::table('role_permissions')->updateOrInsert(['role_id' => $roleId->value(), 'permission_id' => $permissionId], ['granted_at' => $grantedAt, 'granted_by_identity_id' => $grantedBy->value()]);
+        $this->assertRoleBelongsToOrganization($organizationId, $roleId);
+
+        DB::table('role_permissions')->updateOrInsert(
+            ['role_id' => $roleId->value(), 'permission_id' => $this->permissionId($permissionCode)],
+            [
+                'granted_at' => $grantedAt,
+                'granted_by_identity_id' => $grantedBy->value(),
+                'revoked_at' => null,
+                'revoked_by_identity_id' => null,
+            ],
+        );
     }
 
     public function revokeFromRole(OrganizationId $organizationId, RoleId $roleId, PermissionCode $permissionCode, IdentityId $revokedBy, DateTimeImmutable $revokedAt): void
     {
-        DB::table('role_permissions')->where('role_id', $roleId->value())->whereIn('permission_id', DB::table('permissions')->select('id')->where('code', $permissionCode->value()))->delete();
+        $this->assertRoleBelongsToOrganization($organizationId, $roleId);
+
+        DB::table('role_permissions')
+            ->where('role_id', $roleId->value())
+            ->where('permission_id', $this->permissionId($permissionCode))
+            ->whereNull('revoked_at')
+            ->update([
+                'revoked_at' => $revokedAt,
+                'revoked_by_identity_id' => $revokedBy->value(),
+            ]);
     }
 
     public function permissionsForIdentity(OrganizationId $organizationId, IdentityId $identityId, DateTimeImmutable $at): array
@@ -44,6 +61,32 @@ final class PgsqlPermissionAssignmentRepository implements PermissionAssignmentR
             ->where(function ($query) use ($at): void {
                 $query->whereNull('role_assignments.expires_at')->orWhere('role_assignments.expires_at', '>', $at);
             })
+            ->where(function ($query) use ($at): void {
+                $query->whereNull('role_permissions.revoked_at')->orWhere('role_permissions.revoked_at', '>', $at);
+            })
             ->distinct()->pluck('permissions.code')->map(static fn (string $code): PermissionCode => PermissionCode::fromString($code))->all();
+    }
+
+    private function assertRoleBelongsToOrganization(OrganizationId $organizationId, RoleId $roleId): void
+    {
+        $roleExists = DB::table('organization_roles')
+            ->where('id', $roleId->value())
+            ->where('organization_id', $organizationId->value())
+            ->exists();
+
+        if (! $roleExists) {
+            throw RoleNotFound::forId($roleId, $organizationId);
+        }
+    }
+
+    private function permissionId(PermissionCode $permissionCode): string
+    {
+        $permissionId = DB::table('permissions')->where('code', $permissionCode->value())->value('id');
+
+        if (! is_string($permissionId)) {
+            throw PermissionNotFound::forCode($permissionCode);
+        }
+
+        return $permissionId;
     }
 }

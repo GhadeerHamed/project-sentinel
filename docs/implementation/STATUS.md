@@ -43,28 +43,20 @@
 - [x] Tenant resolution and Membership-based access foundation, including request-scoped `TenantContext` injection.
 - [x] Create Organization HTTP endpoint with session authentication, CSRF, rate limiting, validation, correlation metadata, and documented API error mapping.
 - [x] Centralized API exception rendering through `ApiExceptionRenderer`, with generic typed-error mappings and consistent optimistic-concurrency responses.
+- [x] Update Organization application slice with Organization-scoped authorization, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 
 ## In Progress
 
-- [ ] Update Organization application slice with Organization-scoped authorization.
+- [ ] Additional Organization-scoped authorization Policies as required by concrete use cases.
 
 ## Remaining Milestone 3
 
-- [ ] Additional Organization-scoped authorization Policies as required by concrete use cases.
 - [ ] Additional IdentityAccess application use cases.
 - [ ] Additional Organization application use cases.
 
 ## Next Recommended Task
 
-Implement the Update Organization vertical slice with:
-
-- TenantContext enforcement.
-- Organization-scoped permission authorization.
-- optimistic concurrency.
-- Domain Event + Outbox.
-- Audit.
-- persistence.
-- authenticated HTTP endpoint.
+Implement the next concrete Organization-scoped authorization use case selected in `NEXT.md`.
 
 ## Status Update Rules
 
