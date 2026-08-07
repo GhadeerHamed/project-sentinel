@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\V1\AcceptMembershipInvitationController;
 use App\Http\Controllers\Api\V1\CreateOrganizationController;
 use App\Http\Controllers\Api\V1\InviteMembershipController;
 use App\Http\Controllers\Api\V1\ReactivateMembershipController;
@@ -15,6 +16,7 @@ Route::prefix('api/v1')
     ->middleware(['auth', 'throttle:6,1'])
     ->group(function (): void {
         Route::post('/organizations', CreateOrganizationController::class)->name('organizations.store');
+        Route::post('/organizations/{organization}/memberships/{membership}/accept', AcceptMembershipInvitationController::class)->name('organizations.memberships.accept');
         Route::patch('/organizations/{organization}', UpdateOrganizationController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.update');

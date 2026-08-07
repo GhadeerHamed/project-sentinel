@@ -82,6 +82,41 @@ final class InviteMembershipEndpointTest extends TestCase
         $this->assertDatabaseHas('audit_records', ['organization_id' => $organizationId, 'action' => 'membership.reactivate', 'resource_id' => $membershipId]);
     }
 
+    #[Test]
+    public function an_invited_member_can_accept_its_own_invitation(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $membershipId = $this->membership($organizationId, $user->identity_id, 'invited');
+        $this->accept($user, $organizationId, $membershipId)->assertNoContent()->assertHeader('ETag', '"2"');
+        $this->assertDatabaseHas('memberships', ['id' => $membershipId, 'status' => 'active', 'version' => 2]);
+        $this->assertDatabaseHas('outbox_messages', ['organization_id' => $organizationId, 'event_type' => 'membership.activated']);
+        $this->assertDatabaseHas('audit_records', ['organization_id' => $organizationId, 'action' => 'membership.invitation_accept', 'resource_id' => $membershipId]);
+    }
+
+    #[Test]
+    public function a_non_owner_or_wrong_organization_cannot_accept_an_invitation(): void
+    {
+        $owner = $this->user();
+        $other = $this->user();
+        $organizationId = $this->organization($owner->identity_id);
+        $membershipId = $this->membership($organizationId, $owner->identity_id, 'invited');
+        $this->accept($other, $organizationId, $membershipId)->assertForbidden();
+        $this->accept($owner, $this->organization($owner->identity_id), $membershipId)->assertNotFound();
+    }
+
+    #[Test]
+    public function only_invited_memberships_can_be_accepted_and_if_match_is_required(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        foreach (['active', 'suspended', 'removed'] as $status) {
+            $statusOrganizationId = $this->organization($user->identity_id);
+            $this->accept($user, $statusOrganizationId, $this->membership($statusOrganizationId, $user->identity_id, $status))->assertUnprocessable();
+        }
+        $this->flushHeaders()->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->actingAs($user)->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$this->membership($organizationId, $user->identity_id, 'invited').'/accept')->assertUnprocessable();
+    }
+
     private function user(): IdentityUserAuthenticatable
     {
         $user = new IdentityUserAuthenticatable;
@@ -99,9 +134,12 @@ final class InviteMembershipEndpointTest extends TestCase
         return $id;
     }
 
-    private function membership(string $organizationId, string $identityId, string $status): void
+    private function membership(string $organizationId, string $identityId, string $status): string
     {
-        MembershipRecord::query()->create(['id' => $this->uuid(), 'organization_id' => $organizationId, 'user_identity_id' => $identityId, 'status' => $status, 'activated_at' => $status === 'active' ? now() : null, 'suspended_at' => $status === 'suspended' ? now() : null, 'version' => 1]);
+        $id = $this->uuid();
+        MembershipRecord::query()->create(['id' => $id, 'organization_id' => $organizationId, 'user_identity_id' => $identityId, 'status' => $status, 'activated_at' => $status === 'active' ? now() : null, 'suspended_at' => $status === 'suspended' ? now() : null, 'removed_at' => $status === 'removed' ? now() : null, 'version' => 1]);
+
+        return $id;
     }
 
     private function grant(string $organizationId, string $identityId): void
@@ -124,5 +162,10 @@ final class InviteMembershipEndpointTest extends TestCase
     private function csrfProtectedJsonPost(string $organizationId, array $data): TestResponse
     {
         return $this->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->postJson('/api/v1/organizations/'.$organizationId.'/memberships', $data);
+    }
+
+    private function accept(IdentityUserAuthenticatable $user, string $organizationId, string $membershipId): TestResponse
+    {
+        return $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->withHeader('If-Match', '"1"')->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$membershipId.'/accept');
     }
 }

@@ -1,46 +1,47 @@
 # Current Task
 
-Implement the Accept Membership Invitation vertical slice.
+Implement the Remove Membership vertical slice.
 
 ## Required
 
 - Follow the canonical IdentityAccess and Membership documentation.
-- Use the existing authenticated human `IdentityReference`.
-- Do not require the normal active-Membership `TenantContext` middleware.
-- Load the invited Membership directly through the repository using the route Organization and Membership identifiers.
-- Verify the Membership belongs to the route Organization.
-- Verify the invited Membership belongs to the authenticated User.
-- Allow only the explicit `invited` → `active` transition through `Membership::acceptInvitation()`.
+- Use the existing authenticated `IdentityReference`.
+- Require the existing resolved `TenantContext`.
+- Use the canonical `organization.member.manage` permission.
+- Require an active acting Membership.
+- Authorize through the existing tenant-scoped effective-permission mechanism.
+- Load the target Membership through `MembershipRepository`.
+- Ensure the target Membership belongs to the resolved Organization.
+- Use the existing Membership domain lifecycle operation for removal.
+- Allow only lifecycle transitions supported by canonical documentation.
 - Require optimistic concurrency using the existing version contract.
-- Emit the canonical invitation-acceptance/activation Domain Event.
+- Emit the canonical Membership removal Domain Event.
 - Append the event to the Outbox in the same transaction.
 - Record the corresponding Audit record.
-- Persist through the existing Membership repository.
-- Return the updated resource version through an ETag.
-- Expose the operation through an authenticated HTTP endpoint.
-- Add focused application, persistence, authorization/ownership, and HTTP tests.
+- Persist through the existing repository contract.
+- Expose the operation through the conventional authenticated Organization-scoped HTTP endpoint.
+- Return the updated resource version through an ETag when applicable.
+- Add focused application, persistence, authorization, and HTTP tests.
 
 ## Security Rules
 
-- The authenticated User may accept only his own invitation.
-- Do not use `organization.member.manage` for invitation acceptance.
-- Do not require an active Membership before acceptance.
-- Cross-Organization Membership acceptance must be impossible.
-- Do not accept `organization_id` or identity ownership from request payload.
-- Suspended, active, or removed Memberships must not be accepted as invitations.
+- Tenant access alone does not authorize Membership removal.
+- Cross-Organization Membership mutation must be impossible.
+- Suspended or removed acting Memberships must not authorize the operation.
+- Do not accept `organization_id` from request payload.
+- Do not physically delete Membership history unless canonical documentation explicitly requires it.
+- Do not invent special owner/self-removal restrictions; derive them from canonical documentation.
 
 ## Excluded
 
 Do not add:
 
-- invitation email delivery
-- invitation tokens
-- unauthenticated acceptance
-- Membership removal
+- Membership reactivation changes
+- invitation acceptance changes
 - role-management endpoints
 - permission-management endpoints
 - API tokens
-- unrelated Organization operations
+- unrelated Organization lifecycle operations
 
 ## Verification
 
@@ -54,11 +55,12 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 
 Return only:
 
-- endpoint selected
-- ownership verification
-- lifecycle/event semantics
+- permission used
+- lifecycle transition
+- self/owner rule selected
+- authorization behavior
 - files changed
-- concurrency/audit behavior
+- concurrency/event/audit behavior
 - tests
 - blockers
 

@@ -47,10 +47,10 @@
 - [x] Invite Membership vertical slice with Organization-scoped authorization, invited lifecycle state, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Suspend Membership vertical slice with Organization-scoped authorization, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Reactivate Membership vertical slice with Organization-scoped authorization, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
-
+- [x] Accept Membership Invitation vertical slice with authenticated ownership verification, explicit `invited` → `active` lifecycle transition, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 ## In Progress
 
-- [ ] Accept Membership Invitation vertical slice.
+- [ ] Remove Membership vertical slice with Organization-scoped authorization.
 
 ## Remaining Milestone 3
 
@@ -59,7 +59,7 @@
 
 ## Next Recommended Task
 
-Implement Accept Membership Invitation using the existing authenticated identity, explicit `Membership::acceptInvitation()` transition, optimistic concurrency, Outbox, Audit, persistence, and authenticated HTTP endpoint without requiring an active TenantContext.
+Implement the Remove Membership vertical slice using the existing tenant context, `organization.member.manage` authorization, Membership lifecycle, optimistic concurrency, Outbox, Audit, persistence, and authenticated HTTP endpoint.
 
 ## Status Update Rules
 
