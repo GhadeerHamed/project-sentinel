@@ -45,10 +45,11 @@
 - [x] Centralized API exception rendering through `ApiExceptionRenderer`, with generic typed-error mappings and consistent optimistic-concurrency responses.
 - [x] Update Organization application slice with Organization-scoped authorization, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Invite Membership vertical slice with Organization-scoped authorization, invited lifecycle state, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
+- [x] Suspend Membership vertical slice with Organization-scoped authorization, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 
 ## In Progress
 
-- [ ] Suspend Membership vertical slice with Organization-scoped authorization.
+- [ ] Reactivate Membership vertical slice with Organization-scoped authorization.
 
 ## Remaining Milestone 3
 
@@ -57,7 +58,7 @@
 
 ## Next Recommended Task
 
-Implement the Suspend Membership vertical slice using the existing tenant context, `organization.member.manage` authorization, Membership lifecycle, optimistic concurrency, Outbox, Audit, persistence, and authenticated HTTP endpoint.
+Implement the Reactivate Membership vertical slice using the existing tenant context, `organization.member.manage` authorization, Membership lifecycle, optimistic concurrency, Outbox, Audit, persistence, and authenticated HTTP endpoint.
 
 ## Status Update Rules
 

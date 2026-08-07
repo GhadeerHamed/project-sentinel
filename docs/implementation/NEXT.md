@@ -1,6 +1,6 @@
 # Current Task
 
-Implement the Suspend Membership vertical slice.
+Implement the Reactivate Membership vertical slice.
 
 ## Required
 
@@ -12,23 +12,25 @@ Implement the Suspend Membership vertical slice.
 - Authorize through the existing tenant-scoped effective-permission mechanism.
 - Load the target Membership through `MembershipRepository`.
 - Ensure the target Membership belongs to the resolved Organization.
-- Enforce the canonical Membership lifecycle transition to `suspended`.
-- Use optimistic concurrency if Membership mutation contracts require `ExpectedVersion`.
-- Emit the canonical Membership suspension Domain Event.
+- Allow only the canonical `suspended` → `active` Membership lifecycle transition.
+- Use the existing Membership domain behavior rather than mutating status directly.
+- Require optimistic concurrency using the existing version contract.
+- Emit the canonical Membership reactivation Domain Event.
 - Append the event to the Outbox in the same transaction.
-- Record Audit data for the suspension.
+- Record the corresponding Audit record.
 - Persist through the existing repository contract.
-- Expose the operation through the conventional authenticated Organization-scoped endpoint.
+- Expose the operation through the conventional authenticated Organization-scoped HTTP endpoint.
+- Return the updated resource version through an ETag consistent with the existing concurrency contract.
 - Add focused application, persistence, authorization, and HTTP tests.
 
 ## Security Rules
 
-- Tenant access alone does not authorize Membership suspension.
+- Tenant access alone does not authorize Membership reactivation.
 - Cross-Organization Membership mutation must be impossible.
 - A suspended or removed acting Membership must never authorize the operation.
-- Do not trust an `organization_id` from request payload.
-- Do not bypass the Membership Domain lifecycle.
-- Verify canonical rules for suspending the acting User's own Membership or the Organization owner before implementing those cases; do not invent behavior.
+- Do not allow an invited or removed Membership to be reactivated unless canonical lifecycle documentation explicitly allows it.
+- Do not accept `organization_id` from the request payload.
+- Do not bypass Membership lifecycle validation.
 
 ## Excluded
 
@@ -37,7 +39,6 @@ Do not add:
 - invitation acceptance
 - invitation tokens
 - email delivery
-- Membership reactivation
 - Membership removal
 - role-management endpoints
 - permission-management endpoints
@@ -46,9 +47,7 @@ Do not add:
 
 ## Verification
 
-Run targeted tests and:
-
-`docker compose exec app composer quality`
+Run targeted tests and `docker compose exec app composer quality`.
 
 Update `STATUS.md`; do not modify `NEXT.md`.
 
@@ -58,7 +57,6 @@ Return only:
 
 - permission used
 - lifecycle transition
-- self/owner suspension rule selected
 - authorization behavior
 - files changed
 - concurrency/event/audit behavior

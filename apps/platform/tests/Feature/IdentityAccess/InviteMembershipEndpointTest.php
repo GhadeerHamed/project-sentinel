@@ -46,6 +46,24 @@ final class InviteMembershipEndpointTest extends TestCase
         $this->actingAs($user)->csrfProtectedJsonPost($organizationId, ['user_identity_id' => $this->uuid()])->assertForbidden();
     }
 
+    #[Test]
+    public function an_authorized_member_can_suspend_an_active_membership(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $targetIdentityId = $this->uuid();
+        $this->membership($organizationId, $user->identity_id, 'active');
+        $this->membership($organizationId, $targetIdentityId, 'active');
+        $this->grant($organizationId, $user->identity_id);
+        $membershipId = DB::table('memberships')->where('organization_id', $organizationId)->where('user_identity_id', $targetIdentityId)->value('id');
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->withHeader('If-Match', '"1"')->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$membershipId.'/suspend')->assertNoContent();
+
+        $this->assertDatabaseHas('memberships', ['id' => $membershipId, 'status' => 'suspended', 'version' => 2]);
+        $this->assertDatabaseHas('outbox_messages', ['organization_id' => $organizationId, 'event_type' => 'membership.suspended']);
+        $this->assertDatabaseHas('audit_records', ['organization_id' => $organizationId, 'action' => 'membership.suspend', 'resource_id' => $membershipId]);
+    }
+
     private function user(): IdentityUserAuthenticatable
     {
         $user = new IdentityUserAuthenticatable;
