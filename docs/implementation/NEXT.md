@@ -1,44 +1,45 @@
 # Current Task
 
-Expose the completed Create Organization application slice through an authenticated HTTP endpoint.
+Implement the first Organization-scoped authorization slice through Update Organization.
 
 ## Required
 
-- Follow the existing Organization API documentation and route conventions.
-- Require the existing Laravel session authentication.
-- Resolve the authenticated `IdentityReference`.
-- Validate Organization name and slug using a Form Request.
-- Generate server-owned correlation metadata when it is not already supplied by trusted infrastructure.
-- Invoke `CreateOrganizationHandler`.
-- Return HTTP `201 Created` with:
-    - Organization ID.
-    - founding Membership ID.
-    - initial RoleAssignment ID.
-- Map typed application and domain errors to the documented HTTP responses.
-- Apply appropriate CSRF and rate-limiting protection.
-- Add focused feature tests.
+- Follow the existing Organization API and module documentation.
+- Add the framework-independent application command, result, Policy, and handler for updating Organization profile fields that are already documented.
+- Require the existing `TenantContext`.
+- Authorize using the authenticated identity's active Membership and effective permissions for the resolved Organization.
+- Implement the smallest permission-checking contract required by this use case.
+- Use the canonical permission code from existing documentation; do not invent a new permission name.
+- Keep tenant access and action authorization separate.
+- Enforce optimistic concurrency using `ExpectedVersion`.
+- Persist through `OrganizationRepository`.
+- Record the appropriate Domain Event, Outbox message, and Audit record.
+- Expose the use case through the documented authenticated Organization-scoped HTTP endpoint.
+- Add focused application, integration, and feature tests.
 
-## Rules
+## Security Rules
 
-- Creating an Organization does not require `TenantContext`.
-- Continue using `ActiveHumanUserMayCreateOrganizationPolicy`.
-- Keep the controller thin.
-- Do not access Eloquent or repositories directly from the controller.
-- Do not duplicate handler business logic.
+- Membership alone must not grant update permission.
+- Permission evaluation must be scoped to the current Organization.
+- A Role or permission from another Organization must never authorize the action.
+- Suspended or removed Memberships must be rejected before action authorization.
+- Do not authorize based on role display names.
+- Do not trust Organization IDs from request data outside the resolved `TenantContext`.
 
 ## Excluded
 
 Do not add:
 
-- Organization listing or update endpoints.
-- Organization-scoped permission Policies.
+- Organization deletion.
+- Organization suspension/reactivation unless required by the selected update use case.
+- role-management endpoints.
+- Membership-management endpoints.
 - API tokens.
-- registration or password reset.
-- unrelated IdentityAccess use cases.
+- unrelated IdentityAccess handlers.
 
 ## Verification
 
-Run targeted feature tests and:
+Run targeted tests and:
 
 `docker compose exec app composer quality`
 
@@ -48,9 +49,10 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 
 Return only:
 
-- route and response contract
+- permission used
+- Policy behavior
 - files changed
-- error mapping
+- concurrency/event/audit behavior
 - test result
 - remaining blocker
 

@@ -41,20 +41,30 @@
 - [x] Secure Organization creation authorization through `ActiveHumanUserMayCreateOrganizationPolicy`.
 - [x] Laravel password-based human User session authentication backed by `identity_users` and hashed credentials.
 - [x] Tenant resolution and Membership-based access foundation, including request-scoped `TenantContext` injection.
+- [x] Create Organization HTTP endpoint with session authentication, CSRF, rate limiting, validation, correlation metadata, and documented API error mapping.
+- [x] Centralized API exception rendering through `ApiExceptionRenderer`, with generic typed-error mappings and consistent optimistic-concurrency responses.
 
 ## In Progress
 
-- [ ] Create Organization HTTP endpoint.
+- [ ] Update Organization application slice with Organization-scoped authorization.
 
 ## Remaining Milestone 3
 
-- [ ] Organization-scoped authorization Policies.
+- [ ] Additional Organization-scoped authorization Policies as required by concrete use cases.
 - [ ] Additional IdentityAccess application use cases.
 - [ ] Additional Organization application use cases.
 
 ## Next Recommended Task
 
-Expose the completed Create Organization application slice through an authenticated HTTP endpoint.
+Implement the Update Organization vertical slice with:
+
+- TenantContext enforcement.
+- Organization-scoped permission authorization.
+- optimistic concurrency.
+- Domain Event + Outbox.
+- Audit.
+- persistence.
+- authenticated HTTP endpoint.
 
 ## Status Update Rules
 

@@ -17,3 +17,5 @@ Route::post('/login', LoginController::class)
 Route::post('/logout', LogoutController::class)
     ->middleware('auth')
     ->name('logout');
+
+require __DIR__.'/web-api.php';
