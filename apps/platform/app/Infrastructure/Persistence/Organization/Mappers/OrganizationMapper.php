@@ -20,6 +20,7 @@ final class OrganizationMapper
             createdAt: $record->created_at,
             updatedAt: $record->updated_at,
             version: $record->version,
+            timezone: $record->timezone,
         );
     }
 
@@ -32,6 +33,7 @@ final class OrganizationMapper
             'id' => $organization->id()->value(),
             'name' => $organization->name(),
             'slug' => $organization->slug(),
+            'timezone' => $organization->timezone(),
             'status' => $organization->status()->value,
             'created_by_identity_id' => $organization->createdByIdentityId()->value(),
             'created_at' => $organization->createdAt(),

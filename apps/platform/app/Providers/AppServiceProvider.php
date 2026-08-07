@@ -7,7 +7,9 @@ namespace App\Providers;
 use App\Infrastructure\Authentication\ActiveIdentityUserProvider;
 use App\Infrastructure\Identifier\LaravelUuidV7Generator;
 use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
+use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMayUpdateOrganizationPolicy;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
+use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlPermissionAssignmentRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlRoleAssignmentRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlRoleProvisioningRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlUserRepository;
@@ -19,10 +21,12 @@ use App\Infrastructure\Tenant\TenantContextStore;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
+use Sentinel\IdentityAccess\Domain\Repository\PermissionAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleProvisioningRepository;
 use Sentinel\IdentityAccess\Domain\Repository\UserRepository;
 use Sentinel\Organization\Application\Policy\OrganizationCreationPolicy;
+use Sentinel\Organization\Application\Policy\OrganizationUpdatePolicy;
 use Sentinel\Organization\Domain\Repository\OrganizationRepository;
 use Sentinel\Shared\Domain\Audit\AuditRecorder;
 use Sentinel\Shared\Domain\Identifier\UuidV7Generator;
@@ -76,6 +80,8 @@ final class AppServiceProvider extends ServiceProvider
             PgsqlRoleAssignmentRepository::class,
         );
 
+        $this->app->singleton(PermissionAssignmentRepository::class, PgsqlPermissionAssignmentRepository::class);
+
         $this->app->singleton(
             OutboxMessageStore::class,
             PgsqlOutboxMessageStore::class,
@@ -90,6 +96,8 @@ final class AppServiceProvider extends ServiceProvider
             OrganizationCreationPolicy::class,
             ActiveHumanUserMayCreateOrganizationPolicy::class,
         );
+
+        $this->app->singleton(OrganizationUpdatePolicy::class, ActiveMembershipWithPermissionMayUpdateOrganizationPolicy::class);
 
         $this->app->scoped(TenantContextStore::class);
 

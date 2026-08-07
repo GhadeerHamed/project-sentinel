@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Sentinel\Organization\Domain\Entity;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use Sentinel\Organization\Domain\Event\OrganizationArchived;
 use Sentinel\Organization\Domain\Event\OrganizationCreated;
 use Sentinel\Organization\Domain\Event\OrganizationReactivated;
 use Sentinel\Organization\Domain\Event\OrganizationSuspended;
+use Sentinel\Organization\Domain\Event\OrganizationUpdated;
 use Sentinel\Organization\Domain\Exception\InvalidOrganization;
 use Sentinel\Organization\Domain\Exception\InvalidOrganizationTransition;
 use Sentinel\Organization\Domain\ValueObject\OrganizationStatus;
@@ -23,6 +25,7 @@ final class Organization
         private OrganizationId $id,
         private string $name,
         private string $slug,
+        private string $timezone,
         private OrganizationStatus $status,
         private IdentityId $createdByIdentityId,
         private DateTimeImmutable $createdAt,
@@ -41,11 +44,13 @@ final class Organization
         string $eventId,
         string $correlationId,
         ?string $causationId = null,
+        string $timezone = 'UTC',
     ): self {
         $organization = self::fromValues(
             id: $id,
             name: $name,
             slug: $slug,
+            timezone: $timezone,
             status: OrganizationStatus::ACTIVE->value,
             createdByIdentityId: $createdByIdentityId,
             createdAt: $at,
@@ -76,9 +81,11 @@ final class Organization
         DateTimeImmutable $createdAt,
         DateTimeImmutable $updatedAt,
         int $version,
+        string $timezone = 'UTC',
     ): self {
         $normalizedName = trim($name);
         $normalizedSlug = strtolower(trim($slug));
+        $normalizedTimezone = trim($timezone);
 
         if ($normalizedName === '') {
             throw InvalidOrganization::forField('name');
@@ -92,10 +99,17 @@ final class Organization
             throw InvalidOrganization::forField('slug');
         }
 
+        try {
+            new DateTimeZone($normalizedTimezone);
+        } catch (\Exception) {
+            throw InvalidOrganization::forField('timezone');
+        }
+
         return new self(
             id: OrganizationId::fromString($id),
             name: $normalizedName,
             slug: $normalizedSlug,
+            timezone: $normalizedTimezone,
             status: OrganizationStatus::fromString($status),
             createdByIdentityId: IdentityId::fromString($createdByIdentityId),
             createdAt: $createdAt,
@@ -117,6 +131,11 @@ final class Organization
     public function slug(): string
     {
         return $this->slug;
+    }
+
+    public function timezone(): string
+    {
+        return $this->timezone;
     }
 
     public function status(): OrganizationStatus
@@ -233,12 +252,47 @@ final class Organization
         ));
     }
 
+    public function updateProfile(
+        string $name,
+        string $timezone,
+        DateTimeImmutable $at,
+        string $actorIdentityId,
+        string $eventId,
+        string $correlationId,
+        ?string $causationId = null,
+    ): self {
+        $updated = self::fromValues(
+            id: $this->id->value(),
+            name: $name,
+            slug: $this->slug,
+            status: $this->status->value,
+            createdByIdentityId: $this->createdByIdentityId->value(),
+            createdAt: $this->createdAt,
+            updatedAt: $at,
+            version: $this->version->next()->value(),
+            timezone: $timezone,
+        );
+
+        return $updated->withEvent(OrganizationUpdated::fromValues(
+            eventId: $eventId,
+            organizationId: $this->id->value(),
+            occurredAt: $at,
+            correlationId: $correlationId,
+            causationId: $causationId,
+            actorIdentityId: $actorIdentityId,
+            organizationName: $updated->name,
+            organizationTimezone: $updated->timezone,
+            aggregateVersion: $updated->version->value(),
+        ));
+    }
+
     private function withStatus(OrganizationStatus $status, DateTimeImmutable $updatedAt): self
     {
         return new self(
             id: $this->id,
             name: $this->name,
             slug: $this->slug,
+            timezone: $this->timezone,
             status: $status,
             createdByIdentityId: $this->createdByIdentityId,
             createdAt: $this->createdAt,
@@ -254,6 +308,7 @@ final class Organization
             id: $this->id,
             name: $this->name,
             slug: $this->slug,
+            timezone: $this->timezone,
             status: $this->status,
             createdByIdentityId: $this->createdByIdentityId,
             createdAt: $this->createdAt,

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $id
  * @property string $name
  * @property string $slug
+ * @property string $timezone
  * @property string $created_by_identity_id
  * @property string $status
  * @property int $version
@@ -28,6 +29,7 @@ final class OrganizationRecord extends Model
         'id',
         'name',
         'slug',
+        'timezone',
         'created_by_identity_id',
         'status',
         'version',
