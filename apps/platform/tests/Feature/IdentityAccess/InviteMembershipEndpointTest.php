@@ -64,6 +64,24 @@ final class InviteMembershipEndpointTest extends TestCase
         $this->assertDatabaseHas('audit_records', ['organization_id' => $organizationId, 'action' => 'membership.suspend', 'resource_id' => $membershipId]);
     }
 
+    #[Test]
+    public function an_authorized_member_can_reactivate_a_suspended_membership(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $targetIdentityId = $this->uuid();
+        $this->membership($organizationId, $user->identity_id, 'active');
+        $this->membership($organizationId, $targetIdentityId, 'suspended');
+        $this->grant($organizationId, $user->identity_id);
+        $membershipId = DB::table('memberships')->where('organization_id', $organizationId)->where('user_identity_id', $targetIdentityId)->value('id');
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->withHeader('If-Match', '"1"')->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$membershipId.'/reactivate')->assertNoContent()->assertHeader('ETag', '"2"');
+
+        $this->assertDatabaseHas('memberships', ['id' => $membershipId, 'status' => 'active', 'version' => 2]);
+        $this->assertDatabaseHas('outbox_messages', ['organization_id' => $organizationId, 'event_type' => 'membership.activated']);
+        $this->assertDatabaseHas('audit_records', ['organization_id' => $organizationId, 'action' => 'membership.reactivate', 'resource_id' => $membershipId]);
+    }
+
     private function user(): IdentityUserAuthenticatable
     {
         $user = new IdentityUserAuthenticatable;
@@ -83,7 +101,7 @@ final class InviteMembershipEndpointTest extends TestCase
 
     private function membership(string $organizationId, string $identityId, string $status): void
     {
-        MembershipRecord::query()->create(['id' => $this->uuid(), 'organization_id' => $organizationId, 'user_identity_id' => $identityId, 'status' => $status, 'activated_at' => $status === 'active' ? now() : null, 'version' => 1]);
+        MembershipRecord::query()->create(['id' => $this->uuid(), 'organization_id' => $organizationId, 'user_identity_id' => $identityId, 'status' => $status, 'activated_at' => $status === 'active' ? now() : null, 'suspended_at' => $status === 'suspended' ? now() : null, 'version' => 1]);
     }
 
     private function grant(string $organizationId, string $identityId): void

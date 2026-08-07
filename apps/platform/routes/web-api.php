@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\CreateOrganizationController;
 use App\Http\Controllers\Api\V1\InviteMembershipController;
+use App\Http\Controllers\Api\V1\ReactivateMembershipController;
 use App\Http\Controllers\Api\V1\SuspendMembershipController;
 use App\Http\Controllers\Api\V1\UpdateOrganizationController;
 use App\Http\Middleware\ResolveTenantContext;
@@ -23,4 +24,7 @@ Route::prefix('api/v1')
         Route::post('/organizations/{organization}/memberships/{membership}/suspend', SuspendMembershipController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.memberships.suspend');
+        Route::post('/organizations/{organization}/memberships/{membership}/reactivate', ReactivateMembershipController::class)
+            ->middleware(ResolveTenantContext::class)
+            ->name('organizations.memberships.reactivate');
     });

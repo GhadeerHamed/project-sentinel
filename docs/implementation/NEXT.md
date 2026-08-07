@@ -1,44 +1,41 @@
 # Current Task
 
-Implement the Reactivate Membership vertical slice.
+Implement the Accept Membership Invitation vertical slice.
 
 ## Required
 
-- Follow the canonical IdentityAccess, Membership, API, and database documentation.
-- Use the existing authenticated `IdentityReference`.
-- Require the existing resolved `TenantContext`.
-- Use the canonical `organization.member.manage` permission.
-- Require an active acting Membership.
-- Authorize through the existing tenant-scoped effective-permission mechanism.
-- Load the target Membership through `MembershipRepository`.
-- Ensure the target Membership belongs to the resolved Organization.
-- Allow only the canonical `suspended` → `active` Membership lifecycle transition.
-- Use the existing Membership domain behavior rather than mutating status directly.
+- Follow the canonical IdentityAccess and Membership documentation.
+- Use the existing authenticated human `IdentityReference`.
+- Do not require the normal active-Membership `TenantContext` middleware.
+- Load the invited Membership directly through the repository using the route Organization and Membership identifiers.
+- Verify the Membership belongs to the route Organization.
+- Verify the invited Membership belongs to the authenticated User.
+- Allow only the explicit `invited` → `active` transition through `Membership::acceptInvitation()`.
 - Require optimistic concurrency using the existing version contract.
-- Emit the canonical Membership reactivation Domain Event.
+- Emit the canonical invitation-acceptance/activation Domain Event.
 - Append the event to the Outbox in the same transaction.
 - Record the corresponding Audit record.
-- Persist through the existing repository contract.
-- Expose the operation through the conventional authenticated Organization-scoped HTTP endpoint.
-- Return the updated resource version through an ETag consistent with the existing concurrency contract.
-- Add focused application, persistence, authorization, and HTTP tests.
+- Persist through the existing Membership repository.
+- Return the updated resource version through an ETag.
+- Expose the operation through an authenticated HTTP endpoint.
+- Add focused application, persistence, authorization/ownership, and HTTP tests.
 
 ## Security Rules
 
-- Tenant access alone does not authorize Membership reactivation.
-- Cross-Organization Membership mutation must be impossible.
-- A suspended or removed acting Membership must never authorize the operation.
-- Do not allow an invited or removed Membership to be reactivated unless canonical lifecycle documentation explicitly allows it.
-- Do not accept `organization_id` from the request payload.
-- Do not bypass Membership lifecycle validation.
+- The authenticated User may accept only his own invitation.
+- Do not use `organization.member.manage` for invitation acceptance.
+- Do not require an active Membership before acceptance.
+- Cross-Organization Membership acceptance must be impossible.
+- Do not accept `organization_id` or identity ownership from request payload.
+- Suspended, active, or removed Memberships must not be accepted as invitations.
 
 ## Excluded
 
 Do not add:
 
-- invitation acceptance
+- invitation email delivery
 - invitation tokens
-- email delivery
+- unauthenticated acceptance
 - Membership removal
 - role-management endpoints
 - permission-management endpoints
@@ -47,7 +44,9 @@ Do not add:
 
 ## Verification
 
-Run targeted tests and `docker compose exec app composer quality`.
+Run targeted tests and:
+
+`docker compose exec app composer quality`
 
 Update `STATUS.md`; do not modify `NEXT.md`.
 
@@ -55,12 +54,12 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 
 Return only:
 
-- permission used
-- lifecycle transition
-- authorization behavior
+- endpoint selected
+- ownership verification
+- lifecycle/event semantics
 - files changed
-- concurrency/event/audit behavior
+- concurrency/audit behavior
 - tests
 - blockers
 
-Maximum 15 lines.
+Maximum 12 lines.

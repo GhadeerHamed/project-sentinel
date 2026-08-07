@@ -39,7 +39,7 @@ final class MembershipTest extends TestCase
         self::assertInstanceOf(MembershipInvited::class, $createdEvents[0]);
         self::assertCount(0, $membership->pullDomainEvents());
 
-        $activated = $membership->activate(
+        $activated = $membership->acceptInvitation(
             at: new DateTimeImmutable('2026-08-02T14:12:00+00:00'),
             actorIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073d14',
             eventId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073d17',
@@ -173,7 +173,7 @@ final class MembershipTest extends TestCase
             version: 3,
         );
 
-        $membership->activate(
+        $membership->reactivate(
             at: new DateTimeImmutable('2026-08-02T14:41:00+00:00'),
             actorIdentityId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073d44',
             eventId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073d45',

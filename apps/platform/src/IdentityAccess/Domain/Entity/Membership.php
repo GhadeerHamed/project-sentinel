@@ -223,16 +223,41 @@ final class Membership
         }
     }
 
-    public function activate(
+    public function acceptInvitation(
         DateTimeImmutable $at,
         string $actorIdentityId,
         string $eventId,
         string $correlationId,
         ?string $causationId = null,
     ): self {
-        if ($this->status !== MembershipStatus::INVITED && $this->status !== MembershipStatus::SUSPENDED) {
+        if ($this->status !== MembershipStatus::INVITED) {
             throw InvalidMembershipTransition::fromTo($this->status, MembershipStatus::ACTIVE);
         }
+
+        return $this->activate($at, $actorIdentityId, $eventId, $correlationId, $causationId);
+    }
+
+    public function reactivate(
+        DateTimeImmutable $at,
+        string $actorIdentityId,
+        string $eventId,
+        string $correlationId,
+        ?string $causationId = null,
+    ): self {
+        if ($this->status !== MembershipStatus::SUSPENDED) {
+            throw InvalidMembershipTransition::fromTo($this->status, MembershipStatus::ACTIVE);
+        }
+
+        return $this->activate($at, $actorIdentityId, $eventId, $correlationId, $causationId);
+    }
+
+    private function activate(
+        DateTimeImmutable $at,
+        string $actorIdentityId,
+        string $eventId,
+        string $correlationId,
+        ?string $causationId,
+    ): self {
 
         $membership = new self(
             id: $this->id,
