@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Infrastructure\Authentication\ActiveIdentityUserProvider;
 use App\Infrastructure\Identifier\LaravelUuidV7Generator;
+use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayInviteMembershipPolicy;
 use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
 use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMayUpdateOrganizationPolicy;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
@@ -20,6 +21,7 @@ use App\Infrastructure\Shared\Transaction\LaravelTransactionManager;
 use App\Infrastructure\Tenant\TenantContextStore;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
+use Sentinel\IdentityAccess\Application\Policy\MembershipInvitationPolicy;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
 use Sentinel\IdentityAccess\Domain\Repository\PermissionAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
@@ -98,6 +100,7 @@ final class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(OrganizationUpdatePolicy::class, ActiveMembershipWithPermissionMayUpdateOrganizationPolicy::class);
+        $this->app->singleton(MembershipInvitationPolicy::class, ActiveMembershipWithPermissionMayInviteMembershipPolicy::class);
 
         $this->app->scoped(TenantContextStore::class);
 

@@ -1,41 +1,48 @@
 # Current Task
 
-Implement the first Organization-scoped authorization slice through Update Organization.
+Implement the Suspend Membership vertical slice.
 
 ## Required
 
-- Follow the existing Organization API and module documentation.
-- Add the framework-independent application command, result, Policy, and handler for updating Organization profile fields that are already documented.
-- Require the existing `TenantContext`.
-- Authorize using the authenticated identity's active Membership and effective permissions for the resolved Organization.
-- Implement the smallest permission-checking contract required by this use case.
-- Use the canonical permission code from existing documentation; do not invent a new permission name.
-- Keep tenant access and action authorization separate.
-- Enforce optimistic concurrency using `ExpectedVersion`.
-- Persist through `OrganizationRepository`.
-- Record the appropriate Domain Event, Outbox message, and Audit record.
-- Expose the use case through the documented authenticated Organization-scoped HTTP endpoint.
-- Add focused application, integration, and feature tests.
+- Follow the canonical IdentityAccess, Membership, API, and database documentation.
+- Use the existing authenticated `IdentityReference`.
+- Require the existing resolved `TenantContext`.
+- Use the canonical `organization.member.manage` permission.
+- Require an active acting Membership.
+- Authorize through the existing tenant-scoped effective-permission mechanism.
+- Load the target Membership through `MembershipRepository`.
+- Ensure the target Membership belongs to the resolved Organization.
+- Enforce the canonical Membership lifecycle transition to `suspended`.
+- Use optimistic concurrency if Membership mutation contracts require `ExpectedVersion`.
+- Emit the canonical Membership suspension Domain Event.
+- Append the event to the Outbox in the same transaction.
+- Record Audit data for the suspension.
+- Persist through the existing repository contract.
+- Expose the operation through the conventional authenticated Organization-scoped endpoint.
+- Add focused application, persistence, authorization, and HTTP tests.
 
 ## Security Rules
 
-- Membership alone must not grant update permission.
-- Permission evaluation must be scoped to the current Organization.
-- A Role or permission from another Organization must never authorize the action.
-- Suspended or removed Memberships must be rejected before action authorization.
-- Do not authorize based on role display names.
-- Do not trust Organization IDs from request data outside the resolved `TenantContext`.
+- Tenant access alone does not authorize Membership suspension.
+- Cross-Organization Membership mutation must be impossible.
+- A suspended or removed acting Membership must never authorize the operation.
+- Do not trust an `organization_id` from request payload.
+- Do not bypass the Membership Domain lifecycle.
+- Verify canonical rules for suspending the acting User's own Membership or the Organization owner before implementing those cases; do not invent behavior.
 
 ## Excluded
 
 Do not add:
 
-- Organization deletion.
-- Organization suspension/reactivation unless required by the selected update use case.
-- role-management endpoints.
-- Membership-management endpoints.
-- API tokens.
-- unrelated IdentityAccess handlers.
+- invitation acceptance
+- invitation tokens
+- email delivery
+- Membership reactivation
+- Membership removal
+- role-management endpoints
+- permission-management endpoints
+- API tokens
+- unrelated Organization operations
 
 ## Verification
 
@@ -50,10 +57,12 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 Return only:
 
 - permission used
-- Policy behavior
+- lifecycle transition
+- self/owner suspension rule selected
+- authorization behavior
 - files changed
 - concurrency/event/audit behavior
-- test result
-- remaining blocker
+- tests
+- blockers
 
 Maximum 15 lines.

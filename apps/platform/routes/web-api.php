@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\CreateOrganizationController;
+use App\Http\Controllers\Api\V1\InviteMembershipController;
 use App\Http\Controllers\Api\V1\UpdateOrganizationController;
 use App\Http\Middleware\ResolveTenantContext;
 use Illuminate\Support\Facades\Route;
@@ -15,4 +16,7 @@ Route::prefix('api/v1')
         Route::patch('/organizations/{organization}', UpdateOrganizationController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.update');
+        Route::post('/organizations/{organization}/memberships', InviteMembershipController::class)
+            ->middleware(ResolveTenantContext::class)
+            ->name('organizations.memberships.store');
     });

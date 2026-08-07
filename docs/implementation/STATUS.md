@@ -44,10 +44,11 @@
 - [x] Create Organization HTTP endpoint with session authentication, CSRF, rate limiting, validation, correlation metadata, and documented API error mapping.
 - [x] Centralized API exception rendering through `ApiExceptionRenderer`, with generic typed-error mappings and consistent optimistic-concurrency responses.
 - [x] Update Organization application slice with Organization-scoped authorization, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
+- [x] Invite Membership vertical slice with Organization-scoped authorization, invited lifecycle state, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 
 ## In Progress
 
-- [ ] Additional Organization-scoped authorization Policies as required by concrete use cases.
+- [ ] Suspend Membership vertical slice with Organization-scoped authorization.
 
 ## Remaining Milestone 3
 
@@ -56,7 +57,7 @@
 
 ## Next Recommended Task
 
-Implement the next concrete Organization-scoped authorization use case selected in `NEXT.md`.
+Implement the Suspend Membership vertical slice using the existing tenant context, `organization.member.manage` authorization, Membership lifecycle, optimistic concurrency, Outbox, Audit, persistence, and authenticated HTTP endpoint.
 
 ## Status Update Rules
 
