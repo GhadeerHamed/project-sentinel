@@ -49,9 +49,10 @@
 - [x] Reactivate Membership vertical slice with Organization-scoped authorization, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Accept Membership Invitation vertical slice with authenticated ownership verification, explicit `invited` → `active` lifecycle transition, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Shared tenant-scoped operation recorder for identical Outbox and Audit recording across membership invitation, suspension, reactivation, and organization update handlers.
+- [x] Remove Membership vertical slice with Organization-scoped authorization, soft-removal lifecycle transition, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 ## In Progress
 
-- [ ] Remove Membership vertical slice with Organization-scoped authorization.
+- [ ] Assign Role vertical slice with Organization-scoped authorization.
 
 ## Remaining Milestone 3
 
@@ -60,7 +61,7 @@
 
 ## Next Recommended Task
 
-Implement the Remove Membership vertical slice using the existing tenant context, `organization.member.manage` authorization, Membership lifecycle, optimistic concurrency, Outbox, Audit, persistence, and authenticated HTTP endpoint.
+Implement the Assign Role vertical slice using tenant-scoped authorization, Organization-owned roles, optimistic concurrency where applicable, Outbox, Audit, persistence, and authenticated HTTP endpoint.
 
 ## Status Update Rules
 

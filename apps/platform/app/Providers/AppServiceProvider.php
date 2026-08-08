@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Infrastructure\Authentication\ActiveIdentityUserProvider;
 use App\Infrastructure\Identifier\LaravelUuidV7Generator;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayInviteMembershipPolicy;
+use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayRemoveMembershipPolicy;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMaySuspendMembershipPolicy;
 use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
 use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMayUpdateOrganizationPolicy;
@@ -23,6 +24,7 @@ use App\Infrastructure\Tenant\TenantContextStore;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
 use Sentinel\IdentityAccess\Application\Policy\MembershipInvitationPolicy;
+use Sentinel\IdentityAccess\Application\Policy\MembershipRemovalPolicy;
 use Sentinel\IdentityAccess\Application\Policy\MembershipSuspensionPolicy;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
 use Sentinel\IdentityAccess\Domain\Repository\PermissionAssignmentRepository;
@@ -103,6 +105,7 @@ final class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(OrganizationUpdatePolicy::class, ActiveMembershipWithPermissionMayUpdateOrganizationPolicy::class);
         $this->app->singleton(MembershipInvitationPolicy::class, ActiveMembershipWithPermissionMayInviteMembershipPolicy::class);
+        $this->app->singleton(MembershipRemovalPolicy::class, ActiveMembershipWithPermissionMayRemoveMembershipPolicy::class);
         $this->app->singleton(MembershipSuspensionPolicy::class, ActiveMembershipWithPermissionMaySuspendMembershipPolicy::class);
 
         $this->app->scoped(TenantContextStore::class);

@@ -83,6 +83,58 @@ final class InviteMembershipEndpointTest extends TestCase
     }
 
     #[Test]
+    public function an_authorized_member_can_remove_a_membership_and_receives_its_new_version(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $targetIdentityId = $this->uuid();
+        $this->membership($organizationId, $user->identity_id, 'active');
+        $membershipId = $this->membership($organizationId, $targetIdentityId, 'active');
+        $this->grant($organizationId, $user->identity_id);
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->withHeader('If-Match', '"1"')->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$membershipId.'/remove')->assertNoContent()->assertHeader('ETag', '"2"');
+
+        $this->assertDatabaseHas('memberships', ['id' => $membershipId, 'status' => 'removed', 'version' => 2]);
+        $this->assertDatabaseHas('outbox_messages', ['organization_id' => $organizationId, 'event_type' => 'membership.removed']);
+        $this->assertDatabaseHas('audit_records', ['organization_id' => $organizationId, 'action' => 'membership.remove', 'resource_id' => $membershipId]);
+    }
+
+    #[Test]
+    public function membership_removal_requires_the_member_management_permission(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $targetMembershipId = $this->membership($organizationId, $this->uuid(), 'active');
+        $this->membership($organizationId, $user->identity_id, 'active');
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->withHeader('If-Match', '"1"')->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$targetMembershipId.'/remove')->assertForbidden();
+    }
+
+    #[Test]
+    public function membership_removal_cannot_cross_organization_boundaries(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $targetMembershipId = $this->membership($organizationId, $this->uuid(), 'active');
+        $otherOrganizationId = $this->organization($user->identity_id);
+        $this->membership($otherOrganizationId, $user->identity_id, 'active');
+        $this->grant($otherOrganizationId, $user->identity_id);
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->withHeader('If-Match', '"1"')->postJson('/api/v1/organizations/'.$otherOrganizationId.'/memberships/'.$targetMembershipId.'/remove')->assertNotFound();
+    }
+
+    #[Test]
+    public function suspended_memberships_cannot_authorize_membership_removal(): void
+    {
+        $suspendedUser = $this->user();
+        $suspendedOrganizationId = $this->organization($suspendedUser->identity_id);
+        $suspendedTargetMembershipId = $this->membership($suspendedOrganizationId, $this->uuid(), 'active');
+        $this->membership($suspendedOrganizationId, $suspendedUser->identity_id, 'suspended');
+        $this->grant($suspendedOrganizationId, $suspendedUser->identity_id);
+        $this->actingAs($suspendedUser)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->withHeader('If-Match', '"1"')->postJson('/api/v1/organizations/'.$suspendedOrganizationId.'/memberships/'.$suspendedTargetMembershipId.'/remove')->assertNotFound();
+    }
+
+    #[Test]
     public function an_invited_member_can_accept_its_own_invitation(): void
     {
         $user = $this->user();
@@ -146,8 +198,11 @@ final class InviteMembershipEndpointTest extends TestCase
     {
         $now = now();
         $roleId = $this->uuid();
-        $permissionId = $this->uuid();
-        DB::table('permissions')->insert(['id' => $permissionId, 'code' => 'organization.member.manage', 'capability' => 'organization', 'action' => 'member_manage', 'description' => 'Manage members.', 'risk_level' => 'medium', 'created_at' => $now]);
+        $permissionId = DB::table('permissions')->where('code', 'organization.member.manage')->value('id');
+        if (! is_string($permissionId)) {
+            $permissionId = $this->uuid();
+            DB::table('permissions')->insert(['id' => $permissionId, 'code' => 'organization.member.manage', 'capability' => 'organization', 'action' => 'member_manage', 'description' => 'Manage members.', 'risk_level' => 'medium', 'created_at' => $now]);
+        }
         DB::table('organization_roles')->insert(['id' => $roleId, 'organization_id' => $organizationId, 'role_key' => 'operator-'.$roleId, 'created_at' => $now, 'updated_at' => $now]);
         DB::table('role_assignments')->insert(['id' => $this->uuid(), 'organization_id' => $organizationId, 'identity_id' => $identityId, 'role_id' => $roleId, 'assigned_by_identity_id' => $identityId, 'assigned_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
         DB::table('role_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId, 'granted_at' => $now, 'granted_by_identity_id' => $identityId]);
