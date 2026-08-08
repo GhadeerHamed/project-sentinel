@@ -52,9 +52,10 @@
 - [x] Remove Membership vertical slice with Organization-scoped authorization, soft-removal lifecycle transition, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Shared Organization permission authorizer for active Membership and effective-permission evaluation across membership-management and organization-update policies.
 - [x] Core permission catalog for the canonical Organization update and membership-management authorization codes.
+- [x] Assign Role vertical slice with tenant-scoped authorization, Organization-owned role and Membership validation, duplicate prevention, role-assigned event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 ## In Progress
 
-- [ ] Assign Role vertical slice with Organization-scoped authorization.
+- [ ] Revoke Role vertical slice with Organization-scoped authorization.
 
 ## Remaining Milestone 3
 
@@ -63,7 +64,7 @@
 
 ## Next Recommended Task
 
-Implement the Assign Role vertical slice using tenant-scoped authorization, Organization-owned roles, optimistic concurrency where applicable, Outbox, Audit, persistence, and authenticated HTTP endpoint.
+Implement the Revoke Role vertical slice using the existing tenant-scoped authorization, RoleAssignment lifecycle, optimistic concurrency where applicable, Outbox, Audit, persistence, and authenticated HTTP endpoint.
 
 ## Status Update Rules
 

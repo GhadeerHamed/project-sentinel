@@ -1,47 +1,46 @@
 # Current Task
 
-Implement the Assign Role vertical slice.
+Implement the Revoke Role vertical slice.
 
 ## Required
 
-- Follow the canonical IdentityAccess, role, permission, API, and database documentation.
+- Follow the canonical IdentityAccess, role-assignment, permission, API, and database documentation.
 - Use the existing authenticated `IdentityReference`.
 - Require the existing resolved `TenantContext`.
-- Use the canonical role-management permission from existing documentation; do not invent a permission code.
+- Use the canonical permission through `CorePermissions`; do not introduce a new permission code.
 - Require an active acting Membership.
-- Authorize through the existing tenant-scoped effective-permission mechanism.
-- Load the target Membership or identity according to the canonical RoleAssignment model.
-- Load or validate the target Role through its Organization-owned identity.
-- Ensure both the target Membership/identity and Role belong to the resolved Organization.
-- Create the assignment through the existing `RoleAssignment` domain model.
-- Enforce duplicate and incompatible assignment rules.
-- Persist through the existing repository contract.
-- Emit the canonical `role.assigned` Domain Event.
+- Reuse `OrganizationPermissionAuthorizer` through an operation-specific Revoke Role Policy.
+- Load the target RoleAssignment through the existing repository.
+- Ensure the assignment belongs to the resolved Organization.
+- Ensure the assigned identity belongs to the resolved Organization through the canonical Membership model.
+- Enforce the canonical RoleAssignment revocation lifecycle.
+- Preserve revocation metadata rather than physically deleting assignment history when required by the canonical model.
+- Require optimistic concurrency if the RoleAssignment aggregate/version contract supports it.
+- Emit the canonical `role.revoked` Domain Event.
 - Append the event to the Outbox in the same transaction.
 - Record the corresponding Audit record.
 - Reuse `TenantScopedOperationRecorder` where it naturally fits.
-- Expose the operation through the conventional authenticated Organization-scoped HTTP endpoint.
-- Add focused application, persistence, authorization, cross-tenant, and HTTP tests.
+- Expose the operation through an authenticated Organization-scoped HTTP endpoint.
+- Return ETag/version metadata when the resource is versioned.
+- Add focused application, authorization, persistence, tenant-isolation, lifecycle, and HTTP tests.
 
 ## Security Rules
 
-- Tenant access alone does not authorize role assignment.
-- A Role from another Organization must never be assignable.
-- A Membership or identity from another Organization must never receive the assignment.
-- Never authorize using role display names.
+- Tenant access alone does not authorize Role revocation.
+- Cross-Organization RoleAssignment mutation must be impossible.
+- Do not revoke assignments by Role display name.
 - Do not accept `organization_id` from request payload.
-- Do not allow arbitrary permission assignment as part of this task.
-- Do not implicitly create Roles.
+- Already-revoked assignments must follow canonical conflict/lifecycle semantics.
+- Do not modify Role permissions as part of this operation.
+- Do not physically delete historical assignments unless canonical documentation explicitly requires it.
 
 ## Excluded
 
 Do not add:
 
-- Revoke Role.
 - Role CRUD endpoints.
-- permission-management endpoints.
 - custom Role creation.
-- invitation changes.
+- permission-management endpoints.
 - Membership lifecycle changes.
 - API tokens.
 - unrelated Organization operations.
@@ -59,8 +58,8 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 Return only:
 
 - permission used
-- assignment model
-- duplicate behavior
+- revocation lifecycle
+- duplicate/already-revoked behavior
 - tenant-isolation behavior
 - files changed
 - event/audit behavior

@@ -6,12 +6,14 @@ namespace App\Providers;
 
 use App\Infrastructure\Authentication\ActiveIdentityUserProvider;
 use App\Infrastructure\Identifier\LaravelUuidV7Generator;
+use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayAssignRolePolicy;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayInviteMembershipPolicy;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayRemoveMembershipPolicy;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMaySuspendMembershipPolicy;
 use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
 use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMayUpdateOrganizationPolicy;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
+use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlOrganizationRoleRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlPermissionAssignmentRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlRoleAssignmentRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlRoleProvisioningRepository;
@@ -26,7 +28,9 @@ use Illuminate\Support\ServiceProvider;
 use Sentinel\IdentityAccess\Application\Policy\MembershipInvitationPolicy;
 use Sentinel\IdentityAccess\Application\Policy\MembershipRemovalPolicy;
 use Sentinel\IdentityAccess\Application\Policy\MembershipSuspensionPolicy;
+use Sentinel\IdentityAccess\Application\Policy\RoleAssignmentPolicy;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
+use Sentinel\IdentityAccess\Domain\Repository\OrganizationRoleRepository;
 use Sentinel\IdentityAccess\Domain\Repository\PermissionAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleProvisioningRepository;
@@ -86,6 +90,11 @@ final class AppServiceProvider extends ServiceProvider
             PgsqlRoleAssignmentRepository::class,
         );
 
+        $this->app->singleton(
+            OrganizationRoleRepository::class,
+            PgsqlOrganizationRoleRepository::class,
+        );
+
         $this->app->singleton(PermissionAssignmentRepository::class, PgsqlPermissionAssignmentRepository::class);
 
         $this->app->singleton(
@@ -107,6 +116,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(MembershipInvitationPolicy::class, ActiveMembershipWithPermissionMayInviteMembershipPolicy::class);
         $this->app->singleton(MembershipRemovalPolicy::class, ActiveMembershipWithPermissionMayRemoveMembershipPolicy::class);
         $this->app->singleton(MembershipSuspensionPolicy::class, ActiveMembershipWithPermissionMaySuspendMembershipPolicy::class);
+        $this->app->singleton(RoleAssignmentPolicy::class, ActiveMembershipWithPermissionMayAssignRolePolicy::class);
 
         $this->app->scoped(TenantContextStore::class);
 

@@ -111,6 +111,59 @@ final class InviteMembershipEndpointTest extends TestCase
     }
 
     #[Test]
+    public function an_authorized_member_can_assign_an_organization_role(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $targetMembershipId = $this->membership($organizationId, $this->uuid(), 'active');
+        $this->membership($organizationId, $user->identity_id, 'active');
+        $this->grant($organizationId, $user->identity_id);
+        $roleId = $this->role($organizationId);
+
+        $response = $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$targetMembershipId.'/roles', ['role_id' => $roleId]);
+
+        $response->assertCreated();
+        $assignmentId = $response->json('data.role_assignment_id');
+        $this->assertDatabaseHas('role_assignments', ['id' => $assignmentId, 'organization_id' => $organizationId, 'role_id' => $roleId]);
+        $this->assertDatabaseHas('outbox_messages', ['organization_id' => $organizationId, 'event_type' => 'role.assigned']);
+        $this->assertDatabaseHas('audit_records', ['organization_id' => $organizationId, 'action' => 'role.assign', 'resource_id' => $assignmentId]);
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$targetMembershipId.'/roles', ['role_id' => $roleId])
+            ->assertConflict();
+    }
+
+    #[Test]
+    public function role_assignment_cannot_cross_organization_boundaries(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $targetMembershipId = $this->membership($organizationId, $this->uuid(), 'active');
+        $this->membership($organizationId, $user->identity_id, 'active');
+        $this->grant($organizationId, $user->identity_id);
+        $roleId = $this->role($this->organization($user->identity_id));
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$targetMembershipId.'/roles', ['role_id' => $roleId])
+            ->assertNotFound();
+    }
+
+    #[Test]
+    public function role_assignment_requires_the_member_management_permission(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $targetMembershipId = $this->membership($organizationId, $this->uuid(), 'active');
+        $this->membership($organizationId, $user->identity_id, 'active');
+        $roleId = $this->role($organizationId);
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$targetMembershipId.'/roles', ['role_id' => $roleId])
+            ->assertForbidden();
+    }
+
+    #[Test]
     public function membership_removal_cannot_cross_organization_boundaries(): void
     {
         $user = $this->user();
@@ -206,6 +259,15 @@ final class InviteMembershipEndpointTest extends TestCase
         DB::table('organization_roles')->insert(['id' => $roleId, 'organization_id' => $organizationId, 'role_key' => 'operator-'.$roleId, 'created_at' => $now, 'updated_at' => $now]);
         DB::table('role_assignments')->insert(['id' => $this->uuid(), 'organization_id' => $organizationId, 'identity_id' => $identityId, 'role_id' => $roleId, 'assigned_by_identity_id' => $identityId, 'assigned_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
         DB::table('role_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId, 'granted_at' => $now, 'granted_by_identity_id' => $identityId]);
+    }
+
+    private function role(string $organizationId): string
+    {
+        $id = $this->uuid();
+        $now = now();
+        DB::table('organization_roles')->insert(['id' => $id, 'organization_id' => $organizationId, 'role_key' => 'operator-'.$id, 'created_at' => $now, 'updated_at' => $now]);
+
+        return $id;
     }
 
     private function uuid(): string
