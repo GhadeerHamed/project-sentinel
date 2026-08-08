@@ -51,6 +51,7 @@
 - [x] Shared tenant-scoped operation recorder for identical Outbox and Audit recording across membership invitation, suspension, reactivation, and organization update handlers.
 - [x] Remove Membership vertical slice with Organization-scoped authorization, soft-removal lifecycle transition, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Shared Organization permission authorizer for active Membership and effective-permission evaluation across membership-management and organization-update policies.
+- [x] Core permission catalog for the canonical Organization update and membership-management authorization codes.
 ## In Progress
 
 - [ ] Assign Role vertical slice with Organization-scoped authorization.
