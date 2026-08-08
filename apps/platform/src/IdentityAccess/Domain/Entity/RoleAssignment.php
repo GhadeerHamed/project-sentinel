@@ -6,6 +6,7 @@ namespace Sentinel\IdentityAccess\Domain\Entity;
 
 use DateTimeImmutable;
 use Sentinel\IdentityAccess\Domain\Event\RoleAssigned;
+use Sentinel\IdentityAccess\Domain\Event\RoleRevoked;
 use Sentinel\IdentityAccess\Domain\Exception\CrossOrganizationAssignment;
 use Sentinel\IdentityAccess\Domain\Exception\InvalidRoleAssignmentTransition;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleAssignmentId;
@@ -158,6 +159,16 @@ final class RoleAssignment
             revokedByIdentityId: IdentityId::fromString($revokedByIdentityId),
             recordedEvents: $this->recordedEvents,
         );
+    }
+
+    public function revokeWithEvent(DateTimeImmutable $revokedAt, string $revokedByIdentityId, string $eventId, string $correlationId, ?string $causationId = null): self
+    {
+        $revoked = $this->revoke($revokedAt, $revokedByIdentityId);
+
+        return $revoked->withEvent(RoleRevoked::fromValues(
+            $eventId, $this->organizationId->value(), $revokedAt, $correlationId, $causationId,
+            $this->id->value(), $revokedByIdentityId, 1,
+        ));
     }
 
     public function isActiveAt(DateTimeImmutable $at): bool

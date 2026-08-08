@@ -6,6 +6,7 @@ namespace Sentinel\IdentityAccess\Domain\Repository;
 
 use DateTimeImmutable;
 use Sentinel\IdentityAccess\Domain\Entity\RoleAssignment;
+use Sentinel\IdentityAccess\Domain\Exception\RoleAssignmentNotFound;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleAssignmentId;
 use Sentinel\Shared\Domain\Identity\IdentityId;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
@@ -13,6 +14,9 @@ use Sentinel\Shared\Domain\Organization\OrganizationId;
 interface RoleAssignmentRepository
 {
     public function assign(RoleAssignment $assignment): void;
+
+    /** @throws RoleAssignmentNotFound */
+    public function getById(RoleAssignmentId $assignmentId, OrganizationId $organizationId): RoleAssignment;
 
     public function revoke(
         RoleAssignmentId $assignmentId,

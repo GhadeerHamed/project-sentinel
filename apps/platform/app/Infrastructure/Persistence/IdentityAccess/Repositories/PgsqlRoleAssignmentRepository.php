@@ -8,10 +8,10 @@ use App\Infrastructure\Persistence\IdentityAccess\Mappers\RoleAssignmentMapper;
 use App\Infrastructure\Persistence\IdentityAccess\Records\OrganizationRoleRecord;
 use App\Infrastructure\Persistence\IdentityAccess\Records\RoleAssignmentRecord;
 use DateTimeImmutable;
-use DomainException;
 use Sentinel\IdentityAccess\Domain\Entity\RoleAssignment;
 use Sentinel\IdentityAccess\Domain\Exception\CrossOrganizationAssignment;
 use Sentinel\IdentityAccess\Domain\Exception\InvalidRoleAssignmentTransition;
+use Sentinel\IdentityAccess\Domain\Exception\RoleAssignmentNotFound;
 use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleAssignmentId;
 use Sentinel\Shared\Domain\Identity\IdentityId;
@@ -28,6 +28,18 @@ final class PgsqlRoleAssignmentRepository implements RoleAssignmentRepository
         RoleAssignmentRecord::query()->create(RoleAssignmentMapper::toPersistence($assignment));
     }
 
+    public function getById(RoleAssignmentId $assignmentId, OrganizationId $organizationId): RoleAssignment
+    {
+        /** @var RoleAssignmentRecord|null $record */
+        $record = RoleAssignmentRecord::query()->whereKey($assignmentId->value())->where('organization_id', $organizationId->value())->first();
+
+        if ($record === null) {
+            throw RoleAssignmentNotFound::forId($assignmentId, $organizationId);
+        }
+
+        return RoleAssignmentMapper::toDomain($record);
+    }
+
     public function revoke(
         RoleAssignmentId $assignmentId,
         OrganizationId $organizationId,
@@ -41,11 +53,7 @@ final class PgsqlRoleAssignmentRepository implements RoleAssignmentRepository
             ->first();
 
         if ($record === null) {
-            throw new DomainException(sprintf(
-                'Role assignment %s was not found in organization %s.',
-                $assignmentId->value(),
-                $organizationId->value(),
-            ));
+            throw RoleAssignmentNotFound::forId($assignmentId, $organizationId);
         }
 
         if ($record->revoked_at !== null) {

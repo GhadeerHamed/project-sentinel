@@ -132,6 +132,17 @@ final class InviteMembershipEndpointTest extends TestCase
         $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')
             ->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$targetMembershipId.'/roles', ['role_id' => $roleId])
             ->assertConflict();
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/role-assignments/'.$assignmentId.'/revoke')
+            ->assertNoContent();
+        $this->assertDatabaseHas('role_assignments', ['id' => $assignmentId, 'revoked_by_identity_id' => $user->identity_id]);
+        $this->assertDatabaseHas('outbox_messages', ['organization_id' => $organizationId, 'event_type' => 'role.revoked']);
+        $this->assertDatabaseHas('audit_records', ['organization_id' => $organizationId, 'action' => 'role.revoke', 'resource_id' => $assignmentId]);
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/role-assignments/'.$assignmentId.'/revoke')
+            ->assertConflict();
     }
 
     #[Test]

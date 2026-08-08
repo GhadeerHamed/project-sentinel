@@ -53,18 +53,19 @@
 - [x] Shared Organization permission authorizer for active Membership and effective-permission evaluation across membership-management and organization-update policies.
 - [x] Core permission catalog for the canonical Organization update and membership-management authorization codes.
 - [x] Assign Role vertical slice with tenant-scoped authorization, Organization-owned role and Membership validation, duplicate prevention, role-assigned event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
+- [x] Revoke Role vertical slice with tenant-scoped authorization, soft-revocation lifecycle, role-revoked event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 ## In Progress
 
-- [ ] Revoke Role vertical slice with Organization-scoped authorization.
+- [ ] Milestone 3 completion review.
 
 ## Remaining Milestone 3
 
-- [ ] Additional IdentityAccess application use cases.
-- [ ] Additional Organization application use cases.
+- [ ] Additional IdentityAccess application use cases required by canonical scope.
+- [ ] Additional Organization application use cases required by canonical scope.
 
 ## Next Recommended Task
 
-Implement the Revoke Role vertical slice using the existing tenant-scoped authorization, RoleAssignment lifecycle, optimistic concurrency where applicable, Outbox, Audit, persistence, and authenticated HTTP endpoint.
+Review the canonical Milestone 3 requirements and identify the exact remaining required capabilities before implementing additional IdentityAccess or Organization use cases.
 
 ## Status Update Rules
 

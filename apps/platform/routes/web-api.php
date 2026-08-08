@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\CreateOrganizationController;
 use App\Http\Controllers\Api\V1\InviteMembershipController;
 use App\Http\Controllers\Api\V1\ReactivateMembershipController;
 use App\Http\Controllers\Api\V1\RemoveMembershipController;
+use App\Http\Controllers\Api\V1\RevokeRoleController;
 use App\Http\Controllers\Api\V1\SuspendMembershipController;
 use App\Http\Controllers\Api\V1\UpdateOrganizationController;
 use App\Http\Middleware\ResolveTenantContext;
@@ -37,4 +38,7 @@ Route::prefix('api/v1')
         Route::post('/organizations/{organization}/memberships/{membership}/roles', AssignRoleController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.memberships.roles.store');
+        Route::post('/organizations/{organization}/role-assignments/{roleAssignment}/revoke', RevokeRoleController::class)
+            ->middleware(ResolveTenantContext::class)
+            ->name('organizations.role-assignments.revoke');
     });
