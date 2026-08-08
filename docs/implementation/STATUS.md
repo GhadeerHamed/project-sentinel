@@ -48,6 +48,7 @@
 - [x] Suspend Membership vertical slice with Organization-scoped authorization, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Reactivate Membership vertical slice with Organization-scoped authorization, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Accept Membership Invitation vertical slice with authenticated ownership verification, explicit `invited` → `active` lifecycle transition, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
+- [x] Shared tenant-scoped operation recorder for identical Outbox and Audit recording across membership invitation, suspension, reactivation, and organization update handlers.
 ## In Progress
 
 - [ ] Remove Membership vertical slice with Organization-scoped authorization.

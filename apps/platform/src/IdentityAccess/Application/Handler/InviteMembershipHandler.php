@@ -10,15 +10,12 @@ use Sentinel\IdentityAccess\Application\Result\InviteMembershipResult;
 use Sentinel\IdentityAccess\Domain\Entity\Membership;
 use Sentinel\IdentityAccess\Domain\Exception\MembershipNotFound;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
-use Sentinel\Shared\Domain\Audit\AuditRecord;
-use Sentinel\Shared\Domain\Audit\AuditRecorder;
+use Sentinel\Shared\Application\TenantScopedOperationRecorder;
 use Sentinel\Shared\Domain\Concurrency\ExpectedVersion;
 use Sentinel\Shared\Domain\Error\ApplicationOperationFailure;
 use Sentinel\Shared\Domain\Error\ErrorCategory;
 use Sentinel\Shared\Domain\Event\AggregateDomainEvent;
 use Sentinel\Shared\Domain\Identifier\UuidV7Generator;
-use Sentinel\Shared\Domain\Outbox\OutboxMessage;
-use Sentinel\Shared\Domain\Outbox\OutboxMessageStore;
 use Sentinel\Shared\Domain\Tenant\TenantContext;
 use Sentinel\Shared\Domain\Time\Clock;
 use Sentinel\Shared\Domain\Transaction\TransactionManager;
@@ -32,8 +29,7 @@ final readonly class InviteMembershipHandler
         private UuidV7Generator $uuidGenerator,
         private Clock $clock,
         private TransactionManager $transactions,
-        private OutboxMessageStore $outbox,
-        private AuditRecorder $audit,
+        private TenantScopedOperationRecorder $operationRecorder,
     ) {}
 
     public function handle(InviteMembershipCommand $command): InviteMembershipResult
@@ -53,10 +49,7 @@ final readonly class InviteMembershipHandler
                 $this->memberships->save($membership, ExpectedVersion::none());
                 /** @var list<AggregateDomainEvent> $events */
                 $events = $membership->pullDomainEvents();
-                foreach ($events as $event) {
-                    $this->outbox->append(OutboxMessage::fromDomainEvent($this->uuidGenerator->generate(), $event, $now));
-                }
-                $this->audit->record(AuditRecord::fromValues(id: $this->uuidGenerator->generate(), organizationId: $this->tenantContext->organizationId()->value(), actorType: $this->tenantContext->actingIdentity()->identityType(), actorId: $this->tenantContext->actingIdentity()->identityId(), action: 'membership.invite', resourceType: 'membership', resourceId: $membership->id()->value(), occurredAt: $now, recordedAt: $now, correlationId: $this->tenantContext->correlationId()->value(), causationId: $this->tenantContext->causationId()?->value()));
+                $this->operationRecorder->record($events, 'membership.invite', 'membership', $membership->id()->value(), $now);
 
                 return new InviteMembershipResult($membership->id(), $membership->status());
             }

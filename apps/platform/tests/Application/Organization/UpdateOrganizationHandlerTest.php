@@ -12,6 +12,7 @@ use Sentinel\Organization\Application\Handler\UpdateOrganizationHandler;
 use Sentinel\Organization\Application\Policy\OrganizationUpdatePolicy;
 use Sentinel\Organization\Domain\Entity\Organization;
 use Sentinel\Organization\Domain\Repository\OrganizationRepository;
+use Sentinel\Shared\Application\TenantScopedOperationRecorder;
 use Sentinel\Shared\Domain\Audit\AuditRecorder;
 use Sentinel\Shared\Domain\Concurrency\ExpectedVersion;
 use Sentinel\Shared\Domain\Identifier\UuidV7Generator;
@@ -43,7 +44,9 @@ final class UpdateOrganizationHandlerTest extends TestCase
         $ids->method('generate')->willReturn('01890f7a-5b7c-7cc0-98c4-dc0c0c075003');
         $context = TenantContext::fromValues('01890f7a-5b7c-7cc0-98c4-dc0c0c075001', '01890f7a-5b7c-7cc0-98c4-dc0c0c075002', 'user', '01890f7a-5b7c-7cc0-98c4-dc0c0c075004');
 
-        $result = (new UpdateOrganizationHandler($repository, $policy, $context, $ids, $clock, $transaction, $outbox, $audit))->handle(new UpdateOrganizationCommand('Acme Operations', 'Europe/Bucharest', ExpectedVersion::fromInt(3)));
+        $operationRecorder = new TenantScopedOperationRecorder($context, $ids, $outbox, $audit);
+
+        $result = (new UpdateOrganizationHandler($repository, $policy, $context, $ids, $clock, $transaction, $operationRecorder))->handle(new UpdateOrganizationCommand('Acme Operations', 'Europe/Bucharest', ExpectedVersion::fromInt(3)));
 
         self::assertSame('Acme Operations', $result->name());
         self::assertSame(4, $result->version()->value());
