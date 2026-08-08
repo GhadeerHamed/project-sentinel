@@ -71,6 +71,7 @@ final class CreateOrganizationEndpointTest extends TestCase
     public function it_requires_csrf_protection_for_session_authenticated_requests(): void
     {
         $user = $this->identityUser('active');
+        $this->app->instance('env', 'local');
 
         $this->actingAs($user, 'web')
             ->postJson('/api/v1/organizations', [
