@@ -62,7 +62,7 @@ final readonly class RevokeRoleHandler
             }
             $this->assignments->revoke(
                 assignmentId: $revoked->id(),
-                organizationId:  $this->tenantContext->organizationId(),
+                organizationId: $this->tenantContext->organizationId(),
                 revokedBy: IdentityId::fromString($this->tenantContext->actingIdentity()->identityId()),
                 revokedAt: $now,
             );
