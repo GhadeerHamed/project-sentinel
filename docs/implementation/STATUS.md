@@ -50,6 +50,7 @@
 - [x] Accept Membership Invitation vertical slice with authenticated ownership verification, explicit `invited` → `active` lifecycle transition, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Shared tenant-scoped operation recorder for identical Outbox and Audit recording across membership invitation, suspension, reactivation, and organization update handlers.
 - [x] Remove Membership vertical slice with Organization-scoped authorization, soft-removal lifecycle transition, optimistic concurrency, event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
+- [x] Shared Organization permission authorizer for active Membership and effective-permission evaluation across membership-management and organization-update policies.
 ## In Progress
 
 - [ ] Assign Role vertical slice with Organization-scoped authorization.
