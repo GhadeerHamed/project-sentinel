@@ -1,51 +1,64 @@
 # Current Task
 
-Review Milestone 3 completion against the canonical documentation.
+Implement the List Accessible Organizations vertical slice.
 
 ## Required
 
-- Do not implement or modify application code.
-- Review `STATUS.md` and only the documentation directly relevant to:
-    - IdentityAccess
-    - Organizations
-    - Memberships
-    - Roles
-    - Permissions
-    - Milestone 3 / MVP scope
-- Compare documented required capabilities against what is marked completed.
-- Identify only capabilities that are actually required for Milestone 3.
-- Separate findings into:
-    - required before Milestone 3 can close
-    - explicitly deferred / later scope
-    - documentation ambiguity requiring an architectural decision
-- Check specifically whether Milestone 3 still requires:
-    - Organization lifecycle operations such as suspend, reactivate, or archive
-    - Membership listing/read operations
-    - Role listing/read operations
-    - Role creation/update/deletion
-    - permission assignment management
-    - User or Membership read endpoints
-    - any remaining authentication/IdentityAccess operations
-- Do not invent capabilities because they are conventional CRUD operations.
-- Check whether the current owner/member rules create any documented invariant gap, including last-owner or administrative-access protection.
-- Recommend exactly one next bounded implementation task.
+- Follow the canonical Organization, IdentityAccess, API, and MVP documentation.
+- Use the existing authenticated human `IdentityReference`.
+- Do not require `TenantContext`; this operation spans Organizations and is used before tenant selection.
+- Return only Organizations associated with the authenticated User through canonical Membership relationships.
+- Determine from canonical documentation which Membership statuses grant list visibility; do not invent behavior.
+- Determine from canonical documentation whether suspended Organizations remain visible in the list or are excluded.
+- Keep tenant-entry eligibility separate from list visibility.
+- Do not use Organization-scoped permission authorization merely to list the caller's own accessible Organizations.
+- Add the smallest framework-independent query/handler and repository read contract required.
+- Expose the documented authenticated HTTP endpoint.
+- Follow existing API pagination and response conventions where applicable.
+- Avoid N+1 queries.
+- Return only fields allowed by the canonical Organization API representation.
+- Add focused application, persistence, isolation, and HTTP tests.
 
-## Rules
+## Security Rules
 
-- ADRs and canonical module/domain documentation take precedence over assumptions.
-- Do not expand MVP scope.
-- Do not change `STATUS.md`.
-- Do not change `NEXT.md`.
-- Do not modify code or documentation.
-- Keep the review concise.
+- A User must never see an Organization with which he has no qualifying Membership.
+- Memberships belonging to another identity must not grant visibility.
+- Do not accept `organization_id` or identity ID from request input.
+- Do not expose Role, permission, credential, or unrelated tenant data.
+- Do not create a `TenantContext` as part of this operation.
+- Authentication eligibility remains enforced by the existing session-authentication layer.
+
+## Excluded
+
+Do not add:
+
+- Organization switching/session state.
+- Organization reactivation.
+- Organization archive/delete.
+- Membership listing.
+- Role listing.
+- permission-management endpoints.
+- last-owner protection.
+- unrelated Organization mutations.
+
+## Verification
+
+Run targeted tests and:
+
+`docker compose exec app composer quality`
+
+Update `STATUS.md`; do not modify `NEXT.md`.
 
 ## Reporting
 
 Return only:
 
-- Milestone 3 required and still missing
-- deferred capabilities
-- ambiguities or invariant gaps
-- recommended next task
+- endpoint selected
+- visibility rules selected
+- Membership/Organization status behavior
+- query/persistence approach
+- files changed
+- tests
+- blockers
 
-Maximum 25 lines.
+Maximum 12 lines.

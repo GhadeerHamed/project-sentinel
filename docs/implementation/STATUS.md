@@ -54,18 +54,20 @@
 - [x] Core permission catalog for the canonical Organization update and membership-management authorization codes.
 - [x] Assign Role vertical slice with tenant-scoped authorization, Organization-owned role and Membership validation, duplicate prevention, role-assigned event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Revoke Role vertical slice with tenant-scoped authorization, soft-revocation lifecycle, role-revoked event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
+- [x] Suspend Organization vertical slice with tenant-scoped authorization, active-to-suspended lifecycle enforcement, optimistic concurrency, event/Outbox, Audit, persistence, and tenant-status enforcement.
 ## In Progress
 
-- [ ] Milestone 3 completion review.
+- [ ] List Accessible Organizations vertical slice.
 
 ## Remaining Milestone 3
 
-- [ ] Additional IdentityAccess application use cases required by canonical scope.
-- [ ] Additional Organization application use cases required by canonical scope.
+- [ ] Complete the minimum required permission-assignment workflow.
+- [ ] Resolve last-owner / administrative-access protection invariant.
+- [ ] Decide whether Organization reactivation is required in Milestone 3.
 
 ## Next Recommended Task
 
-Review the canonical Milestone 3 requirements and identify the exact remaining required capabilities before implementing additional IdentityAccess or Organization use cases.
+Implement List Accessible Organizations for the authenticated human User without requiring a preselected TenantContext.
 
 ## Status Update Rules
 

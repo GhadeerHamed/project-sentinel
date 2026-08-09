@@ -46,6 +46,25 @@ final class UpdateOrganizationEndpointTest extends TestCase
     }
 
     #[Test]
+    public function an_authorized_member_can_suspend_an_organization_and_it_no_longer_resolves_as_a_tenant(): void
+    {
+        $user = $this->identityUser();
+        $organizationId = $this->organization($user->identity_id);
+        $this->membership($organizationId, $user->identity_id, 'active');
+        $this->grantPermission($organizationId, $user->identity_id, 'organization.suspend');
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->withHeader('If-Match', '"1"')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/suspend')
+            ->assertNoContent()
+            ->assertHeader('ETag', '"2"');
+
+        $this->assertDatabaseHas('organizations', ['id' => $organizationId, 'status' => 'suspended', 'version' => 2]);
+        $this->assertDatabaseHas('outbox_messages', ['organization_id' => $organizationId, 'event_type' => 'organization.suspended']);
+        $this->assertDatabaseHas('audit_records', ['organization_id' => $organizationId, 'action' => 'organization.suspend']);
+        $this->actingAs($user)->csrfProtectedJsonPatch($organizationId, ['name' => 'Unavailable'], '"2"')->assertNotFound();
+    }
+
+    #[Test]
     public function another_organizations_permission_and_suspended_membership_do_not_authorize_updates(): void
     {
         $user = $this->identityUser();
@@ -121,12 +140,12 @@ final class UpdateOrganizationEndpointTest extends TestCase
         MembershipRecord::query()->create(['id' => $this->uuid(), 'organization_id' => $organizationId, 'user_identity_id' => $identityId, 'status' => $status, 'activated_at' => $status === 'active' ? $now : null, 'suspended_at' => $status === 'suspended' ? $now : null, 'version' => 1]);
     }
 
-    private function grantPermission(string $organizationId, string $identityId): void
+    private function grantPermission(string $organizationId, string $identityId, string $permissionCode = 'organization.update'): void
     {
         $now = now();
         $roleId = $this->uuid();
         $permissionId = $this->uuid();
-        DB::table('permissions')->insert(['id' => $permissionId, 'code' => 'organization.update', 'capability' => 'organization', 'action' => 'update', 'description' => 'Update organization.', 'risk_level' => 'medium', 'created_at' => $now]);
+        DB::table('permissions')->insert(['id' => $permissionId, 'code' => $permissionCode, 'capability' => 'organization', 'action' => 'update', 'description' => 'Update organization.', 'risk_level' => 'medium', 'created_at' => $now]);
         DB::table('organization_roles')->insert(['id' => $roleId, 'organization_id' => $organizationId, 'role_key' => 'operator-'.$roleId, 'created_at' => $now, 'updated_at' => $now]);
         DB::table('role_assignments')->insert(['id' => $this->uuid(), 'organization_id' => $organizationId, 'identity_id' => $identityId, 'role_id' => $roleId, 'assigned_by_identity_id' => $identityId, 'assigned_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
         DB::table('role_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId, 'granted_at' => $now, 'granted_by_identity_id' => $identityId]);

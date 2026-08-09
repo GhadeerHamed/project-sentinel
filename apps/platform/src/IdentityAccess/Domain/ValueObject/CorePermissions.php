@@ -15,4 +15,9 @@ final class CorePermissions
     {
         return PermissionCode::fromString('organization.update');
     }
+
+    public static function suspendOrganization(): PermissionCode
+    {
+        return PermissionCode::fromString('organization.suspend');
+    }
 }

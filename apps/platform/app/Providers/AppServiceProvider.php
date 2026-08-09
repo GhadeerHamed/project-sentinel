@@ -12,6 +12,7 @@ use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayRe
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayRevokeRolePolicy;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMaySuspendMembershipPolicy;
 use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
+use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMaySuspendOrganizationPolicy;
 use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMayUpdateOrganizationPolicy;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlOrganizationRoleRepository;
@@ -38,6 +39,7 @@ use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleProvisioningRepository;
 use Sentinel\IdentityAccess\Domain\Repository\UserRepository;
 use Sentinel\Organization\Application\Policy\OrganizationCreationPolicy;
+use Sentinel\Organization\Application\Policy\OrganizationSuspensionPolicy;
 use Sentinel\Organization\Application\Policy\OrganizationUpdatePolicy;
 use Sentinel\Organization\Domain\Repository\OrganizationRepository;
 use Sentinel\Shared\Domain\Audit\AuditRecorder;
@@ -115,6 +117,7 @@ final class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(OrganizationUpdatePolicy::class, ActiveMembershipWithPermissionMayUpdateOrganizationPolicy::class);
+        $this->app->singleton(OrganizationSuspensionPolicy::class, ActiveMembershipWithPermissionMaySuspendOrganizationPolicy::class);
         $this->app->singleton(MembershipInvitationPolicy::class, ActiveMembershipWithPermissionMayInviteMembershipPolicy::class);
         $this->app->singleton(MembershipRemovalPolicy::class, ActiveMembershipWithPermissionMayRemoveMembershipPolicy::class);
         $this->app->singleton(MembershipSuspensionPolicy::class, ActiveMembershipWithPermissionMaySuspendMembershipPolicy::class);

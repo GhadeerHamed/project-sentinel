@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\ReactivateMembershipController;
 use App\Http\Controllers\Api\V1\RemoveMembershipController;
 use App\Http\Controllers\Api\V1\RevokeRoleController;
 use App\Http\Controllers\Api\V1\SuspendMembershipController;
+use App\Http\Controllers\Api\V1\SuspendOrganizationController;
 use App\Http\Controllers\Api\V1\UpdateOrganizationController;
 use App\Http\Middleware\ResolveTenantContext;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +24,9 @@ Route::prefix('api/v1')
         Route::patch('/organizations/{organization}', UpdateOrganizationController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.update');
+        Route::post('/organizations/{organization}/suspend', SuspendOrganizationController::class)
+            ->middleware(ResolveTenantContext::class)
+            ->name('organizations.suspend');
         Route::post('/organizations/{organization}/memberships', InviteMembershipController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.memberships.store');
