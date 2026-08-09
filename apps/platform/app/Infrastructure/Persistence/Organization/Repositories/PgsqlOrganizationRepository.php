@@ -7,6 +7,7 @@ namespace App\Infrastructure\Persistence\Organization\Repositories;
 use App\Infrastructure\Persistence\Organization\Mappers\OrganizationMapper;
 use App\Infrastructure\Persistence\Organization\Records\OrganizationRecord;
 use Illuminate\Database\QueryException;
+use Sentinel\Organization\Application\ReadModel\AccessibleOrganization;
 use Sentinel\Organization\Domain\Entity\Organization;
 use Sentinel\Organization\Domain\Exception\OrganizationNotFound;
 use Sentinel\Organization\Domain\Repository\OrganizationRepository;
@@ -20,9 +21,10 @@ final class PgsqlOrganizationRepository implements OrganizationRepository
 {
     public function accessibleTo(IdentityId $identityId): array
     {
-        return OrganizationRecord::query()->select('organizations.*')->join('memberships', 'memberships.organization_id', '=', 'organizations.id')
+        return OrganizationRecord::query()->select(['organizations.id', 'organizations.name', 'organizations.slug', 'organizations.status', 'organizations.timezone', 'organizations.version', 'organizations.created_at', 'organizations.updated_at'])
+            ->join('memberships', 'memberships.organization_id', '=', 'organizations.id')
             ->where('memberships.user_identity_id', $identityId->value())->where('memberships.status', 'active')->orderBy('organizations.created_at')
-            ->get()->map(static fn (OrganizationRecord $record): Organization => OrganizationMapper::toDomain($record))->all();
+            ->get()->map(static fn (OrganizationRecord $record): AccessibleOrganization => new AccessibleOrganization($record->id, $record->name, $record->slug, $record->status, $record->timezone, $record->version, $record->created_at, $record->updated_at))->all();
     }
 
     public function getById(OrganizationId $organizationId): Organization

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\OrganizationResource;
 use App\Infrastructure\Authentication\AuthenticatedIdentityResolver;
 use Illuminate\Http\JsonResponse;
 use LogicException;
@@ -17,6 +18,6 @@ final class ListAccessibleOrganizationsController extends Controller
         $identity = $identities->currentIdentity() ?? throw new LogicException('The authenticated identity could not be resolved.');
         $organizations = $handler->handle($identity);
 
-        return response()->json(['data' => array_map(static fn ($organization): array => ['id' => $organization->id()->value(), 'type' => 'organization', 'attributes' => ['name' => $organization->name(), 'slug' => $organization->slug(), 'status' => $organization->status()->value, 'timezone' => $organization->timezone(), 'version' => $organization->version()->value(), 'created_at' => $organization->createdAt()->format(DATE_ATOM), 'updated_at' => $organization->updatedAt()->format(DATE_ATOM)]], $organizations)]);
+        return OrganizationResource::collection($organizations)->response();
     }
 }

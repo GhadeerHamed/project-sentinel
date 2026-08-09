@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sentinel\Organization\Domain\Repository;
 
+use Sentinel\Organization\Application\ReadModel\AccessibleOrganization;
 use Sentinel\Organization\Domain\Entity\Organization;
 use Sentinel\Organization\Domain\Exception\OrganizationNotFound;
 use Sentinel\Shared\Domain\Concurrency\ExpectedVersion;
@@ -22,6 +23,6 @@ interface OrganizationRepository
      */
     public function save(Organization $organization, ExpectedVersion $expectedVersion): void;
 
-    /** @return list<Organization> */
+    /** @return list<AccessibleOrganization> */
     public function accessibleTo(IdentityId $identityId): array;
 }
