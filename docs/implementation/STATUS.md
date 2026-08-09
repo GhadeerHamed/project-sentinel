@@ -58,18 +58,19 @@
 - [x] List Accessible Organizations vertical slice using an application read model and dedicated API resource, with active-Membership visibility, suspended Organization status visibility, optimized projection queries, and no TenantContext requirement.
 - [x] Bootstrap the built-in `organization_owner` Role with the current Core administrative permissions during Organization creation.
 - [x] Administrative-access protection invariant preserving an active human identity with effective `organization.member.manage`, including PostgreSQL Organization-row serialization for access-reducing Membership and Role-assignment mutations.
+- [x] Update Role Permissions vertical slice with Core-catalog validation, tenant-scoped authorization, soft grant revocation/restoration, administrative-recovery protection, Outbox, Audit, and authenticated HTTP API.
 
 ## In Progress
 
-- [ ] Implement the minimum Role-permission management workflow.
+- [ ] Decide whether Organization reactivation is required in Milestone 3.
 
 ## Remaining Milestone 3
 
-- [ ] Decide whether Organization reactivation is required in Milestone 3.
+- [ ] No additional implementation capability is scheduled pending the Organization-reactivation decision.
 
 ## Next Recommended Task
 
-Implement the minimum Role-permission management workflow.
+Decide whether Organization reactivation is required in Milestone 3.
 
 ## Status Update Rules
 

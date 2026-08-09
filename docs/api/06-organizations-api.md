@@ -48,6 +48,7 @@ Supported statuses:
 | `POST`  | `/organizations/{organization_id}/suspend`          | Suspend the Organization      |
 | `POST`  | `/organizations/{organization_id}/reactivate`       | Reactivate the Organization   |
 | `POST`  | `/organizations/{organization_id}/request-deletion` | Request governed deletion     |
+| `PATCH` | `/organizations/{organization_id}/roles/{role_id}/permissions` | Update Role permissions |
 
 Physical deletion is never exposed as a direct API operation.
 
@@ -140,6 +141,33 @@ Mutable fields may include:
 * approved display settings
 
 Changing the Organization identifier or tenant ownership is not supported.
+
+---
+
+## Update Role Permissions
+
+```http
+PATCH /api/v1/organizations/{organization_id}/roles/{role_id}/permissions
+```
+
+Request:
+
+```json
+{
+  "grant": ["organization.update"],
+  "revoke": ["organization.suspend"]
+}
+```
+
+Both fields are arrays of unique current Core permission codes. At least one array must contain a permission, and a permission cannot appear in both arrays. The Role must belong to the resolved Organization; otherwise the API returns the tenant-safe not-found response.
+
+Requires effective `organization.member.manage`. Changes are audited and emit `role.permissions_updated`. Revoking the final effective `organization.member.manage` recovery path is rejected with a conflict and the complete mutation is rolled back.
+
+Response:
+
+```http
+204 No Content
+```
 
 ---
 

@@ -21,5 +21,9 @@ final class CorePermissionsTest extends TestCase
         self::assertSame('organization.member.manage', $memberManagement->value());
         self::assertInstanceOf(PermissionCode::class, $organizationUpdate);
         self::assertSame('organization.update', $organizationUpdate->value());
+        self::assertSame(
+            ['organization.member.manage', 'organization.update', 'organization.suspend'],
+            CorePermissions::values(),
+        );
     }
 }

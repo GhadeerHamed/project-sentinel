@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\RevokeRoleController;
 use App\Http\Controllers\Api\V1\SuspendMembershipController;
 use App\Http\Controllers\Api\V1\SuspendOrganizationController;
 use App\Http\Controllers\Api\V1\UpdateOrganizationController;
+use App\Http\Controllers\Api\V1\UpdateRolePermissionsController;
 use App\Http\Middleware\ResolveTenantContext;
 use Illuminate\Support\Facades\Route;
 
@@ -47,4 +48,7 @@ Route::prefix('api/v1')
         Route::post('/organizations/{organization}/role-assignments/{roleAssignment}/revoke', RevokeRoleController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.role-assignments.revoke');
+        Route::patch('/organizations/{organization}/roles/{role}/permissions', UpdateRolePermissionsController::class)
+            ->middleware(ResolveTenantContext::class)
+            ->name('organizations.roles.permissions.update');
     });

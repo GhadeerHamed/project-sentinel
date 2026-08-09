@@ -11,6 +11,7 @@ use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayIn
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayRemoveMembershipPolicy;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayRevokeRolePolicy;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMaySuspendMembershipPolicy;
+use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayUpdateRolePermissionsPolicy;
 use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
 use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMaySuspendOrganizationPolicy;
 use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMayUpdateOrganizationPolicy;
@@ -32,6 +33,7 @@ use Sentinel\IdentityAccess\Application\Policy\MembershipInvitationPolicy;
 use Sentinel\IdentityAccess\Application\Policy\MembershipRemovalPolicy;
 use Sentinel\IdentityAccess\Application\Policy\MembershipSuspensionPolicy;
 use Sentinel\IdentityAccess\Application\Policy\RoleAssignmentPolicy;
+use Sentinel\IdentityAccess\Application\Policy\RolePermissionUpdatePolicy;
 use Sentinel\IdentityAccess\Application\Policy\RoleRevocationPolicy;
 use Sentinel\IdentityAccess\Domain\Repository\AdministrativeAccessRepository;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
@@ -130,6 +132,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(MembershipSuspensionPolicy::class, ActiveMembershipWithPermissionMaySuspendMembershipPolicy::class);
         $this->app->singleton(RoleAssignmentPolicy::class, ActiveMembershipWithPermissionMayAssignRolePolicy::class);
         $this->app->singleton(RoleRevocationPolicy::class, ActiveMembershipWithPermissionMayRevokeRolePolicy::class);
+        $this->app->singleton(RolePermissionUpdatePolicy::class, ActiveMembershipWithPermissionMayUpdateRolePermissionsPolicy::class);
 
         $this->app->scoped(TenantContextStore::class);
 

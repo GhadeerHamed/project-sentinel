@@ -1,101 +1,103 @@
 # Current Task
 
-Implement the administrative-access protection invariant.
+Implement the Update Role Permissions vertical slice.
 
-## Invariant
+## API Contract
 
-Every active Organization must retain at least one active human Membership with effective:
+Use:
 
-`organization.member.manage`
+`PATCH /api/v1/organizations/{organization}/roles/{role}/permissions`
 
-This is an administrative-recovery capability invariant.
+Request body:
 
-It must not depend on Role names such as `organization_owner`.
+- `grant`: list of Core permission codes to grant.
+- `revoke`: list of Core permission codes to revoke.
+
+At least one list must contain a permission.
+
+The same permission must not appear in both lists.
 
 ## Required
 
-- Add a framework-independent IdentityAccess application service representing the invariant.
-- Use `CorePermissions::manageOrganizationMembers()` as the administrative-recovery capability.
-- Evaluate effective permissions, not Role names.
-- Count only:
-    - human identities;
-    - active Memberships;
-    - effective, non-revoked Role assignments;
-    - effective, non-revoked permission grants.
-- Reject a mutation if its committed result would leave an active Organization without a qualifying administrative identity.
-- Return an explicit typed conflict/invariant error.
+- Follow the canonical IdentityAccess, Role, Permission, API, Security, and MVP documentation.
+- Use the existing authenticated `IdentityReference`.
+- Require the resolved `TenantContext`.
+- Use `CorePermissions::manageOrganizationMembers()` for authorization.
+- Reuse `OrganizationPermissionAuthorizer` through an operation-specific Policy.
+- Resolve the target Role as an Organization-owned Role.
+- Ensure the Role belongs to the resolved Organization.
+- Accept only permissions defined by the current `CorePermissions` catalog.
+- Reject unknown/free-form permission codes.
+- Grant and revoke permissions through the existing permission-assignment repository.
+- Preserve existing soft-revocation semantics.
+- Re-granting a previously revoked permission must restore the grant consistently.
+- Emit the canonical `role.permissions_updated` Domain Event.
+- Record Outbox and Audit data in the same transaction.
+- Expose the operation through the authenticated Organization-scoped HTTP API.
+- Keep the controller thin.
 
-## Concurrency
+## Administrative-Access Invariant
 
-The invariant must be transaction-safe.
+Role-permission mutation can reduce administrative access.
 
-- Serialize administrative-access-reducing mutations for the same Organization.
-- Prefer a PostgreSQL row lock on the Organization record or an equivalent existing transaction-safe mechanism.
-- Acquire the Organization-level mutation lock before evaluating and applying an administrative-access-reducing mutation.
-- Do not rely only on:
-    - `COUNT(*)`;
-    - application-level prechecks;
-    - optimistic concurrency on the Membership or RoleAssignment being changed.
-- Concurrent requests must not both succeed if their combined result removes the final administrative recovery capability.
+Therefore:
 
-## Retrofit Existing Operations
+- serialize the mutation using the existing Organization-level administrative-access lock;
+- apply all requested grants and revocations inside the transaction;
+- evaluate `AdministrativeAccessInvariant` against the post-mutation state;
+- reject and roll back if the Organization would lose its final effective `organization.member.manage` capability.
 
-Apply the invariant to:
+Do not special-case `organization_owner` by Role name.
 
-- `SuspendMembershipHandler`
-- `RemoveMembershipHandler`
-- `RevokeRoleHandler`
+## Validation
 
-Do not apply it to operations that cannot reduce administrative access.
+- `grant` and `revoke` must be arrays of unique permission codes.
+- Reject permissions appearing in both lists.
+- Reject unsupported permission codes.
+- Reject a request where both lists are empty.
+- Do not accept `organization_id` from the payload.
 
-The mutation should conceptually remain:
+## Tenant Isolation
 
-1. begin transaction;
-2. serialize administrative-access mutation for the Organization;
-3. load and authorize;
-4. perform the domain mutation;
-5. persist the mutation;
-6. verify the post-mutation administrative-access invariant;
-7. record Outbox and Audit;
-8. commit.
-
-If the invariant fails, the entire transaction must roll back.
+- Cross-Organization Role mutation must return the existing tenant-safe not-found behavior.
+- Permission evaluation and mutation must remain scoped to the resolved Organization.
+- A Role ID from another Organization must never be mutated.
 
 ## Tests
 
-Add focused coverage proving:
+Cover at minimum:
 
-- suspending the final administrative Membership is rejected;
-- removing the final administrative Membership is rejected;
-- revoking the final administrative RoleAssignment is rejected;
-- the same operations succeed when another qualifying administrator remains;
-- a Role name alone does not satisfy the invariant;
-- an inactive Membership does not satisfy the invariant;
-- a revoked RoleAssignment does not satisfy the invariant;
-- a revoked `organization.member.manage` grant does not satisfy the invariant;
-- cross-Organization identities do not satisfy the invariant;
-- concurrent administrative-access-reducing mutations cannot both remove the final recovery path.
+- authorized grant succeeds;
+- authorized revoke succeeds;
+- revoked permission can be re-granted;
+- unknown permission is rejected;
+- overlapping grant/revoke is rejected;
+- empty mutation is rejected;
+- cross-Organization Role is rejected;
+- unauthorized actor is rejected;
+- revoking `organization.member.manage` succeeds when another administrative identity remains;
+- revoking the final administrative-recovery capability is rejected and rolled back;
+- successful mutation writes `role.permissions_updated`, Outbox, and Audit;
+- failed invariant validation writes neither mutation, Outbox, nor Audit.
 
 ## Documentation
 
-Record the invariant concisely in the existing canonical IdentityAccess/security documentation.
+Document the API endpoint and request/response contract in the appropriate existing API documentation.
 
-Keep business ownership semantics separate:
-
-- this task protects administrative recovery capability;
-- it does not introduce ownership transfer or a special last-owner Role rule.
+Do not create unnecessary new documentation files.
 
 ## Excluded
 
 Do not add:
 
-- Role-permission management endpoints.
-- ownership transfer.
-- special `organization_owner` restrictions.
-- new Roles.
-- new Permission codes.
+- custom Role CRUD.
+- Role listing.
+- Permission listing.
+- additional default Roles.
+- new permission codes.
+- ownership-transfer semantics.
 - Organization reactivation.
-- unrelated lifecycle changes.
+- unrelated IdentityAccess operations.
 
 ## Verification
 
@@ -109,12 +111,13 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 
 Return only:
 
-- invariant implementation
-- locking strategy
-- handlers retrofitted
-- rejection semantics
+- endpoint
+- authorization permission
+- grant/revoke semantics
+- invariant behavior
+- tenant-isolation behavior
 - files changed
-- concurrency coverage
+- event/audit behavior
 - tests
 - blockers
 
