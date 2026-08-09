@@ -29,7 +29,6 @@ A Project groups related Applications, Environments, operational data, and acces
 Supported statuses:
 
 * `active`
-* `suspended`
 * `archived`
 
 ---
@@ -42,8 +41,6 @@ Supported statuses:
 | `POST`  | `/organizations/{organization_id}/projects`                         | Create a Project     |
 | `GET`   | `/organizations/{organization_id}/projects/{project_id}`            | Read a Project       |
 | `PATCH` | `/organizations/{organization_id}/projects/{project_id}`            | Update a Project     |
-| `POST`  | `/organizations/{organization_id}/projects/{project_id}/suspend`    | Suspend a Project    |
-| `POST`  | `/organizations/{organization_id}/projects/{project_id}/reactivate` | Reactivate a Project |
 | `POST`  | `/organizations/{organization_id}/projects/{project_id}/archive`    | Archive a Project    |
 
 ---
@@ -85,13 +82,19 @@ Request:
 }
 ```
 
+The caller must have an active Organization Membership, a resolved Tenant Context, and `project.create` permission.
+
 Response:
 
 ```http
 201 Created
 ```
 
-The Project belongs to the Organization in the route.
+The Project belongs to the resolved Organization context. The server assigns its UUIDv7 identifier, active status, creator identity, timestamps, version `1`, and `archived_at = null`; creation does not use `If-Match`.
+
+Idempotency is scoped by Organization, acting identity, operation, key, and normalized request hash. A matching retry returns the original result; reuse with a different request returns `409 Conflict`.
+
+Successful creation publishes `project.created`, records its Outbox message transactionally, and records Audit action `project.create`.
 
 ---
 
@@ -131,51 +134,6 @@ Slug changes should be restricted or handled through a dedicated command.
 
 ---
 
-## Suspend Project
-
-```http
-POST /api/v1/organizations/{organization_id}/projects/{project_id}/suspend
-If-Match: "2"
-```
-
-Request:
-
-```json
-{
-  "reason": "Project temporarily inactive"
-}
-```
-
-Suspension may prevent:
-
-* New ingestion.
-* new Agent or Plugin executions.
-* new Workflow execution.
-* configuration changes.
-
-Historical data remains available according to authorization and retention rules.
-
----
-
-## Reactivate Project
-
-```http
-POST /api/v1/organizations/{organization_id}/projects/{project_id}/reactivate
-If-Match: "3"
-```
-
-Request:
-
-```json
-{
-  "reason": "Project restored"
-}
-```
-
-Reactivation requires the Organization to be Active.
-
----
-
 ## Archive Project
 
 ```http
@@ -202,8 +160,6 @@ Typical permissions:
 project.read
 project.create
 project.update
-project.suspend
-project.reactivate
 project.archive
 ```
 
@@ -218,9 +174,7 @@ Common errors:
 ```text
 project.not_found
 project.slug_conflict
-project.suspended
 project.archived
-project.has_active_dependencies
 organization.suspended
 authorization.denied
 concurrency.version_conflict
@@ -233,7 +187,7 @@ concurrency.version_conflict
 * Every Project belongs to exactly one Organization.
 * Project lookup always includes Organization scope.
 * Project slugs are unique within the Organization.
-* Suspended or Archived Projects cannot accept normal new activity.
+* Projects are created active; only active Projects may be archived in the MVP.
 * Archival preserves historical data.
 * Lifecycle changes use optimistic concurrency.
 * Creation uses idempotency.

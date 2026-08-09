@@ -296,7 +296,6 @@ Represents one operational grouping within an Organization.
 | `slug`                   | VARCHAR     | Required    |
 | `description`            | TEXT        | Optional    |
 | `status`                 | VARCHAR     | Required    |
-| `criticality`            | VARCHAR     | Required    |
 | `created_by_identity_id` | UUID        | Required    |
 | `created_at`             | TIMESTAMPTZ | Required    |
 | `updated_at`             | TIMESTAMPTZ | Required    |
@@ -306,22 +305,13 @@ Represents one operational grouping within an Organization.
 Supported status values:
 
 * `active`
-* `suspended`
 * `archived`
-
-Supported criticality values:
-
-* `critical`
-* `high`
-* `medium`
-* `low`
 
 Constraints:
 
 ```text
 UNIQUE (organization_id, id)
 UNIQUE (organization_id, slug)
-UNIQUE (organization_id, name)
 ```
 
 A Project must always belong to one Organization.
@@ -335,16 +325,10 @@ Active
 
 ↓
 
-Suspended
-
-↓
-
 Archived
 ```
 
-A Suspended Project may return to Active.
-
-An Archived Project should not return to Active without an explicit restoration process.
+Projects are created `active`. The only supported MVP transition is `active` → `archived`.
 
 Archiving a Project must not delete its Applications, Environments, Events, Alerts, Incidents, or history.
 
@@ -403,6 +387,8 @@ PRIMARY KEY (organization_id, project_id)
 ```
 
 Project settings must not weaken mandatory Organization or platform restrictions.
+
+Project settings are a separate capability and are not created with the first Project slice.
 
 ---
 
@@ -717,17 +703,9 @@ The Organization record remains the owner of all existing data.
 
 ---
 
-## Project Suspension
+## Deferred Project Lifecycle Capabilities
 
-Suspending a Project may restrict:
-
-* New Applications.
-* configuration changes.
-* selected API operations.
-* Agent or Plugin operations.
-* new Workflow starts.
-
-Existing operational evidence and authorized Incident response should remain accessible according to Policy.
+Project suspension, reactivation, restricted, provisioning, deletion, and restoration are deferred beyond the MVP Project lifecycle.
 
 ---
 
@@ -779,7 +757,6 @@ organization_domains (organization_id, status)
 organization_lifecycle_history (organization_id, changed_at)
 
 projects (organization_id, status)
-projects (organization_id, criticality)
 projects (organization_id, created_at)
 
 project_owners (organization_id, project_id, removed_at)
@@ -828,7 +805,6 @@ Auditable operations include:
 * Organization suspension.
 * Organization deletion request.
 * Project creation.
-* Project suspension.
 * Project archival.
 * ownership changes.
 * Project Membership changes.
@@ -848,7 +824,7 @@ Domain history remains in the Organization and Project schema.
 * Organization ownership must not change.
 * Project ownership must not change between Organizations.
 * Organization slugs are globally unique.
-* Project names and slugs are unique within an Organization.
+* Project slugs are unique within an Organization.
 * Child Resources must belong to the same Organization as their Project.
 * Every active Project should have an accountable owner.
 * Project access records must reference Memberships or Teams from the same Organization.

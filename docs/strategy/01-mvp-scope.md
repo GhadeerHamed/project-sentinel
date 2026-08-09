@@ -205,9 +205,11 @@ The MVP is successful when it can:
 
 ---
 
-## 9. Implementation Order
+## 9. Strategic Product Sequence
 
-### Milestone 1 — Foundation
+This sequence describes product-value delivery. It does not define repository implementation milestones; those are canonical in `docs/implementation/00-implementation-plan.md`, where Milestone 4 is Project and Application Registry.
+
+### Stage 1 — Foundation
 
 * Laravel project setup;
 * authentication;
@@ -215,7 +217,7 @@ The MVP is successful when it can:
 * application management;
 * environment management.
 
-### Milestone 2 — Ingestion
+### Stage 2 — Ingestion
 
 * event API;
 * signed requests;
@@ -223,21 +225,21 @@ The MVP is successful when it can:
 * exception ingestion;
 * failed-job ingestion.
 
-### Milestone 3 — Grouping
+### Stage 3 — Grouping
 
 * fingerprints;
 * duplicate handling;
 * error groups;
 * occurrence counters.
 
-### Milestone 4 — Deployments
+### Stage 4 — Deployments
 
 * deployment model;
 * deployment webhook;
 * release association;
 * incident deployment evidence.
 
-### Milestone 5 — Incidents
+### Stage 5 — Incidents
 
 * incident creation;
 * timeline;
@@ -245,14 +247,14 @@ The MVP is successful when it can:
 * evidence display;
 * cause and resolution recording.
 
-### Milestone 6 — Investigation
+### Stage 6 — Investigation
 
 * deterministic investigation rules;
 * probable-cause summary;
 * confidence;
 * recommended next steps.
 
-### Milestone 7 — Validation
+### Stage 7 — Validation
 
 * install Sentinel on a real Laravel application;
 * process real errors;

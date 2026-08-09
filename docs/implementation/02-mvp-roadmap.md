@@ -331,7 +331,24 @@ Application, Worker, and scheduler run locally.
 
 ---
 
-### Milestone 2 — Secure Tenant Foundation
+### Milestone 2 — Shared Platform Foundation
+
+Deliver:
+
+* Shared Kernel identifiers and time abstractions.
+* correlation and causation identifiers.
+* Tenant Context.
+* transaction, optimistic-concurrency, Outbox, and Audit foundations.
+
+Success:
+
+```text
+Protected operations use framework-independent shared platform primitives.
+```
+
+---
+
+### Milestone 3 — Secure Tenant Foundation
 
 Deliver:
 
@@ -350,7 +367,7 @@ Two Organizations cannot access each other’s Resources.
 
 ---
 
-### Milestone 3 — Application Registry
+### Milestone 4 — Project and Application Registry
 
 Deliver:
 
@@ -368,7 +385,7 @@ An Organization can register the systems it operates.
 
 ---
 
-### Milestone 4 — Telemetry Intake
+### Milestone 5 — Telemetry Intake
 
 Deliver:
 
@@ -387,7 +404,7 @@ A real application can send trusted Events to Sentinel.
 
 ---
 
-### Milestone 5 — Alerting
+### Milestone 6 — Alerting
 
 Deliver:
 
@@ -405,7 +422,7 @@ Operational Events produce actionable, non-duplicated Alerts.
 
 ---
 
-### Milestone 6 — Incident Response
+### Milestone 7 — Incident Response
 
 Deliver:
 
@@ -423,7 +440,7 @@ Operators can coordinate and document a complete response.
 
 ---
 
-### Milestone 7 — Notifications
+### Milestone 8 — Notifications
 
 Deliver:
 
@@ -441,7 +458,7 @@ Relevant operators receive Alert and Incident updates.
 
 ---
 
-### Milestone 8 — Internal Production Release
+### Milestone 9 — Internal Production Release
 
 Deliver:
 

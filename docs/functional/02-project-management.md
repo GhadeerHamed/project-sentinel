@@ -132,7 +132,7 @@ Project identity includes:
 - unique project identifier
 - owning organization
 - project name
-- project key
+- project slug
 - operational status
 - creation timestamp
 
@@ -142,23 +142,23 @@ Display names may change without affecting identity.
 
 ---
 
-# Project Key
+# Project Slug
 
-Each project has a human-readable project key.
+Each project has a human-readable slug.
 
 Examples include:
 
-- OPS
-- CORE
-- API
-- PAYMENTS
-- PLATFORM
+- operations
+- core-platform
+- api-services
+- payments
+- internal-platform
 
-Project keys simplify operational communication.
+Slugs simplify operational communication and URLs.
 
-Keys must remain unique within an organization.
+Slugs must remain unique within an organization.
 
-Changing a project key should be a controlled administrative action.
+Changing a Project slug should be a controlled administrative action.
 
 Historical references should remain resolvable.
 
@@ -329,11 +329,11 @@ The Project domain enforces the following rules:
 
 - Every project belongs to one organization.
 - Project identifiers are immutable.
-- Project keys are unique within an organization.
+- Project slugs are unique within an organization.
 - Projects own operational resources.
 - Resources belong to exactly one project.
 - Cross-tenant ownership is prohibited.
-- Project deletion follows lifecycle policies.
+- Projects are archived rather than deleted in the MVP.
 - Historical operational records remain auditable.
 
 ---
@@ -363,14 +363,8 @@ These domains reference projects but do not control project lifecycle.
 
 Representative events include:
 
-- ProjectCreated
-- ProjectRenamed
-- ProjectActivated
-- ProjectArchived
-- ProjectDeleted
-- ProjectOwnershipTransferred
-- ProjectClassificationChanged
-- ProjectConfigurationUpdated
+- `project.created`
+- `project.archived`
 
 These events allow dependent bounded contexts to react without introducing direct coupling.
 
@@ -397,353 +391,15 @@ The Project Management domain follows these principles.
 
 # Project Lifecycle
 
-## Purpose
+Projects are created `active`. The sole supported MVP transition is:
 
-The project lifecycle defines how projects evolve throughout their operational existence.
+```text
+active → archived
+```
 
-Lifecycle management ensures that projects transition through controlled business states while preserving ownership, auditability, operational continuity, and historical integrity.
+Archiving preserves Applications and historical operational records while preventing normal creation of child Resources. The transition is authorized, optimistic-concurrency controlled, audited, and event-producing.
 
-Lifecycle state represents the business status of a project and must not be confused with the runtime health of the systems monitored by the project.
-
----
-
-# Lifecycle Objectives
-
-The project lifecycle must:
-
-- provide predictable operational states
-- support controlled provisioning
-- preserve historical operational data
-- prevent accidental destruction
-- enable long-lived operational ownership
-- support business continuity
-- allow temporary operational restrictions
-- remain fully auditable
-- integrate consistently with dependent domains
-
----
-
-# Lifecycle States
-
-Every project exists in exactly one lifecycle state.
-
-The supported states are:
-
-- Provisioning
-- Active
-- Restricted
-- Suspended
-- Archived
-- Pending Deletion
-- Deleted
-
-Each transition must be explicit and recorded in the audit history.
-
----
-
-## Provisioning
-
-Provisioning begins immediately after project creation.
-
-During provisioning, the platform prepares the project for operational use.
-
-Typical provisioning activities include:
-
-- assigning the project identifier
-- validating project ownership
-- allocating project configuration
-- applying inherited organization policies
-- creating default administrative structures
-- initializing audit history
-- preparing operational storage
-- publishing lifecycle events
-
-The project must not become operational until provisioning completes successfully.
-
----
-
-## Active
-
-Active projects operate normally.
-
-Active projects may:
-
-- receive telemetry
-- create applications
-- manage environments
-- execute workflows
-- create incidents
-- generate alerts
-- install plugins
-- execute AI agents
-- manage knowledge
-- expose APIs
-
-This is the normal operating state.
-
----
-
-## Restricted
-
-Restricted projects remain operational but one or more capabilities are intentionally limited.
-
-Restrictions may result from:
-
-- administrative decisions
-- compliance requirements
-- security investigations
-- licensing constraints
-- organizational policies
-
-Restrictions should be as targeted as possible.
-
-Operational continuity should be preserved whenever practical.
-
----
-
-## Suspended
-
-Suspended projects temporarily stop operational processing.
-
-Typical effects include:
-
-- event ingestion paused
-- workflow execution paused
-- scheduled jobs paused
-- plugin execution paused
-- AI execution paused
-- notification generation paused
-
-Historical information remains accessible according to authorization policies.
-
-Suspension should never remove existing operational data.
-
----
-
-## Archived
-
-Archived projects become read-only.
-
-Characteristics include:
-
-- operational history preserved
-- incidents preserved
-- evidence preserved
-- audit history preserved
-- knowledge preserved
-- automation definitions preserved
-
-Archived projects do not process new operational activity.
-
-Archiving is intended for completed or retired operational workloads.
-
----
-
-## Pending Deletion
-
-Pending deletion protects against accidental project removal.
-
-During this phase:
-
-- destructive operations are blocked
-- restoration remains possible
-- administrators receive notifications
-- retention policies are evaluated
-- dependency validation occurs
-
-Pending deletion duration is governed by organizational policy.
-
----
-
-## Deleted
-
-Deletion permanently removes project-owned resources according to applicable retention policies.
-
-Deletion must:
-
-- follow regulatory requirements
-- respect contractual obligations
-- preserve legally required records
-- generate immutable audit entries
-
-Deletion is irreversible once finalized.
-
----
-
-# State Transition Rules
-
-Lifecycle transitions must follow approved business rules.
-
-Examples include:
-
-- Provisioning → Active
-- Active → Restricted
-- Restricted → Active
-- Active → Suspended
-- Suspended → Active
-- Active → Archived
-- Archived → Active (if restoration is permitted)
-- Archived → Pending Deletion
-- Pending Deletion → Deleted
-
-Invalid transitions must be rejected.
-
----
-
-# Lifecycle Validation
-
-Before a state transition occurs, the platform validates:
-
-- organizational ownership
-- administrative authority
-- subscription status
-- policy compliance
-- dependency constraints
-- legal restrictions
-- retention requirements
-
-State transitions must fail atomically if validation is unsuccessful.
-
----
-
-# Dependency Evaluation
-
-Projects own numerous operational resources.
-
-Before destructive lifecycle transitions, dependent resources must be evaluated.
-
-Examples include:
-
-- applications
-- environments
-- integrations
-- workflows
-- incidents
-- alerts
-- knowledge articles
-- AI agents
-- plugins
-- scheduled jobs
-
-Dependencies determine whether additional administrative action is required before the transition proceeds.
-
----
-
-# Operational Continuity
-
-Lifecycle transitions should minimize operational disruption.
-
-Examples include:
-
-- graceful workflow shutdown
-- notification of administrators
-- scheduled transition windows
-- staged processing suspension
-- deferred deletion
-
-Business continuity should be prioritized whenever possible.
-
----
-
-# Restoration
-
-Archived or suspended projects may be restored when permitted by organizational policy.
-
-Restoration should:
-
-- preserve identifiers
-- preserve ownership
-- preserve audit history
-- preserve operational history
-- reactivate supported capabilities
-
-Restoration must not create duplicate business entities.
-
----
-
-# Data Preservation
-
-Lifecycle transitions never modify historical operational records.
-
-Historical records include:
-
-- events
-- alerts
-- incidents
-- evidence
-- knowledge
-- audit records
-- workflow history
-
-Lifecycle state affects future operations, not historical truth.
-
----
-
-# Administrative Notifications
-
-Significant lifecycle changes should notify appropriate stakeholders.
-
-Examples include:
-
-- project activation
-- suspension
-- archival
-- deletion request
-- restoration
-- permanent deletion
-
-Notification policies determine recipients and delivery mechanisms.
-
----
-
-# Auditing
-
-Every lifecycle transition generates immutable audit records.
-
-Typical audit information includes:
-
-- previous state
-- new state
-- initiating actor
-- timestamp
-- business justification
-- affected project
-- policy references when applicable
-
-Audit history provides complete traceability of project evolution.
-
----
-
-# Domain Events
-
-Representative lifecycle events include:
-
-- ProjectProvisioned
-- ProjectActivated
-- ProjectRestricted
-- ProjectSuspended
-- ProjectRestored
-- ProjectArchived
-- ProjectDeletionRequested
-- ProjectDeleted
-
-Dependent bounded contexts subscribe to these events to maintain consistent operational behavior.
-
----
-
-# Architectural Principles
-
-The project lifecycle follows these principles.
-
-- Lifecycle states represent business conditions.
-- State transitions are explicit.
-- Historical information is immutable.
-- Operational continuity is prioritized.
-- Destructive actions require validation.
-- Lifecycle changes are fully auditable.
-- Restoration preserves business identity.
-- Dependent domains react through events.
-- Lifecycle management remains independent of implementation technology.
+The first Project slice publishes `project.created` on creation and `project.archived` on archival. Project suspension, reactivation, restricted, provisioning, deletion, and restoration are deferred beyond the MVP lifecycle.
 
 # Part 3 — Project Governance & Administration
 

@@ -65,7 +65,7 @@ name
 slug
 description
 status
-settings
+created_by_identity_id
 created_at
 updated_at
 archived_at
@@ -78,22 +78,21 @@ The Project slug is unique within its Organization.
 
 ---
 
-## Lifecycle
+## MVP Lifecycle
 
-Suggested states:
+Projects are created with the following status:
 
 ```text
 active
-archived
 ```
 
-Possible transition:
+The supported MVP transition is:
 
 ```text
 active → archived
 ```
 
-Project restoration may be introduced later through an explicit recovery policy.
+Suspension, reactivation, restricted, provisioning, deletion, and restoration states are deferred.
 
 ---
 
@@ -139,6 +138,19 @@ ArchiveProject
 ```
 
 Commands require Organization context and optimistic concurrency where applicable.
+
+## Create Project
+
+The first Project slice creates an active Project through `CreateProject`.
+
+It requires:
+
+* an authenticated active Organization Membership and resolved Tenant Context;
+* the `project.create` permission;
+* `name`, `slug`, and an optional `description`;
+* an `Idempotency-Key` scoped by Organization, acting identity, operation, key, and normalized request hash.
+
+The server owns the Organization reference, UUIDv7 identifier, active status, creator identity, timestamps, version `1`, and `archived_at = null`. Creation does not use an expected version. The operation must atomically publish `project.created`, record the Outbox message, and record Audit action `project.create`.
 
 ---
 
@@ -208,7 +220,6 @@ Project creation requires:
 * Existing Organization.
 * Active Organization status.
 * authorized identity.
-* available Organization plan capacity.
 
 A Project cannot move between Organizations.
 
@@ -230,6 +241,8 @@ The Project module must not write Application state.
 ---
 
 ## Settings
+
+Project settings are a separate capability and are not part of Project creation.
 
 Project settings may define defaults such as:
 

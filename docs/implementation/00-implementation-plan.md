@@ -125,9 +125,9 @@ Business development should not begin on an unstable foundation.
 
 ---
 
-## Implementation Phases
+## Implementation Milestones
 
-## Phase 1 — Repository Foundation
+## Milestone 1 — Repository Foundation
 
 Deliver:
 
@@ -151,7 +151,7 @@ Exit criteria:
 
 ---
 
-## Phase 2 — Shared Platform Foundation
+## Milestone 2 — Shared Platform Foundation
 
 Deliver:
 
@@ -175,7 +175,7 @@ Exit criteria:
 
 ---
 
-## Phase 3 — Identity and Organization
+## Milestone 3 — Identity and Organization
 
 Deliver:
 
@@ -199,7 +199,7 @@ Exit criteria:
 
 ---
 
-## Phase 4 — Project and Application Registry
+## Milestone 4 — Project and Application Registry
 
 Deliver:
 
@@ -220,7 +220,7 @@ Exit criteria:
 
 ---
 
-## Phase 5 — Event Ingestion
+## Milestone 5 — Event Ingestion
 
 Deliver:
 
@@ -243,7 +243,7 @@ Exit criteria:
 
 ---
 
-## Phase 6 — Alert Management
+## Milestone 6 — Alert Management
 
 Deliver:
 
@@ -266,7 +266,7 @@ Exit criteria:
 
 ---
 
-## Phase 7 — Incident Management
+## Milestone 7 — Incident Management
 
 Deliver:
 
@@ -288,7 +288,7 @@ Exit criteria:
 
 ---
 
-## Phase 8 — Notifications
+## Milestone 8 — Notifications
 
 Deliver:
 
@@ -310,7 +310,7 @@ Exit criteria:
 
 ---
 
-## Phase 9 — Search and Operational UI
+## Milestone 9 — Search and Operational UI
 
 Deliver:
 
@@ -330,7 +330,7 @@ Exit criteria:
 
 ---
 
-## Phase 10 — Knowledge
+## Milestone 10 — Knowledge
 
 Deliver:
 
@@ -348,7 +348,7 @@ Exit criteria:
 
 ---
 
-## Phase 11 — Plugins
+## Milestone 11 — Plugins
 
 Deliver:
 
@@ -369,7 +369,7 @@ Exit criteria:
 
 ---
 
-## Phase 12 — Agents and Workflows
+## Milestone 12 — Agents and Workflows
 
 Deliver:
 
@@ -392,7 +392,7 @@ Exit criteria:
 
 ## Vertical Slice Rule
 
-Each phase should deliver a complete vertical slice:
+Each milestone should deliver a complete vertical slice:
 
 ```text
 Migration

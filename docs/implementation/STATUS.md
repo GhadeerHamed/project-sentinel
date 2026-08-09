@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-**Milestone 3 — Identity and Organization**
+**Milestone 4 — Project and Application Registry**
 
 ## Completed Capabilities
 
@@ -59,18 +59,33 @@
 - [x] Bootstrap the built-in `organization_owner` Role with the current Core administrative permissions during Organization creation.
 - [x] Administrative-access protection invariant preserving an active human identity with effective `organization.member.manage`, including PostgreSQL Organization-row serialization for access-reducing Membership and Role-assignment mutations.
 - [x] Update Role Permissions vertical slice with Core-catalog validation, tenant-scoped authorization, soft grant revocation/restoration, administrative-recovery protection, Outbox, Audit, and authenticated HTTP API.
+- [x] Milestone 3 completion review completed; Organization reactivation explicitly deferred because it is not required by the MVP scope.
+- [x] Project Registry documentation reconciliation with canonical Milestone 4 naming, Project fields, MVP lifecycle, and Create Project contract.
+
+## Milestone 3 Deferred
+
+- [ ] Organization reactivation (`suspended` → `active`) — documented complete-platform capability, deferred beyond MVP Milestone 3.
+- [ ] Ownership transfer / distinct business-ownership invariant — deferred.
+- [ ] Custom Role CRUD and broader Role/Permission listing — deferred.
+
+## Current Milestone
+
+**Milestone 4 — Project and Application Registry**
 
 ## In Progress
 
-- [ ] Decide whether Organization reactivation is required in Milestone 3.
+- [ ] Create Project vertical slice.
 
-## Remaining Milestone 3
+## Remaining Milestone 4
 
-- [ ] No additional implementation capability is scheduled pending the Organization-reactivation decision.
+- [ ] Project retrieval/listing required by MVP.
+- [ ] Project archive lifecycle.
+- [ ] Application Registry capabilities.
+- [ ] Environment Registry capabilities.
 
 ## Next Recommended Task
 
-Decide whether Organization reactivation is required in Milestone 3.
+Implement the Create Project vertical slice using the approved canonical Project contract, tenant-scoped authorization, idempotency, persistence, Outbox, Audit, and authenticated HTTP endpoint.
 
 ## Status Update Rules
 
