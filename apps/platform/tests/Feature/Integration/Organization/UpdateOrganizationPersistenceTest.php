@@ -35,7 +35,7 @@ final class UpdateOrganizationPersistenceTest extends TestCase
         foreach ([$organizationId, $otherOrganizationId] as $id) {
             DB::table('organizations')->insert(['id' => $id, 'name' => 'Organization', 'slug' => 'organization-'.$id, 'created_by_identity_id' => $identityId, 'status' => 'active', 'version' => 1, 'timezone' => 'UTC', 'created_at' => $now, 'updated_at' => $now]);
         }
-        DB::table('permissions')->insert(['id' => $permissionId, 'code' => 'organization.update', 'capability' => 'organization', 'action' => 'update', 'description' => 'Update organization profiles.', 'risk_level' => 'medium', 'created_at' => $now]);
+        $permissionId = $this->insertPermission($permissionId, $now);
         foreach ([[$organizationId, $roleId], [$otherOrganizationId, $otherRoleId]] as [$organization, $role]) {
             DB::table('organization_roles')->insert(['id' => $role, 'organization_id' => $organization, 'role_key' => 'operator-'.$role, 'created_at' => $now, 'updated_at' => $now]);
             DB::table('role_assignments')->insert(['id' => $this->uuid(), 'organization_id' => $organization, 'identity_id' => $identityId, 'role_id' => $role, 'assigned_by_identity_id' => $identityId, 'assigned_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
@@ -59,7 +59,7 @@ final class UpdateOrganizationPersistenceTest extends TestCase
         $this->insertOrganization($organizationId, $identityId, $now);
         $this->insertOrganization($otherOrganizationId, $identityId, $now);
         $this->insertRole($otherOrganizationId, $roleId, $now);
-        $this->insertPermission($permissionId, $now);
+        $permissionId = $this->insertPermission($permissionId, $now);
         DB::table('role_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId, 'granted_at' => $now, 'granted_by_identity_id' => $identityId]);
         $repository = new PgsqlPermissionAssignmentRepository;
 
@@ -120,7 +120,7 @@ final class UpdateOrganizationPersistenceTest extends TestCase
         $revokedAt = new DateTimeImmutable('2026-08-07T01:00:00+00:00');
         $this->insertOrganization($organizationId, $identityId, $now);
         $this->insertRole($organizationId, $roleId, $now);
-        $this->insertPermission($permissionId, $now);
+        $permissionId = $this->insertPermission($permissionId, $now);
         DB::table('role_assignments')->insert(['id' => $this->uuid(), 'organization_id' => $organizationId, 'identity_id' => $identityId, 'role_id' => $roleId, 'assigned_by_identity_id' => $identityId, 'assigned_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
         $repository = new PgsqlPermissionAssignmentRepository;
         $organization = OrganizationId::fromString($organizationId);
@@ -148,9 +148,25 @@ final class UpdateOrganizationPersistenceTest extends TestCase
         DB::table('organization_roles')->insert(['id' => $roleId, 'organization_id' => $organizationId, 'role_key' => 'operator-'.$roleId, 'created_at' => $now, 'updated_at' => $now]);
     }
 
-    private function insertPermission(string $permissionId, DateTimeImmutable $now): void
+    private function insertPermission(string $permissionId, DateTimeImmutable $now): string
     {
-        DB::table('permissions')->insert(['id' => $permissionId, 'code' => 'organization.update', 'capability' => 'organization', 'action' => 'update', 'description' => 'Update organization profiles.', 'risk_level' => 'medium', 'created_at' => $now]);
+        DB::table('permissions')->insertOrIgnore([
+            'id' => $permissionId,
+            'code' => 'organization.update',
+            'capability' => 'organization',
+            'action' => 'update',
+            'description' => 'Update organization profiles.',
+            'risk_level' => 'medium',
+            'created_at' => $now,
+        ]);
+
+        $resolvedPermissionId = DB::table('permissions')->where('code', 'organization.update')->value('id');
+
+        if (! is_string($resolvedPermissionId)) {
+            throw new \RuntimeException('The organization update permission could not be resolved.');
+        }
+
+        return $resolvedPermissionId;
     }
 
     private function uuid(): string

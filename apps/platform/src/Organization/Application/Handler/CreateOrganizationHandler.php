@@ -7,9 +7,11 @@ namespace Sentinel\Organization\Application\Handler;
 use Sentinel\IdentityAccess\Domain\Entity\Membership;
 use Sentinel\IdentityAccess\Domain\Entity\RoleAssignment;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
+use Sentinel\IdentityAccess\Domain\Repository\PermissionAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleProvisioningRepository;
 use Sentinel\IdentityAccess\Domain\Repository\UserRepository;
+use Sentinel\IdentityAccess\Domain\ValueObject\CorePermissions;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleKey;
 use Sentinel\Organization\Application\Command\CreateOrganizationCommand;
 use Sentinel\Organization\Application\Policy\OrganizationCreationPolicy;
@@ -38,6 +40,7 @@ final readonly class CreateOrganizationHandler
         private MembershipRepository $membershipRepository,
         private RoleAssignmentRepository $roleAssignmentRepository,
         private RoleProvisioningRepository $roleProvisioningRepository,
+        private PermissionAssignmentRepository $permissionAssignmentRepository,
         private OrganizationCreationPolicy $organizationCreationPolicy,
         private UuidV7Generator $uuidGenerator,
         private Clock $clock,
@@ -114,6 +117,20 @@ final readonly class CreateOrganizationHandler
                 $organization->id(),
                 RoleKey::organizationOwner(),
             );
+
+            foreach ([
+                CorePermissions::manageOrganizationMembers(),
+                CorePermissions::updateOrganization(),
+                CorePermissions::suspendOrganization(),
+            ] as $permission) {
+                $this->permissionAssignmentRepository->assignToRole(
+                    organizationId: $organization->id(),
+                    roleId: $ownerRoleId,
+                    permissionCode: $permission,
+                    grantedBy: IdentityId::fromString($creator->identityId()),
+                    grantedAt: $now,
+                );
+            }
 
             $roleAssignment = RoleAssignment::assign(
                 id: $roleAssignmentId,

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature\Integration\Organization;
 
 use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
+use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMayUpdateOrganizationPolicy;
 use App\Infrastructure\Persistence\IdentityAccess\Records\IdentityUserRecord;
 use App\Infrastructure\Persistence\IdentityAccess\Records\OrganizationRoleRecord;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
+use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlPermissionAssignmentRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlRoleAssignmentRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlRoleProvisioningRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlUserRepository;
@@ -20,6 +22,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
+use Sentinel\IdentityAccess\Application\Authorization\OrganizationPermissionAuthorizer;
 use Sentinel\IdentityAccess\Domain\Entity\Membership;
 use Sentinel\IdentityAccess\Domain\Entity\RoleAssignment;
 use Sentinel\IdentityAccess\Domain\Exception\CrossOrganizationAssignment;
@@ -39,6 +42,7 @@ use Sentinel\Shared\Domain\Identity\IdentityId;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 use Sentinel\Shared\Domain\Outbox\OutboxMessage;
 use Sentinel\Shared\Domain\Outbox\OutboxMessageStore;
+use Sentinel\Shared\Domain\Tenant\TenantContext;
 use Sentinel\Shared\Domain\Time\Clock;
 use Tests\TestCase;
 
@@ -110,6 +114,41 @@ final class CreateOrganizationPersistenceTest extends TestCase
             ['organization.create', 'membership.create', 'role.assign'],
             DB::table('audit_records')->orderBy('recorded_at')->pluck('action')->all(),
         );
+    }
+
+    #[Test]
+    public function it_bootstraps_effective_core_permissions_for_the_founding_owner(): void
+    {
+        $this->seedCreator(self::CREATOR_ID);
+        $fixture = $this->buildHandler();
+
+        $fixture->handler->handle($fixture->command);
+
+        $permissions = new PgsqlPermissionAssignmentRepository;
+        $effectivePermissions = $permissions->permissionsForIdentity(
+            OrganizationId::fromString(self::ORGANIZATION_ID),
+            IdentityId::fromString(self::CREATOR_ID),
+            $this->now(),
+        );
+
+        self::assertSame(
+            ['organization.member.manage', 'organization.suspend', 'organization.update'],
+            array_map(static fn ($permission): string => $permission->value(), $effectivePermissions),
+        );
+
+        $authorizer = new OrganizationPermissionAuthorizer(
+            new PgsqlMembershipRepository,
+            $permissions,
+            new FrozenClock($this->now()),
+        );
+        $policy = new ActiveMembershipWithPermissionMayUpdateOrganizationPolicy($authorizer);
+
+        self::assertTrue($policy->allows(TenantContext::fromValues(
+            organizationId: self::ORGANIZATION_ID,
+            identityId: self::CREATOR_ID,
+            identityType: 'user',
+            correlationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e06',
+        )));
     }
 
     #[Test]
@@ -381,6 +420,7 @@ final class CreateOrganizationPersistenceTest extends TestCase
             membershipRepository: $membershipRepository ?? new PgsqlMembershipRepository,
             roleAssignmentRepository: new PgsqlRoleAssignmentRepository,
             roleProvisioningRepository: new PgsqlRoleProvisioningRepository($uuidGenerator),
+            permissionAssignmentRepository: new PgsqlPermissionAssignmentRepository,
             organizationCreationPolicy: new ActiveHumanUserMayCreateOrganizationPolicy,
             uuidGenerator: $uuidGenerator,
             clock: new FrozenClock($this->now()),

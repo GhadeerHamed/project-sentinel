@@ -145,7 +145,21 @@ final class UpdateOrganizationEndpointTest extends TestCase
         $now = now();
         $roleId = $this->uuid();
         $permissionId = $this->uuid();
-        DB::table('permissions')->insert(['id' => $permissionId, 'code' => $permissionCode, 'capability' => 'organization', 'action' => 'update', 'description' => 'Update organization.', 'risk_level' => 'medium', 'created_at' => $now]);
+        DB::table('permissions')->insertOrIgnore([
+            'id' => $permissionId,
+            'code' => $permissionCode,
+            'capability' => 'organization',
+            'action' => 'update',
+            'description' => 'Update organization.',
+            'risk_level' => 'medium',
+            'created_at' => $now,
+        ]);
+        $permissionId = DB::table('permissions')->where('code', $permissionCode)->value('id');
+
+        if (! is_string($permissionId)) {
+            throw new \RuntimeException('The requested permission could not be resolved.');
+        }
+
         DB::table('organization_roles')->insert(['id' => $roleId, 'organization_id' => $organizationId, 'role_key' => 'operator-'.$roleId, 'created_at' => $now, 'updated_at' => $now]);
         DB::table('role_assignments')->insert(['id' => $this->uuid(), 'organization_id' => $organizationId, 'identity_id' => $identityId, 'role_id' => $roleId, 'assigned_by_identity_id' => $identityId, 'assigned_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
         DB::table('role_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId, 'granted_at' => $now, 'granted_by_identity_id' => $identityId]);

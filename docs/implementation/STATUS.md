@@ -55,20 +55,21 @@
 - [x] Assign Role vertical slice with tenant-scoped authorization, Organization-owned role and Membership validation, duplicate prevention, role-assigned event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Revoke Role vertical slice with tenant-scoped authorization, soft-revocation lifecycle, role-revoked event/Outbox, Audit, persistence, and authenticated HTTP endpoint.
 - [x] Suspend Organization vertical slice with tenant-scoped authorization, active-to-suspended lifecycle enforcement, optimistic concurrency, event/Outbox, Audit, persistence, and tenant-status enforcement.
-- [x] List Accessible Organizations vertical slice for authenticated Users, based on active Membership visibility, with suspended Organization status visibility and no TenantContext requirement.
+- [x] List Accessible Organizations vertical slice using an application read model and dedicated API resource, with active-Membership visibility, suspended Organization status visibility, optimized projection queries, and no TenantContext requirement.
+- [x] Bootstrap the built-in `organization_owner` Role with the current Core administrative permissions during Organization creation.
 
 ## In Progress
 
-- [ ] Complete the minimum required permission-assignment workflow.
+- [ ] Define the last-administrative-access protection invariant.
 
 ## Remaining Milestone 3
 
-- [ ] Resolve last-owner / administrative-access protection invariant.
+- [ ] Implement the minimum Role-permission management workflow.
 - [ ] Decide whether Organization reactivation is required in Milestone 3.
 
 ## Next Recommended Task
 
-Determine and implement the minimum canonical permission-assignment management workflow required to complete Milestone 3.
+Define the canonical invariant that prevents an Organization from losing all effective administrative access before implementing Role-permission mutation.
 
 ## Status Update Rules
 

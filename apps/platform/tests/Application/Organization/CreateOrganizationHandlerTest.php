@@ -12,12 +12,15 @@ use Sentinel\IdentityAccess\Domain\Entity\Membership;
 use Sentinel\IdentityAccess\Domain\Entity\RoleAssignment;
 use Sentinel\IdentityAccess\Domain\Entity\User;
 use Sentinel\IdentityAccess\Domain\Exception\MembershipNotFound;
+use Sentinel\IdentityAccess\Domain\Exception\RoleAssignmentNotFound;
 use Sentinel\IdentityAccess\Domain\Exception\UserNotFound;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
+use Sentinel\IdentityAccess\Domain\Repository\PermissionAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleProvisioningRepository;
 use Sentinel\IdentityAccess\Domain\Repository\UserRepository;
 use Sentinel\IdentityAccess\Domain\ValueObject\MembershipId;
+use Sentinel\IdentityAccess\Domain\ValueObject\PermissionCode;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleAssignmentId;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleId;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleKey;
@@ -61,6 +64,13 @@ final class CreateOrganizationHandlerTest extends TestCase
         self::assertCount(1, $fixture->organizationRepository->persisted());
         self::assertCount(1, $fixture->membershipRepository->persisted());
         self::assertCount(1, $fixture->roleAssignmentRepository->persisted());
+        self::assertSame(
+            ['organization.member.manage', 'organization.update', 'organization.suspend'],
+            array_map(
+                static fn (array $assignment): string => $assignment['permissionCode']->value(),
+                $fixture->permissionAssignmentRepository->persisted(),
+            ),
+        );
         self::assertSame('active', array_values($fixture->membershipRepository->persisted())[0]->status()->value);
         self::assertSame(1, array_values($fixture->membershipRepository->persisted())[0]->version()->value());
 
@@ -217,6 +227,27 @@ final class CreateOrganizationHandlerTest extends TestCase
     }
 
     #[Test]
+    public function permission_assignment_failure_rolls_back_entire_use_case(): void
+    {
+        $fixture = $this->fixture();
+        $fixture->permissionAssignmentRepository->failOnAssign = true;
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            $fixture->handler->handle($fixture->command);
+        } finally {
+            self::assertCount(0, $fixture->organizationRepository->persisted());
+            self::assertCount(0, $fixture->membershipRepository->persisted());
+            self::assertCount(0, $fixture->permissionAssignmentRepository->persisted());
+            self::assertCount(0, $fixture->roleAssignmentRepository->persisted());
+            self::assertCount(0, $fixture->outboxStore->persisted());
+            self::assertCount(0, $fixture->auditRecorder->persisted());
+            self::assertSame(1, $fixture->transactionManager->rollBackCount);
+        }
+    }
+
+    #[Test]
     public function outbox_failure_rolls_back_entire_use_case(): void
     {
         $fixture = $this->fixture();
@@ -343,12 +374,14 @@ final class CreateOrganizationHandlerTest extends TestCase
         $membershipRepository = new FakeMembershipRepository;
         $roleAssignmentRepository = new FakeRoleAssignmentRepository;
         $roleProvisioningRepository = new FakeRoleProvisioningRepository(RoleId::fromString('01890f7a-5b7c-7cc0-98c4-dc0c0c075099'));
+        $permissionAssignmentRepository = new FakePermissionAssignmentRepository;
         $outboxStore = new FakeOutboxMessageStore;
         $auditRecorder = new FakeAuditRecorder;
 
         $transactionManager->register($organizationRepository);
         $transactionManager->register($membershipRepository);
         $transactionManager->register($roleAssignmentRepository);
+        $transactionManager->register($permissionAssignmentRepository);
         $transactionManager->register($outboxStore);
         $transactionManager->register($auditRecorder);
 
@@ -358,6 +391,7 @@ final class CreateOrganizationHandlerTest extends TestCase
             membershipRepository: $membershipRepository,
             roleAssignmentRepository: $roleAssignmentRepository,
             roleProvisioningRepository: $roleProvisioningRepository,
+            permissionAssignmentRepository: $permissionAssignmentRepository,
             organizationCreationPolicy: $policy,
             uuidGenerator: $uuidGenerator,
             clock: $clock,
@@ -384,6 +418,7 @@ final class CreateOrganizationHandlerTest extends TestCase
             membershipRepository: $membershipRepository,
             roleAssignmentRepository: $roleAssignmentRepository,
             roleProvisioningRepository: $roleProvisioningRepository,
+            permissionAssignmentRepository: $permissionAssignmentRepository,
             outboxStore: $outboxStore,
             auditRecorder: $auditRecorder,
             policy: $policy,
@@ -402,6 +437,7 @@ final readonly class CreateOrganizationFixture
         public FakeMembershipRepository $membershipRepository,
         public FakeRoleAssignmentRepository $roleAssignmentRepository,
         public FakeRoleProvisioningRepository $roleProvisioningRepository,
+        public FakePermissionAssignmentRepository $permissionAssignmentRepository,
         public FakeOutboxMessageStore $outboxStore,
         public FakeAuditRecorder $auditRecorder,
         public FakeOrganizationCreationPolicy $policy,
@@ -593,6 +629,11 @@ final class FakeOrganizationRepository implements FakeTransactionalParticipant, 
         $this->pending[$id] = $organization;
     }
 
+    public function accessibleTo(IdentityId $identityId): array
+    {
+        return [];
+    }
+
     public function seed(Organization $organization): void
     {
         $this->persisted[$organization->id()->value()] = $organization;
@@ -725,6 +766,17 @@ final class FakeRoleAssignmentRepository implements FakeTransactionalParticipant
         $this->pending[$assignment->id()->value()] = $assignment;
     }
 
+    public function getById(RoleAssignmentId $assignmentId, OrganizationId $organizationId): RoleAssignment
+    {
+        $assignment = $this->pending[$assignmentId->value()] ?? $this->persisted[$assignmentId->value()] ?? null;
+
+        if ($assignment === null || ! $assignment->organizationId()->equals($organizationId)) {
+            throw RoleAssignmentNotFound::forId($assignmentId, $organizationId);
+        }
+
+        return $assignment;
+    }
+
     public function revoke(
         RoleAssignmentId $assignmentId,
         OrganizationId $organizationId,
@@ -786,6 +838,70 @@ final class FakeRoleProvisioningRepository implements RoleProvisioningRepository
         $this->lastRoleKey = $roleKey;
 
         return $this->resolvedRoleId;
+    }
+}
+
+final class FakePermissionAssignmentRepository implements FakeTransactionalParticipant, PermissionAssignmentRepository
+{
+    /**
+     * @var list<array{organizationId: OrganizationId, roleId: RoleId, permissionCode: PermissionCode, grantedBy: IdentityId, grantedAt: DateTimeImmutable}>
+     */
+    private array $persisted = [];
+
+    /**
+     * @var list<array{organizationId: OrganizationId, roleId: RoleId, permissionCode: PermissionCode, grantedBy: IdentityId, grantedAt: DateTimeImmutable}>
+     */
+    private array $pending = [];
+
+    public bool $failOnAssign = false;
+
+    public function assignToRole(OrganizationId $organizationId, RoleId $roleId, PermissionCode $permissionCode, IdentityId $grantedBy, DateTimeImmutable $grantedAt): void
+    {
+        if ($this->failOnAssign) {
+            throw new RuntimeException('Permission assignment failed.');
+        }
+
+        $this->pending[] = [
+            'organizationId' => $organizationId,
+            'roleId' => $roleId,
+            'permissionCode' => $permissionCode,
+            'grantedBy' => $grantedBy,
+            'grantedAt' => $grantedAt,
+        ];
+    }
+
+    public function revokeFromRole(OrganizationId $organizationId, RoleId $roleId, PermissionCode $permissionCode, IdentityId $revokedBy, DateTimeImmutable $revokedAt): void
+    {
+        throw new RuntimeException('Not implemented in test fake.');
+    }
+
+    public function permissionsForIdentity(OrganizationId $organizationId, IdentityId $identityId, DateTimeImmutable $at): array
+    {
+        return [];
+    }
+
+    /**
+     * @return list<array{organizationId: OrganizationId, roleId: RoleId, permissionCode: PermissionCode, grantedBy: IdentityId, grantedAt: DateTimeImmutable}>
+     */
+    public function persisted(): array
+    {
+        return $this->persisted;
+    }
+
+    public function beginTransaction(): void
+    {
+        $this->pending = [];
+    }
+
+    public function commitTransaction(): void
+    {
+        $this->persisted = [...$this->persisted, ...$this->pending];
+        $this->pending = [];
+    }
+
+    public function rollBackTransaction(): void
+    {
+        $this->pending = [];
     }
 }
 

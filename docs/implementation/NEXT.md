@@ -1,64 +1,52 @@
 # Current Task
 
-Implement the List Accessible Organizations vertical slice.
+Define the last-administrative-access protection invariant.
 
 ## Required
 
-- Follow the canonical Organization, IdentityAccess, API, and MVP documentation.
-- Use the existing authenticated human `IdentityReference`.
-- Do not require `TenantContext`; this operation spans Organizations and is used before tenant selection.
-- Return only Organizations associated with the authenticated User through canonical Membership relationships.
-- Determine from canonical documentation which Membership statuses grant list visibility; do not invent behavior.
-- Determine from canonical documentation whether suspended Organizations remain visible in the list or are excluded.
-- Keep tenant-entry eligibility separate from list visibility.
-- Do not use Organization-scoped permission authorization merely to list the caller's own accessible Organizations.
-- Add the smallest framework-independent query/handler and repository read contract required.
-- Expose the documented authenticated HTTP endpoint.
-- Follow existing API pagination and response conventions where applicable.
-- Avoid N+1 queries.
-- Return only fields allowed by the canonical Organization API representation.
-- Add focused application, persistence, isolation, and HTTP tests.
+- This is a documentation and architecture decision only.
+- Do not modify application code yet.
+- Review only the canonical Organization, IdentityAccess, Membership, Role, Permission, Security, ADR, and MVP documentation relevant to administrative access.
+- Determine whether Sentinel must guarantee that every active Organization retains at least one active human identity with effective administrative access.
+- Evaluate the existing lockout paths:
+    - suspending an administrative Membership;
+    - removing an administrative Membership;
+    - revoking its administrative RoleAssignment;
+    - revoking administrative Permissions from its Role.
+- Determine whether protection should be based on:
+    - a special `organization_owner` Role;
+    - at least one active owner Membership;
+    - effective Permissions;
+    - or a broader administrative-capability invariant.
+- Prefer effective capability semantics over Role display names unless canonical documentation explicitly requires owner-role semantics.
+- Determine which Core permission or permission set represents sufficient administrative recovery capability.
+- Define where the invariant belongs architecturally:
+    - Domain rule;
+    - application Policy/service;
+    - persistence constraint;
+    - or a combination.
+- Identify which already-implemented operations will require retrofitting once the invariant is decided.
+- Recommend one concrete invariant and one bounded implementation task.
 
-## Security Rules
+## Rules
 
-- A User must never see an Organization with which he has no qualifying Membership.
-- Memberships belonging to another identity must not grant visibility.
-- Do not accept `organization_id` or identity ID from request input.
-- Do not expose Role, permission, credential, or unrelated tenant data.
-- Do not create a `TenantContext` as part of this operation.
-- Authentication eligibility remains enforced by the existing session-authentication layer.
-
-## Excluded
-
-Do not add:
-
-- Organization switching/session state.
-- Organization reactivation.
-- Organization archive/delete.
-- Membership listing.
-- Role listing.
-- permission-management endpoints.
-- last-owner protection.
-- unrelated Organization mutations.
-
-## Verification
-
-Run targeted tests and:
-
-`docker compose exec app composer quality`
-
-Update `STATUS.md`; do not modify `NEXT.md`.
+- Do not invent a large owner hierarchy.
+- Do not add new Roles or Permission codes unless absolutely required by canonical documentation.
+- Do not modify `STATUS.md`.
+- Do not modify `NEXT.md`.
+- Do not modify application code.
+- Keep the decision compatible with future custom Roles.
 
 ## Reporting
 
 Return only:
 
-- endpoint selected
-- visibility rules selected
-- Membership/Organization status behavior
-- query/persistence approach
-- files changed
-- tests
-- blockers
+- canonical evidence
+- recommended invariant
+- administrative capability definition
+- affected existing operations
+- enforcement location
+- recommended implementation task
+- unresolved ambiguity
 
-Maximum 12 lines.
+Maximum 20 lines.

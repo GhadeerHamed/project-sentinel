@@ -54,6 +54,24 @@ final class CreateOrganizationEndpointTest extends TestCase
     }
 
     #[Test]
+    public function a_founding_owner_can_update_the_organization_without_manually_seeded_permissions(): void
+    {
+        $user = $this->identityUser('active');
+
+        $organizationId = $this->actingAs($user, 'web')->csrfProtectedJsonPost([
+            'name' => 'Acme Operations',
+            'slug' => 'acme-operations',
+        ])->assertCreated()->json('data.organization_id');
+
+        self::assertIsString($organizationId);
+
+        $this->actingAs($user, 'web')
+            ->csrfProtectedJsonPatch($organizationId, ['name' => 'Acme Platform Operations'], '"1"')
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Acme Platform Operations');
+    }
+
+    #[Test]
     public function it_requires_session_authentication(): void
     {
         $this->csrfProtectedJsonPost([
@@ -156,6 +174,17 @@ final class CreateOrganizationEndpointTest extends TestCase
         return $this->withSession(['_token' => 'csrf-token'])
             ->withHeader('X-CSRF-TOKEN', 'csrf-token')
             ->postJson('/api/v1/organizations', $data);
+    }
+
+    /**
+     * @param  array<string, string>  $data
+     */
+    private function csrfProtectedJsonPatch(string $organizationId, array $data, string $ifMatch): TestResponse
+    {
+        return $this->withSession(['_token' => 'csrf-token'])
+            ->withHeader('X-CSRF-TOKEN', 'csrf-token')
+            ->withHeader('If-Match', $ifMatch)
+            ->patchJson('/api/v1/organizations/'.$organizationId, $data);
     }
 
     private function uuid(): string
