@@ -57,19 +57,19 @@
 - [x] Suspend Organization vertical slice with tenant-scoped authorization, active-to-suspended lifecycle enforcement, optimistic concurrency, event/Outbox, Audit, persistence, and tenant-status enforcement.
 - [x] List Accessible Organizations vertical slice using an application read model and dedicated API resource, with active-Membership visibility, suspended Organization status visibility, optimized projection queries, and no TenantContext requirement.
 - [x] Bootstrap the built-in `organization_owner` Role with the current Core administrative permissions during Organization creation.
+- [x] Administrative-access protection invariant preserving an active human identity with effective `organization.member.manage`, including PostgreSQL Organization-row serialization for access-reducing Membership and Role-assignment mutations.
 
 ## In Progress
 
-- [ ] Define the last-administrative-access protection invariant.
+- [ ] Implement the minimum Role-permission management workflow.
 
 ## Remaining Milestone 3
 
-- [ ] Implement the minimum Role-permission management workflow.
 - [ ] Decide whether Organization reactivation is required in Milestone 3.
 
 ## Next Recommended Task
 
-Define the canonical invariant that prevents an Organization from losing all effective administrative access before implementing Role-permission mutation.
+Implement the minimum Role-permission management workflow.
 
 ## Status Update Rules
 

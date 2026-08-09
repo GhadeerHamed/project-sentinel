@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Sentinel\IdentityAccess\Application\Handler;
 
+use Sentinel\IdentityAccess\Application\Authorization\AdministrativeAccessInvariant;
 use Sentinel\IdentityAccess\Application\Command\RemoveMembershipCommand;
 use Sentinel\IdentityAccess\Application\Policy\MembershipRemovalPolicy;
+use Sentinel\IdentityAccess\Domain\Exception\AdministrativeAccessInvariantViolation;
 use Sentinel\IdentityAccess\Domain\Exception\MembershipNotFound;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
 use Sentinel\Shared\Application\TenantScopedOperationRecorder;
@@ -20,11 +22,13 @@ use Sentinel\Shared\Domain\Transaction\TransactionManager;
 
 final readonly class RemoveMembershipHandler
 {
-    public function __construct(private MembershipRepository $memberships, private MembershipRemovalPolicy $policy, private TenantContext $tenantContext, private UuidV7Generator $uuidGenerator, private Clock $clock, private TransactionManager $transactions, private TenantScopedOperationRecorder $operationRecorder) {}
+    public function __construct(private MembershipRepository $memberships, private MembershipRemovalPolicy $policy, private TenantContext $tenantContext, private UuidV7Generator $uuidGenerator, private Clock $clock, private TransactionManager $transactions, private TenantScopedOperationRecorder $operationRecorder, private AdministrativeAccessInvariant $administrativeAccessInvariant) {}
 
     public function handle(RemoveMembershipCommand $command): ResourceVersion
     {
         return $this->transactions->transactional(function () use ($command): ResourceVersion {
+            $this->administrativeAccessInvariant->lockOrganizationMutation($this->tenantContext->organizationId());
+
             if (! $this->policy->allows($this->tenantContext)) {
                 throw ApplicationOperationFailure::forCategory(ErrorCategory::FORBIDDEN, 'The acting identity is not authorized to remove members.');
             }
@@ -37,6 +41,11 @@ final readonly class RemoveMembershipHandler
             }
             $membership = $membership->remove($now, $this->tenantContext->actingIdentity()->identityId(), $this->uuidGenerator->generate(), $this->tenantContext->correlationId()->value(), $this->tenantContext->causationId()?->value());
             $this->memberships->save($membership, $command->expectedVersion());
+            try {
+                $this->administrativeAccessInvariant->assertRetained($this->tenantContext->organizationId(), $now);
+            } catch (AdministrativeAccessInvariantViolation) {
+                throw ApplicationOperationFailure::forCategory(ErrorCategory::CONFLICT, 'The operation would remove the final administrative recovery capability.');
+            }
             /** @var list<AggregateDomainEvent> $events */
             $events = $membership->pullDomainEvents();
             $this->operationRecorder->record($events, 'membership.remove', 'membership', $membership->id()->value(), $now);

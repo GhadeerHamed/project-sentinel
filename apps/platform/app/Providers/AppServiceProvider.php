@@ -14,6 +14,7 @@ use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMaySu
 use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
 use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMaySuspendOrganizationPolicy;
 use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMayUpdateOrganizationPolicy;
+use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlAdministrativeAccessRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlOrganizationRoleRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlPermissionAssignmentRepository;
@@ -32,6 +33,7 @@ use Sentinel\IdentityAccess\Application\Policy\MembershipRemovalPolicy;
 use Sentinel\IdentityAccess\Application\Policy\MembershipSuspensionPolicy;
 use Sentinel\IdentityAccess\Application\Policy\RoleAssignmentPolicy;
 use Sentinel\IdentityAccess\Application\Policy\RoleRevocationPolicy;
+use Sentinel\IdentityAccess\Domain\Repository\AdministrativeAccessRepository;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
 use Sentinel\IdentityAccess\Domain\Repository\OrganizationRoleRepository;
 use Sentinel\IdentityAccess\Domain\Repository\PermissionAssignmentRepository;
@@ -82,6 +84,11 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             MembershipRepository::class,
             PgsqlMembershipRepository::class,
+        );
+
+        $this->app->singleton(
+            AdministrativeAccessRepository::class,
+            PgsqlAdministrativeAccessRepository::class,
         );
 
         $this->app->singleton(

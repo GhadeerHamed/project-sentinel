@@ -7,13 +7,16 @@ namespace Tests\Application\IdentityAccess;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Sentinel\IdentityAccess\Application\Authorization\AdministrativeAccessInvariant;
 use Sentinel\IdentityAccess\Application\Command\RevokeRoleCommand;
 use Sentinel\IdentityAccess\Application\Handler\RevokeRoleHandler;
 use Sentinel\IdentityAccess\Application\Policy\RoleRevocationPolicy;
 use Sentinel\IdentityAccess\Domain\Entity\Membership;
 use Sentinel\IdentityAccess\Domain\Entity\RoleAssignment;
+use Sentinel\IdentityAccess\Domain\Repository\AdministrativeAccessRepository;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
 use Sentinel\IdentityAccess\Domain\Repository\RoleAssignmentRepository;
+use Sentinel\IdentityAccess\Domain\ValueObject\CorePermissions;
 use Sentinel\IdentityAccess\Domain\ValueObject\RoleAssignmentId;
 use Sentinel\Shared\Application\TenantScopedOperationRecorder;
 use Sentinel\Shared\Domain\Audit\AuditRecorder;
@@ -52,7 +55,10 @@ final class RevokeRoleHandlerTest extends TestCase
         $audit->expects(self::once())->method('record')->with(self::callback(static fn ($record): bool => $record->action() === 'role.revoke'));
         $transactions = $this->createMock(TransactionManager::class);
         $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
+        $administrativeAccess = $this->createMock(AdministrativeAccessRepository::class);
+        $administrativeAccess->expects(self::once())->method('lockOrganizationForAdministrativeAccessMutation')->with($context->organizationId());
+        $administrativeAccess->expects(self::once())->method('hasActiveHumanIdentityWithEffectivePermission')->with($context->organizationId(), CorePermissions::manageOrganizationMembers(), $at)->willReturn(true);
 
-        (new RevokeRoleHandler($assignments, $memberships, $policy, $context, $ids, $clock, $transactions, new TenantScopedOperationRecorder($context, $ids, $outbox, $audit)))->handle(new RevokeRoleCommand(RoleAssignmentId::fromString($assignmentId)));
+        (new RevokeRoleHandler($assignments, $memberships, $policy, $context, $ids, $clock, $transactions, new TenantScopedOperationRecorder($context, $ids, $outbox, $audit), new AdministrativeAccessInvariant($administrativeAccess)))->handle(new RevokeRoleCommand(RoleAssignmentId::fromString($assignmentId)));
     }
 }

@@ -199,6 +199,108 @@ final class InviteMembershipEndpointTest extends TestCase
     }
 
     #[Test]
+    public function suspending_the_final_administrative_membership_is_rejected(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $membershipId = $this->membership($organizationId, $user->identity_id, 'active');
+        $this->grant($organizationId, $user->identity_id);
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->withHeader('If-Match', '"1"')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$membershipId.'/suspend')
+            ->assertConflict();
+
+        $this->assertDatabaseHas('memberships', ['id' => $membershipId, 'status' => 'active', 'version' => 1]);
+        $this->assertDatabaseMissing('outbox_messages', ['organization_id' => $organizationId, 'event_type' => 'membership.suspended']);
+    }
+
+    #[Test]
+    public function removing_the_final_administrative_membership_is_rejected(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $membershipId = $this->membership($organizationId, $user->identity_id, 'active');
+        $this->grant($organizationId, $user->identity_id);
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->withHeader('If-Match', '"1"')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$membershipId.'/remove')
+            ->assertConflict();
+
+        $this->assertDatabaseHas('memberships', ['id' => $membershipId, 'status' => 'active', 'version' => 1]);
+        $this->assertDatabaseMissing('outbox_messages', ['organization_id' => $organizationId, 'event_type' => 'membership.removed']);
+    }
+
+    #[Test]
+    public function revoking_the_final_administrative_role_assignment_is_rejected(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $this->membership($organizationId, $user->identity_id, 'active');
+        $assignmentId = $this->grant($organizationId, $user->identity_id);
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/role-assignments/'.$assignmentId.'/revoke')
+            ->assertConflict();
+
+        $this->assertDatabaseHas('role_assignments', ['id' => $assignmentId, 'revoked_at' => null]);
+        $this->assertDatabaseMissing('outbox_messages', ['organization_id' => $organizationId, 'event_type' => 'role.revoked']);
+    }
+
+    #[Test]
+    public function suspending_an_administrative_membership_succeeds_when_a_backup_administrator_remains(): void
+    {
+        $user = $this->user();
+        $backup = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $membershipId = $this->membership($organizationId, $user->identity_id, 'active');
+        $this->membership($organizationId, $backup->identity_id, 'active');
+        $this->grant($organizationId, $user->identity_id);
+        $this->grant($organizationId, $backup->identity_id);
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->withHeader('If-Match', '"1"')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$membershipId.'/suspend')
+            ->assertNoContent();
+
+        $this->assertDatabaseHas('memberships', ['id' => $membershipId, 'status' => 'suspended', 'version' => 2]);
+    }
+
+    #[Test]
+    public function removing_an_administrative_membership_succeeds_when_a_backup_administrator_remains(): void
+    {
+        $user = $this->user();
+        $backup = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $membershipId = $this->membership($organizationId, $user->identity_id, 'active');
+        $this->membership($organizationId, $backup->identity_id, 'active');
+        $this->grant($organizationId, $user->identity_id);
+        $this->grant($organizationId, $backup->identity_id);
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')->withHeader('If-Match', '"1"')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/memberships/'.$membershipId.'/remove')
+            ->assertNoContent();
+
+        $this->assertDatabaseHas('memberships', ['id' => $membershipId, 'status' => 'removed', 'version' => 2]);
+    }
+
+    #[Test]
+    public function revoking_an_administrative_role_assignment_succeeds_when_a_backup_administrator_remains(): void
+    {
+        $user = $this->user();
+        $backup = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $this->membership($organizationId, $user->identity_id, 'active');
+        $this->membership($organizationId, $backup->identity_id, 'active');
+        $assignmentId = $this->grant($organizationId, $user->identity_id);
+        $this->grant($organizationId, $backup->identity_id);
+
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/role-assignments/'.$assignmentId.'/revoke')
+            ->assertNoContent();
+
+        $this->assertDatabaseHas('role_assignments', ['id' => $assignmentId, 'revoked_by_identity_id' => $user->identity_id]);
+    }
+
+    #[Test]
     public function an_invited_member_can_accept_its_own_invitation(): void
     {
         $user = $this->user();
@@ -258,18 +360,21 @@ final class InviteMembershipEndpointTest extends TestCase
         return $id;
     }
 
-    private function grant(string $organizationId, string $identityId): void
+    private function grant(string $organizationId, string $identityId): string
     {
         $now = now();
         $roleId = $this->uuid();
+        $roleAssignmentId = $this->uuid();
         $permissionId = DB::table('permissions')->where('code', 'organization.member.manage')->value('id');
         if (! is_string($permissionId)) {
             $permissionId = $this->uuid();
             DB::table('permissions')->insert(['id' => $permissionId, 'code' => 'organization.member.manage', 'capability' => 'organization', 'action' => 'member_manage', 'description' => 'Manage members.', 'risk_level' => 'medium', 'created_at' => $now]);
         }
         DB::table('organization_roles')->insert(['id' => $roleId, 'organization_id' => $organizationId, 'role_key' => 'operator-'.$roleId, 'created_at' => $now, 'updated_at' => $now]);
-        DB::table('role_assignments')->insert(['id' => $this->uuid(), 'organization_id' => $organizationId, 'identity_id' => $identityId, 'role_id' => $roleId, 'assigned_by_identity_id' => $identityId, 'assigned_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
+        DB::table('role_assignments')->insert(['id' => $roleAssignmentId, 'organization_id' => $organizationId, 'identity_id' => $identityId, 'role_id' => $roleId, 'assigned_by_identity_id' => $identityId, 'assigned_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
         DB::table('role_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId, 'granted_at' => $now, 'granted_by_identity_id' => $identityId]);
+
+        return $roleAssignmentId;
     }
 
     private function role(string $organizationId): string

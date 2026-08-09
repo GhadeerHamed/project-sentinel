@@ -7,11 +7,14 @@ namespace Tests\Application\IdentityAccess;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Sentinel\IdentityAccess\Application\Authorization\AdministrativeAccessInvariant;
 use Sentinel\IdentityAccess\Application\Command\RemoveMembershipCommand;
 use Sentinel\IdentityAccess\Application\Handler\RemoveMembershipHandler;
 use Sentinel\IdentityAccess\Application\Policy\MembershipRemovalPolicy;
 use Sentinel\IdentityAccess\Domain\Entity\Membership;
+use Sentinel\IdentityAccess\Domain\Repository\AdministrativeAccessRepository;
 use Sentinel\IdentityAccess\Domain\Repository\MembershipRepository;
+use Sentinel\IdentityAccess\Domain\ValueObject\CorePermissions;
 use Sentinel\Shared\Application\TenantScopedOperationRecorder;
 use Sentinel\Shared\Domain\Audit\AuditRecorder;
 use Sentinel\Shared\Domain\Concurrency\ExpectedVersion;
@@ -46,8 +49,11 @@ final class RemoveMembershipHandlerTest extends TestCase
         $transactions = $this->createMock(TransactionManager::class);
         $transactions->method('transactional')->willReturnCallback(static fn (callable $operation): mixed => $operation());
         $recorder = new TenantScopedOperationRecorder($context, $ids, $outbox, $audit);
+        $administrativeAccess = $this->createMock(AdministrativeAccessRepository::class);
+        $administrativeAccess->expects(self::once())->method('lockOrganizationForAdministrativeAccessMutation')->with($context->organizationId());
+        $administrativeAccess->expects(self::once())->method('hasActiveHumanIdentityWithEffectivePermission')->with($context->organizationId(), CorePermissions::manageOrganizationMembers(), new DateTimeImmutable('2026-08-02T00:00:00+00:00'))->willReturn(true);
 
-        $version = (new RemoveMembershipHandler($repository, $policy, $context, $ids, $clock, $transactions, $recorder))->handle(new RemoveMembershipCommand($membership->id(), ExpectedVersion::fromInt(3)));
+        $version = (new RemoveMembershipHandler($repository, $policy, $context, $ids, $clock, $transactions, $recorder, new AdministrativeAccessInvariant($administrativeAccess)))->handle(new RemoveMembershipCommand($membership->id(), ExpectedVersion::fromInt(3)));
 
         self::assertSame(4, $version->value());
     }

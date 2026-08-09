@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Sentinel\IdentityAccess\Application\Handler;
 
+use Sentinel\IdentityAccess\Application\Authorization\AdministrativeAccessInvariant;
 use Sentinel\IdentityAccess\Application\Command\RevokeRoleCommand;
 use Sentinel\IdentityAccess\Application\Policy\RoleRevocationPolicy;
+use Sentinel\IdentityAccess\Domain\Exception\AdministrativeAccessInvariantViolation;
 use Sentinel\IdentityAccess\Domain\Exception\InvalidRoleAssignmentTransition;
 use Sentinel\IdentityAccess\Domain\Exception\MembershipNotFound;
 use Sentinel\IdentityAccess\Domain\Exception\RoleAssignmentNotFound;
@@ -32,11 +34,14 @@ final readonly class RevokeRoleHandler
         private Clock $clock,
         private TransactionManager $transactions,
         private TenantScopedOperationRecorder $operationRecorder,
+        private AdministrativeAccessInvariant $administrativeAccessInvariant,
     ) {}
 
     public function handle(RevokeRoleCommand $command): void
     {
         $this->transactions->transactional(function () use ($command): void {
+            $this->administrativeAccessInvariant->lockOrganizationMutation($this->tenantContext->organizationId());
+
             if (! $this->policy->allows($this->tenantContext)) {
                 throw ApplicationOperationFailure::forCategory(ErrorCategory::FORBIDDEN, 'The acting identity is not authorized to revoke roles.');
             }
@@ -66,6 +71,11 @@ final readonly class RevokeRoleHandler
                 revokedBy: IdentityId::fromString($this->tenantContext->actingIdentity()->identityId()),
                 revokedAt: $now,
             );
+            try {
+                $this->administrativeAccessInvariant->assertRetained($this->tenantContext->organizationId(), $now);
+            } catch (AdministrativeAccessInvariantViolation) {
+                throw ApplicationOperationFailure::forCategory(ErrorCategory::CONFLICT, 'The operation would remove the final administrative recovery capability.');
+            }
             /** @var list<AggregateDomainEvent> $events */
             $events = $revoked->pullDomainEvents();
             $this->operationRecorder->record($events, 'role.revoke', 'role_assignment', $revoked->id()->value(), $now);

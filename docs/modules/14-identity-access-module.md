@@ -335,6 +335,14 @@ Domain logic must not depend directly on Role names.
 
 ---
 
+## Administrative Recovery Capability
+
+Every active Organization must retain at least one active human Membership with effective `organization.member.manage`. This is evaluated from active Membership, non-revoked and unexpired Role assignment, and non-revoked permission grant; a Role name alone does not qualify.
+
+Membership suspension or removal and Role-assignment revocation must serialize per Organization within their transaction, verify the post-mutation capability, and roll back when it would be lost. This protects administrative recovery only and does not define ownership transfer or a last-owner Role rule.
+
+---
+
 ## Non-Human Identities
 
 API Clients, Services, Agents, and Plugins must use dedicated identities.

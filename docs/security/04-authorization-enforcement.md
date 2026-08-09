@@ -144,6 +144,12 @@ Domain logic should evaluate permissions and scope rather than depend directly o
 
 ---
 
+## Administrative Recovery
+
+An active Organization must retain an active human Membership with effective `organization.member.manage`. Administrative-access-reducing mutations are serialized by Organization inside their transaction and rejected with a conflict when their committed result would remove that final recovery capability. This invariant is capability-based and separate from ownership semantics.
+
+---
+
 ## Non-Human Identities
 
 API Clients, Services, Agents, and Plugins receive explicit permissions.
