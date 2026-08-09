@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\AcceptMembershipInvitationController;
 use App\Http\Controllers\Api\V1\AssignRoleController;
 use App\Http\Controllers\Api\V1\CreateOrganizationController;
 use App\Http\Controllers\Api\V1\InviteMembershipController;
+use App\Http\Controllers\Api\V1\ListAccessibleOrganizationsController;
 use App\Http\Controllers\Api\V1\ReactivateMembershipController;
 use App\Http\Controllers\Api\V1\RemoveMembershipController;
 use App\Http\Controllers\Api\V1\RevokeRoleController;
@@ -20,6 +21,7 @@ Route::prefix('api/v1')
     ->middleware(['auth', 'throttle:6,1'])
     ->group(function (): void {
         Route::post('/organizations', CreateOrganizationController::class)->name('organizations.store');
+        Route::get('/organizations', ListAccessibleOrganizationsController::class)->name('organizations.index');
         Route::post('/organizations/{organization}/memberships/{membership}/accept', AcceptMembershipInvitationController::class)->name('organizations.memberships.accept');
         Route::patch('/organizations/{organization}', UpdateOrganizationController::class)
             ->middleware(ResolveTenantContext::class)

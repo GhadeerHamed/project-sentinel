@@ -7,6 +7,7 @@ namespace Sentinel\Organization\Domain\Repository;
 use Sentinel\Organization\Domain\Entity\Organization;
 use Sentinel\Organization\Domain\Exception\OrganizationNotFound;
 use Sentinel\Shared\Domain\Concurrency\ExpectedVersion;
+use Sentinel\Shared\Domain\Identity\IdentityId;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 
 interface OrganizationRepository
@@ -20,4 +21,7 @@ interface OrganizationRepository
      * Persist with optimistic concurrency against the aggregate version expected by the caller.
      */
     public function save(Organization $organization, ExpectedVersion $expectedVersion): void;
+
+    /** @return list<Organization> */
+    public function accessibleTo(IdentityId $identityId): array;
 }

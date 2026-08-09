@@ -13,10 +13,18 @@ use Sentinel\Organization\Domain\Repository\OrganizationRepository;
 use Sentinel\Shared\Domain\Concurrency\CurrentVersion;
 use Sentinel\Shared\Domain\Concurrency\ExpectedVersion;
 use Sentinel\Shared\Domain\Concurrency\OptimisticConcurrencyConflict;
+use Sentinel\Shared\Domain\Identity\IdentityId;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 
 final class PgsqlOrganizationRepository implements OrganizationRepository
 {
+    public function accessibleTo(IdentityId $identityId): array
+    {
+        return OrganizationRecord::query()->select('organizations.*')->join('memberships', 'memberships.organization_id', '=', 'organizations.id')
+            ->where('memberships.user_identity_id', $identityId->value())->where('memberships.status', 'active')->orderBy('organizations.created_at')
+            ->get()->map(static fn (OrganizationRecord $record): Organization => OrganizationMapper::toDomain($record))->all();
+    }
+
     public function getById(OrganizationId $organizationId): Organization
     {
         $record = OrganizationRecord::query()->whereKey($organizationId->value())->first();
