@@ -1,228 +1,116 @@
 # Current Task
 
-Implement the Create Application vertical slice.
+Implement the List Applications vertical slice.
 
 ## Required
 
-- Follow the reconciled canonical Application module, API, database, security, and MVP documentation.
+- Follow the canonical Application module, API, database, security, and MVP documentation.
 - Use the existing authenticated `IdentityReference`.
 - Require the resolved `TenantContext`.
-- Use the canonical `application.create` permission.
-- Add it to `CorePermissions` if not already present.
-- Ensure the built-in `organization_owner` Role receives `application.create`.
-- Reuse `OrganizationPermissionAuthorizer` through an operation-specific Create Application Policy.
+- Use the canonical Application read permission from existing documentation; do not invent a permission code.
+- Add the permission to `CorePermissions` only if canonically required and not already present.
+- Ensure the built-in `organization_owner` Role receives the read permission when required.
+- Authorize through an operation-specific Policy using `OrganizationPermissionAuthorizer`.
 
-## Ownership
+## Parent Ownership
 
 Canonical hierarchy:
 
 Organization → Project → Application
 
-The handler must:
+- Resolve the Project only within the Organization from `TenantContext`.
+- Ensure the route Project belongs to the resolved Organization.
+- Do not accept `organization_id` or `project_id` from query parameters or payload.
+- Follow the canonical historical-read behavior for archived Projects.
+- Application queries must always remain scoped by both Organization and Project.
 
-- derive Organization from `TenantContext`;
-- load the parent Project within that Organization;
-- require the Project to exist and belong to the resolved Organization;
-- require the Project to be active;
-- never accept `organization_id` or `project_id` from the request body.
+## Read Model
 
-The route Project is authoritative.
+- Do not hydrate Application aggregates for the read-only list.
+- Add a framework-independent Application read model/DTO containing only API-required fields.
+- Add the smallest query/read contract required.
+- Implement a PostgreSQL projection query selecting only required columns.
+- Avoid N+1 queries.
+- Keep persistence aggregate mapping separate from read projection mapping.
 
-## Domain
+The canonical public representation should expose only documented fields such as:
 
-Implement the framework-independent Application domain foundation required for this slice.
+- id
+- project_id where required by the API
+- name
+- slug
+- description
+- criticality
+- status
+- version
+- created_at
+- updated_at
 
-Canonical fields:
+Do not expose creator identity or internal archival metadata unless explicitly required by the API contract.
 
-- `id`
-- `organization_id`
-- `project_id`
-- `name`
-- `slug`
-- optional `description`
-- `criticality`
-- `status`
-- `created_by_identity_id`
-- `created_at`
-- `updated_at`
-- nullable `archived_at`
-- `version`
+## Visibility
 
-Initial status:
+Determine archived Application visibility from the reconciled canonical documentation.
 
-`active`
-
-Canonical criticality values:
-
-- `critical`
-- `high`
-- `medium`
-- `low`
-
-Use UUIDv7 and the existing `ResourceVersion` foundation.
-
-Emit:
-
-`application.created`
-
-Do not introduce deferred lifecycle states or metadata.
-
-## Application Layer
-
-Add the framework-independent:
-
-- command;
-- result;
-- Policy;
-- handler;
-- repository contracts required by this slice.
-
-The handler must:
-
-1. authorize `application.create`;
-2. validate the active parent Project within the tenant;
-3. enforce idempotency;
-4. create the Application through the Domain model;
-5. persist it;
-6. append Domain Events to Outbox;
-7. record Audit action `application.create`;
-8. commit atomically.
-
-Reuse existing shared infrastructure where appropriate:
-
-- `TransactionManager`
-- UUIDv7 generator
-- Clock
-- `TenantScopedOperationRecorder`
-- existing idempotency abstraction
-
-## Idempotency
-
-Require:
-
-`Idempotency-Key`
-
-Reuse the existing creation-idempotency infrastructure.
-
-Scope:
-
-- Organization;
-- acting identity;
-- operation;
-- idempotency key;
-- normalized request hash.
-
-Required behavior:
-
-- same key + same normalized request returns the original successful result;
-- same key + different request returns the existing conflict semantics;
-- concurrent identical requests create only one Application.
-
-Do not create a second idempotency implementation.
-
-## Persistence
-
-Add canonical PostgreSQL Application persistence.
-
-Required:
-
-- native UUID ID;
-- Organization foreign key;
-- Project foreign key;
-- nullable description;
-- required criticality;
-- canonical status;
-- creator identity;
-- timestamps;
-- nullable `archived_at`;
-- version;
-- unique `(organization_id, project_id, slug)`.
-
-Repository operations must preserve Organization and Project ownership.
-
-Cross-Organization or cross-Project access must be impossible.
+- Preserve authorized historical access where documented.
+- Apply canonical default filtering.
+- Follow existing API pagination, ordering, filtering, and cursor conventions.
+- Do not invent filters that are not documented.
 
 ## HTTP
 
-Expose:
+Expose the canonical endpoint:
 
-`POST /api/v1/organizations/{organization}/projects/{project}/applications`
+`GET /api/v1/organizations/{organization}/projects/{project}/applications`
 
 Require:
 
 - session authentication;
 - resolved `TenantContext`;
-- `application.create`;
-- `Idempotency-Key`.
-
-Request body:
-
-- `name` — required;
-- `slug` — required;
-- `description` — optional;
-- `criticality` — required.
-
-Do not accept client-controlled:
-
-- `organization_id`;
-- `project_id`;
-- status;
-- version;
-- creator identity;
-- timestamps;
-- archived metadata.
-
-Success:
-
-`201 Created`
-
-Return the canonical Application representation using a dedicated API Resource/Presenter.
+- canonical Application read authorization;
+- valid tenant-scoped parent Project.
 
 Keep the controller thin.
 
+Use a dedicated Application API Resource/Presenter.
+
 ## Security
 
-- Tenant access alone does not authorize Application creation.
-- Parent Project lookup must be scoped to the resolved Organization.
-- Archived Projects must not accept new Applications.
-- Do not authorize through Role names.
-- Do not trust parent or tenant IDs from the payload.
-- Suspended Organizations remain blocked by existing tenant resolution.
+- Tenant access alone does not authorize Application reads.
+- Cross-Organization Projects must return the existing tenant-safe not-found response.
+- Applications from another Project must never be returned.
+- Suspended Organizations remain blocked by TenantContext resolution.
+- Do not authorize using Role names.
+- Do not expose unrelated tenant, Role, permission, or credential data.
 
 ## Tests
 
 Cover at minimum:
 
-- authorized creation;
+- authorized listing;
 - unauthorized actor;
 - unauthenticated request;
-- Project from another Organization is rejected;
-- missing Project is rejected;
-- archived Project cannot receive a new Application;
-- canonical fields and active initial status;
-- all four criticality values are accepted;
-- invalid criticality is rejected;
-- server-owned fields cannot be supplied;
-- slug uniqueness is scoped by Organization + Project;
-- same slug may exist in different Projects;
-- same idempotency key + same request replays the result;
-- same key + different request conflicts;
-- concurrent identical requests create only one Application;
-- `application.created` Outbox record;
-- `application.create` Audit record;
-- newly created Organization owner has `application.create` without manual permission seeding.
+- cross-Organization Project rejection;
+- only Applications belonging to the requested Project are returned;
+- Applications from another Project are excluded;
+- archived Application visibility follows canonical documentation;
+- archived parent Project behavior follows canonical documentation;
+- criticality and canonical fields are represented correctly;
+- canonical pagination/order behavior;
+- response does not expose internal fields;
+- read path does not hydrate Application aggregates;
+- newly created Organization owner has the required read permission without manual permission seeding.
 
 ## Excluded
 
 Do not add:
 
+- Get Application.
 - Application update.
 - Application archive.
-- Application listing/get endpoints.
 - criticality mutation.
 - Application settings.
 - runtime/framework metadata.
-- repository/source metadata.
 - Environment implementation.
 - unrelated Milestone 4 capabilities.
 
@@ -238,16 +126,13 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 
 Return only:
 
-- permission used
-- Application domain model
-- parent Project enforcement
-- criticality behavior
-- idempotency behavior
-- persistence/uniqueness behavior
-- owner bootstrap change
+- permission/visibility rule used
+- parent Project behavior
+- archived visibility behavior
+- read-model/query approach
 - endpoint
-- event/audit behavior
+- files changed
 - tests
 - blockers
 
-Maximum 15 lines.
+Maximum 12 lines.
