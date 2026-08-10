@@ -30,6 +30,7 @@ use App\Infrastructure\Persistence\Application\Repositories\PgsqlApplicationRepo
 use App\Infrastructure\Persistence\Environment\Queries\PgsqlEnvironmentListQuery;
 use App\Infrastructure\Persistence\Environment\Queries\PgsqlEnvironmentLookupQuery;
 use App\Infrastructure\Persistence\Environment\Repositories\PgsqlEnvironmentRepository;
+use App\Infrastructure\Persistence\Event\Repositories\PgsqlEventRepository;
 use App\Infrastructure\Persistence\Event\Repositories\PgsqlEventSourceCredentialRepository;
 use App\Infrastructure\Persistence\Event\Repositories\PgsqlEventSourceRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlAdministrativeAccessRepository;
@@ -70,6 +71,7 @@ use Sentinel\Environment\Application\Query\EnvironmentLookupQuery;
 use Sentinel\Environment\Domain\Repository\EnvironmentRepository;
 use Sentinel\Event\Application\Authentication\EventSourceBearerAuthenticator;
 use Sentinel\Event\Application\Policy\EventSourceRegistrationPolicy;
+use Sentinel\Event\Domain\Repository\EventRepository;
 use Sentinel\Event\Domain\Repository\EventSourceCredentialRepository;
 use Sentinel\Event\Domain\Repository\EventSourceRepository;
 use Sentinel\IdentityAccess\Application\Policy\MembershipInvitationPolicy;
@@ -145,6 +147,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(EnvironmentLookupQuery::class, PgsqlEnvironmentLookupQuery::class);
         $this->app->singleton(EventSourceRepository::class, PgsqlEventSourceRepository::class);
         $this->app->singleton(EventSourceCredentialRepository::class, PgsqlEventSourceCredentialRepository::class);
+        $this->app->singleton(EventRepository::class, PgsqlEventRepository::class);
         $this->app->singleton(EventSourceBearerAuthenticator::class);
         $this->app->singleton(EventSourceRegistrationPolicy::class, ActiveMembershipWithPermissionMayCreateEventSourcePolicy::class);
 

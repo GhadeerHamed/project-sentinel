@@ -16,6 +16,7 @@ use Sentinel\Application\Domain\Exception\ApplicationNotFound;
 use Sentinel\Application\Domain\Exception\ApplicationSlugConflict;
 use Sentinel\Environment\Domain\Exception\EnvironmentNotFound;
 use Sentinel\Environment\Domain\Exception\EnvironmentSlugConflict;
+use Sentinel\Event\Domain\Exception\EventExternalIdConflict;
 use Sentinel\Project\Domain\Exception\ProjectNotFound;
 use Sentinel\Project\Domain\Exception\ProjectSlugConflict;
 use Sentinel\Shared\Domain\Concurrency\OptimisticConcurrencyConflict;
@@ -42,6 +43,7 @@ final class ApiExceptionRenderer
         $exceptions->render($this->renderProjectNotFound(...));
         $exceptions->render($this->renderProjectSlugConflict(...));
         $exceptions->render($this->renderIdempotencyKeyConflict(...));
+        $exceptions->render($this->renderEventExternalIdConflict(...));
         $exceptions->render($this->renderTypedError(...));
     }
 
@@ -183,6 +185,20 @@ final class ApiExceptionRenderer
         }
 
         return $this->errorResponse('idempotency.key_conflict', 'The idempotency key was already used with a different request.', 409, $exception->context());
+    }
+
+    private function renderEventExternalIdConflict(EventExternalIdConflict $exception, Request $request): ?JsonResponse
+    {
+        if (! $this->isApiRequest($request)) {
+            return null;
+        }
+
+        return $this->errorResponse(
+            'event.external_id_conflict',
+            'The external Event identifier was already used with different Event data.',
+            409,
+            $exception->context(),
+        );
     }
 
     private function renderTypedError(TypedError $exception, Request $request): ?JsonResponse
