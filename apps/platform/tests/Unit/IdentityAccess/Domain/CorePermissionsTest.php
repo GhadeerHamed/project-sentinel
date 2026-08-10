@@ -17,7 +17,7 @@ final class CorePermissionsTest extends TestCase
         $memberManagement = CorePermissions::manageOrganizationMembers();
         $organizationUpdate = CorePermissions::updateOrganization();
         $projectCreate = CorePermissions::createProject();
-        $projectRead = CorePermissions::readProject();
+        $projectRead = CorePermissions::readProjects();
 
         self::assertInstanceOf(PermissionCode::class, $memberManagement);
         self::assertSame('organization.member.manage', $memberManagement->value());

@@ -1,76 +1,79 @@
 # Current Task
 
-Implement the List Projects vertical slice.
+Implement the Get Project vertical slice.
 
 ## Required
 
 - Follow the canonical Project module, API, database, security, and MVP documentation.
 - Use the existing authenticated `IdentityReference`.
 - Require the resolved `TenantContext`.
-- Determine the canonical Project read/list permission from existing documentation; do not invent a permission code.
-- Reuse `OrganizationPermissionAuthorizer` if Project listing requires an explicit permission.
-- Return only Projects belonging to the resolved Organization.
-- Do not accept `organization_id` from query parameters or request payload.
-- Follow the canonical Project visibility rules for archived Projects.
-- Follow existing API pagination, ordering, and filtering conventions where applicable.
+- Use `CorePermissions::readProjects()`.
+- Authorize through an operation-specific Policy using `OrganizationPermissionAuthorizer`.
+- Resolve the Project only within the Organization from `TenantContext`.
+- Cross-Organization Project IDs must return the existing tenant-safe not-found response.
+- Follow canonical archived-Project visibility rules.
+- Do not hydrate the full Project aggregate for this read-only operation.
+- Reuse the existing Project read-model/projection infrastructure where appropriate.
 
 ## Read Model
 
-- Do not hydrate full Project aggregates for a read-only list.
-- Add a framework-independent Project read model/DTO containing only fields required by the API.
-- Add the smallest read/query contract required by the application layer.
-- Implement a tenant-scoped PostgreSQL projection query.
-- Select only required columns.
-- Avoid N+1 queries.
-
-Keep aggregate persistence mapping separate from API/read-model projection mapping.
+- Return the existing canonical Project read representation where possible.
+- Do not create another DTO if the List Projects read model already contains the required fields.
+- Query only the required Project columns.
+- Keep persistence aggregate mapping separate from read projection mapping.
 
 ## HTTP
 
 Expose:
 
-`GET /api/v1/organizations/{organization}/projects`
+`GET /api/v1/organizations/{organization}/projects/{project}`
 
-- Require session authentication.
-- Require the existing TenantContext middleware.
-- Keep the controller thin.
-- Use a dedicated Project API Resource/Presenter.
-- Return the canonical Project collection representation.
-- Do not expose creator credentials, Role data, permission data, or unrelated tenant information.
+Requirements:
+
+- session authentication;
+- resolved `TenantContext`;
+- `project.read` authorization;
+- thin controller;
+- dedicated Project API Resource/Presenter.
+
+Return the canonical Project representation.
+
+If the existing API concurrency contract exposes resource versions through ETag on reads, return the quoted Project version consistently.
 
 ## Security
 
-- Cross-Organization Projects must never be visible.
-- TenantContext Organization is the authoritative tenant boundary.
-- Do not trust tenant identifiers supplied elsewhere in the request.
+- Tenant access alone does not authorize Project reads.
+- Project lookup must be scoped by both Project ID and resolved Organization.
+- Never perform a global Project-ID lookup followed by a tenant check.
+- Do not accept `organization_id` from request input.
 - Suspended Organizations remain blocked by existing tenant resolution.
-- Authentication, tenant access, and action authorization remain separate concerns.
+- Do not expose creator credentials, Roles, permissions, or unrelated tenant data.
 
 ## Tests
 
 Cover at minimum:
 
-- authenticated authorized listing;
-- only Projects from the resolved Organization are returned;
-- cross-Organization Projects are excluded;
-- archived Project visibility follows the canonical documentation;
-- suspended Organization cannot access the endpoint;
-- unauthenticated request is rejected;
-- response contains only documented fields;
-- multiple Projects are returned in canonical order;
-- implementation does not require aggregate hydration.
+- authorized Project retrieval;
+- unauthorized actor;
+- unauthenticated request;
+- Project from another Organization returns tenant-safe not found;
+- missing Project returns not found;
+- active Project retrieval;
+- archived Project behavior follows canonical documentation;
+- canonical response fields;
+- ETag/version behavior where required;
+- read path does not require aggregate hydration.
 
 ## Excluded
 
 Do not add:
 
-- Get Project.
 - Project update.
 - Project archive.
 - Project settings.
 - Project criticality.
 - Application or Environment capabilities.
-- new permission codes unless explicitly required by canonical documentation.
+- new permission codes.
 - unrelated Milestone 4 functionality.
 
 ## Verification
@@ -85,10 +88,11 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 
 Return only:
 
-- permission/visibility rule used
+- permission used
 - archived visibility behavior
 - read-model/query approach
 - endpoint
+- ETag behavior
 - files changed
 - tests
 - blockers

@@ -15,6 +15,6 @@ final readonly class ActiveMembershipWithPermissionMayListProjectsPolicy impleme
 
     public function allows(TenantContext $tenantContext): bool
     {
-        return $this->authorizer->allows($tenantContext, CorePermissions::readProject());
+        return $this->authorizer->allows($tenantContext, CorePermissions::readProjects());
     }
 }

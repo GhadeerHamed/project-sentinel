@@ -11,6 +11,7 @@ use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Sentinel\Project\Domain\Exception\ProjectNotFound;
 use Sentinel\Project\Domain\Exception\ProjectSlugConflict;
 use Sentinel\Shared\Domain\Concurrency\OptimisticConcurrencyConflict;
 use Sentinel\Shared\Domain\Error\ErrorCategory;
@@ -28,6 +29,7 @@ final class ApiExceptionRenderer
         $exceptions->render($this->renderAccessDeniedHttpException(...));
         $exceptions->render($this->renderThrottleRequestsException(...));
         $exceptions->render($this->renderOptimisticConcurrencyConflict(...));
+        $exceptions->render($this->renderProjectNotFound(...));
         $exceptions->render($this->renderProjectSlugConflict(...));
         $exceptions->render($this->renderIdempotencyKeyConflict(...));
         $exceptions->render($this->renderTypedError(...));
@@ -108,6 +110,15 @@ final class ApiExceptionRenderer
         }
 
         return $this->errorResponse('project.slug_conflict', 'The project slug is already in use by this organization.', 409, $exception->context());
+    }
+
+    private function renderProjectNotFound(ProjectNotFound $exception, Request $request): ?JsonResponse
+    {
+        if (! $this->isApiRequest($request)) {
+            return null;
+        }
+
+        return $this->errorResponse('project.not_found', 'The project is not available.', 404);
     }
 
     private function renderIdempotencyKeyConflict(IdempotencyKeyConflict $exception, Request $request): ?JsonResponse

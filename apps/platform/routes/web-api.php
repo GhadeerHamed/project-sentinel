@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\AcceptMembershipInvitationController;
 use App\Http\Controllers\Api\V1\AssignRoleController;
 use App\Http\Controllers\Api\V1\CreateOrganizationController;
 use App\Http\Controllers\Api\V1\CreateProjectController;
+use App\Http\Controllers\Api\V1\GetProjectController;
 use App\Http\Controllers\Api\V1\InviteMembershipController;
 use App\Http\Controllers\Api\V1\ListAccessibleOrganizationsController;
 use App\Http\Controllers\Api\V1\ListProjectsController;
@@ -38,6 +39,9 @@ Route::prefix('api/v1')
         Route::get('/organizations/{organization}/projects', ListProjectsController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.index');
+        Route::get('/organizations/{organization}/projects/{project}', GetProjectController::class)
+            ->middleware(ResolveTenantContext::class)
+            ->name('organizations.projects.show');
         Route::post('/organizations/{organization}/memberships', InviteMembershipController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.memberships.store');
