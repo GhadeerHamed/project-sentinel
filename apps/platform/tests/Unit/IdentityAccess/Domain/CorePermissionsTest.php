@@ -24,6 +24,7 @@ final class CorePermissionsTest extends TestCase
         $environmentCreate = CorePermissions::createEnvironment();
         $environmentRead = CorePermissions::readEnvironments();
         $environmentArchive = CorePermissions::archiveEnvironment();
+        $eventSourceCreate = CorePermissions::createEventSource();
 
         self::assertInstanceOf(PermissionCode::class, $memberManagement);
         self::assertSame('organization.member.manage', $memberManagement->value());
@@ -45,8 +46,10 @@ final class CorePermissionsTest extends TestCase
         self::assertSame('environment.read', $environmentRead->value());
         self::assertInstanceOf(PermissionCode::class, $environmentArchive);
         self::assertSame('environment.archive', $environmentArchive->value());
+        self::assertInstanceOf(PermissionCode::class, $eventSourceCreate);
+        self::assertSame('event_source.create', $eventSourceCreate->value());
         self::assertSame(
-            ['organization.member.manage', 'organization.update', 'organization.suspend', 'project.create', 'project.read', 'project.archive', 'application.create', 'application.read', 'application.archive', 'environment.create', 'environment.read', 'environment.archive'],
+            ['organization.member.manage', 'organization.update', 'organization.suspend', 'project.create', 'project.read', 'project.archive', 'application.create', 'application.read', 'application.archive', 'environment.create', 'environment.read', 'environment.archive', 'event_source.create'],
             CorePermissions::values(),
         );
     }

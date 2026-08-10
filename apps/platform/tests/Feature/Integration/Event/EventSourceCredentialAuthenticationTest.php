@@ -30,7 +30,9 @@ use Sentinel\Event\Application\Result\RegisterEventSourceResult;
 use Sentinel\Event\Domain\Repository\EventSourceCredentialRepository;
 use Sentinel\Event\Domain\Repository\EventSourceRepository;
 use Sentinel\Project\Application\Query\ProjectLookupQuery;
+use Sentinel\Shared\Application\Idempotency\IdempotentOperation;
 use Sentinel\Shared\Domain\Audit\AuditRecorder;
+use Sentinel\Shared\Domain\Idempotency\IdempotencyRepository;
 use Sentinel\Shared\Domain\Identifier\UuidV7Generator;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 use Sentinel\Shared\Domain\Tenant\TenantContext;
@@ -173,8 +175,12 @@ final class EventSourceCredentialAuthenticationTest extends TestCase
             environments: $this->app->make(EnvironmentRepository::class),
             registrationPolicy: new AllowEventSourceRegistration,
             tenantContext: $fixture->tenantContext,
-            clock: $this->app->make(Clock::class),
-            transactions: $this->app->make(TransactionManager::class),
+            idempotentOperation: new IdempotentOperation(
+                $this->app->make(TransactionManager::class),
+                $this->app->make(IdempotencyRepository::class),
+                $this->app->make(UuidV7Generator::class),
+                $this->app->make(Clock::class),
+            ),
             uuidGenerator: $this->app->make(UuidV7Generator::class),
             credentialIssuer: new EventSourceCredentialIssuer,
             audit: $this->app->make(AuditRecorder::class),
@@ -183,6 +189,7 @@ final class EventSourceCredentialAuthenticationTest extends TestCase
             applicationId: $fixture->applicationId,
             environmentId: $fixture->environmentId,
             name: 'Checkout API Client',
+            idempotencyKey: 'event-source-credential-authentication',
         ));
     }
 

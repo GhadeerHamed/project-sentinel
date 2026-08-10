@@ -13,6 +13,7 @@ use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayArchi
 use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayCreateEnvironmentPolicy;
 use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayGetEnvironmentPolicy;
 use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayListEnvironmentsPolicy;
+use App\Infrastructure\Event\Policy\ActiveMembershipWithPermissionMayCreateEventSourcePolicy;
 use App\Infrastructure\Identifier\LaravelUuidV7Generator;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayAssignRolePolicy;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayInviteMembershipPolicy;
@@ -68,6 +69,7 @@ use Sentinel\Environment\Application\Query\EnvironmentListQuery;
 use Sentinel\Environment\Application\Query\EnvironmentLookupQuery;
 use Sentinel\Environment\Domain\Repository\EnvironmentRepository;
 use Sentinel\Event\Application\Authentication\EventSourceBearerAuthenticator;
+use Sentinel\Event\Application\Policy\EventSourceRegistrationPolicy;
 use Sentinel\Event\Domain\Repository\EventSourceCredentialRepository;
 use Sentinel\Event\Domain\Repository\EventSourceRepository;
 use Sentinel\IdentityAccess\Application\Policy\MembershipInvitationPolicy;
@@ -144,6 +146,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(EventSourceRepository::class, PgsqlEventSourceRepository::class);
         $this->app->singleton(EventSourceCredentialRepository::class, PgsqlEventSourceCredentialRepository::class);
         $this->app->singleton(EventSourceBearerAuthenticator::class);
+        $this->app->singleton(EventSourceRegistrationPolicy::class, ActiveMembershipWithPermissionMayCreateEventSourcePolicy::class);
 
         $this->app->singleton(IdempotencyRepository::class, PgsqlIdempotencyRepository::class);
 

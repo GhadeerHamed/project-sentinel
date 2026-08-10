@@ -14,21 +14,25 @@ use Sentinel\Environment\Domain\ValueObject\EnvironmentStatus;
 use Sentinel\Event\Application\Authentication\EventSourceCredentialIssuer;
 use Sentinel\Event\Application\Command\RegisterEventSourceCommand;
 use Sentinel\Event\Application\Policy\EventSourceRegistrationPolicy;
+use Sentinel\Event\Application\Result\IssuedEventSourceCredential;
 use Sentinel\Event\Application\Result\RegisterEventSourceResult;
 use Sentinel\Event\Domain\Entity\EventSource;
 use Sentinel\Event\Domain\Repository\EventSourceCredentialRepository;
 use Sentinel\Event\Domain\Repository\EventSourceRepository;
+use Sentinel\Event\Domain\ValueObject\EventSourceId;
 use Sentinel\Project\Application\Query\ProjectLookupQuery;
 use Sentinel\Project\Domain\ValueObject\ProjectId;
 use Sentinel\Project\Domain\ValueObject\ProjectStatus;
+use Sentinel\Shared\Application\Idempotency\IdempotentOperation;
 use Sentinel\Shared\Domain\Audit\AuditRecord;
 use Sentinel\Shared\Domain\Audit\AuditRecorder;
 use Sentinel\Shared\Domain\Error\ApplicationOperationFailure;
 use Sentinel\Shared\Domain\Error\ErrorCategory;
+use Sentinel\Shared\Domain\Idempotency\IdempotencyRequest;
+use Sentinel\Shared\Domain\Idempotency\IdempotencyResponse;
 use Sentinel\Shared\Domain\Identifier\UuidV7Generator;
+use Sentinel\Shared\Domain\Identity\IdentityId;
 use Sentinel\Shared\Domain\Tenant\TenantContext;
-use Sentinel\Shared\Domain\Time\Clock;
-use Sentinel\Shared\Domain\Transaction\TransactionManager;
 
 final readonly class RegisterEventSourceHandler
 {
@@ -40,8 +44,7 @@ final readonly class RegisterEventSourceHandler
         private EnvironmentRepository $environments,
         private EventSourceRegistrationPolicy $registrationPolicy,
         private TenantContext $tenantContext,
-        private Clock $clock,
-        private TransactionManager $transactions,
+        private IdempotentOperation $idempotentOperation,
         private UuidV7Generator $uuidGenerator,
         private EventSourceCredentialIssuer $credentialIssuer,
         private AuditRecorder $audit,
@@ -98,35 +101,49 @@ final readonly class RegisterEventSourceHandler
             );
         }
 
-        $at = $this->clock->now();
+        $request = IdempotencyRequest::fromNormalizedPayload(
+            organizationId: $this->tenantContext->organizationId(),
+            identityId: IdentityId::fromString($this->tenantContext->actingIdentity()->identityId()),
+            operation: 'event_source.create',
+            key: $command->idempotencyKey(),
+            normalizedPayload: $command->normalizedPayload(),
+        );
+        /** @var ?IssuedEventSourceCredential $issuedCredential */
+        $issuedCredential = null;
+        $execution = $this->idempotentOperation->execute(
+            $request,
+            function (DateTimeImmutable $at) use ($projectId, $applicationId, $environmentId, $command, &$issuedCredential): IdempotencyResponse {
+                $eventSource = EventSource::create(
+                    id: $this->uuidGenerator->generate(),
+                    organizationId: $this->tenantContext->organizationId()->value(),
+                    projectId: $projectId->value(),
+                    applicationId: $applicationId->value(),
+                    environmentId: $environmentId->value(),
+                    name: $command->name(),
+                    at: $at,
+                );
+                $issuedCredential = $this->credentialIssuer->issue(
+                    credentialId: $this->uuidGenerator->generate(),
+                    organizationId: $this->tenantContext->organizationId()->value(),
+                    eventSourceId: $eventSource->id()->value(),
+                    at: $at,
+                );
 
-        /** @var RegisterEventSourceResult $result */
-        $result = $this->transactions->transactional(function () use ($projectId, $applicationId, $environmentId, $command, $at): RegisterEventSourceResult {
-            $eventSource = EventSource::create(
-                id: $this->uuidGenerator->generate(),
-                organizationId: $this->tenantContext->organizationId()->value(),
-                projectId: $projectId->value(),
-                applicationId: $applicationId->value(),
-                environmentId: $environmentId->value(),
-                name: $command->name(),
-                at: $at,
-            );
-            $issuedCredential = $this->credentialIssuer->issue(
-                credentialId: $this->uuidGenerator->generate(),
-                organizationId: $this->tenantContext->organizationId()->value(),
-                eventSourceId: $eventSource->id()->value(),
-                at: $at,
-            );
+                $this->eventSources->save($eventSource);
+                $this->credentials->save($issuedCredential->credential());
+                $this->recordAudit($eventSource->id()->value(), 'event_source.create', 'event_source', $at);
+                $this->recordAudit($issuedCredential->credential()->id()->value(), 'event_source.credential.issue', 'event_source_credential', $at);
 
-            $this->eventSources->save($eventSource);
-            $this->credentials->save($issuedCredential->credential());
-            $this->recordAudit($eventSource->id()->value(), 'event_source.create', 'event_source', $at);
-            $this->recordAudit($issuedCredential->credential()->id()->value(), 'event_source.credential.issue', 'event_source_credential', $at);
+                return IdempotencyResponse::fromValues(201, $eventSource->id()->value());
+            },
+        );
 
-            return new RegisterEventSourceResult($eventSource, $issuedCredential);
-        });
+        $eventSource = $this->eventSources->getById(
+            EventSourceId::fromString($execution->response()->resourceReference()->value()),
+            $this->tenantContext->organizationId(),
+        );
 
-        return $result;
+        return new RegisterEventSourceResult($eventSource, $issuedCredential);
     }
 
     private function recordAudit(string $resourceId, string $action, string $resourceType, DateTimeImmutable $at): void

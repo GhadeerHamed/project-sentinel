@@ -11,6 +11,7 @@ final readonly class RegisterEventSourceCommand
         private string $applicationId,
         private string $environmentId,
         private string $name,
+        private string $idempotencyKey,
     ) {}
 
     public static function fromValues(
@@ -18,12 +19,14 @@ final readonly class RegisterEventSourceCommand
         string $applicationId,
         string $environmentId,
         string $name,
+        string $idempotencyKey,
     ): self {
         return new self(
             projectId: trim($projectId),
             applicationId: trim($applicationId),
             environmentId: trim($environmentId),
             name: trim($name),
+            idempotencyKey: trim($idempotencyKey),
         );
     }
 
@@ -45,5 +48,21 @@ final readonly class RegisterEventSourceCommand
     public function name(): string
     {
         return $this->name;
+    }
+
+    public function idempotencyKey(): string
+    {
+        return $this->idempotencyKey;
+    }
+
+    /** @return array{project_id: string, application_id: string, environment_id: string, name: string} */
+    public function normalizedPayload(): array
+    {
+        return [
+            'project_id' => $this->projectId,
+            'application_id' => $this->applicationId,
+            'environment_id' => $this->environmentId,
+            'name' => $this->name,
+        ];
     }
 }

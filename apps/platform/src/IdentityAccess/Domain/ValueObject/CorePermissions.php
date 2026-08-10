@@ -24,6 +24,7 @@ final class CorePermissions
             self::createEnvironment(),
             self::readEnvironments(),
             self::archiveEnvironment(),
+            self::createEventSource(),
         ];
     }
 
@@ -93,5 +94,10 @@ final class CorePermissions
     public static function archiveEnvironment(): PermissionCode
     {
         return PermissionCode::fromString('environment.archive');
+    }
+
+    public static function createEventSource(): PermissionCode
+    {
+        return PermissionCode::fromString('event_source.create');
     }
 }

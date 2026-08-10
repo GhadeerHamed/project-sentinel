@@ -10,7 +10,7 @@ final readonly class RegisterEventSourceResult
 {
     public function __construct(
         private EventSource $eventSource,
-        private IssuedEventSourceCredential $issuedCredential,
+        private ?IssuedEventSourceCredential $issuedCredential,
     ) {}
 
     public function eventSource(): EventSource
@@ -18,7 +18,7 @@ final readonly class RegisterEventSourceResult
         return $this->eventSource;
     }
 
-    public function issuedCredential(): IssuedEventSourceCredential
+    public function issuedCredential(): ?IssuedEventSourceCredential
     {
         return $this->issuedCredential;
     }

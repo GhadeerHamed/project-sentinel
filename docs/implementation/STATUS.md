@@ -98,19 +98,20 @@
 
 - [x] Event Ingestion contract reconciliation: canonical immutable Event envelope, active hierarchy, `api_client` source credentials, schema/type/payload rules, distinct idempotency and source duplicate handling, `202 Accepted`, and transactional `event.accepted` publication.
 - [x] Event Source issuance contract reconciliation: `event_source.create` authorization, nested active-hierarchy route, server-owned fields, one-time credential response, Audit actions, and idempotency without secret replay.
+- [x] Event Source issuance HTTP vertical slice with `event_source.create` authorization, owner-permission bootstrap/backfill, nested session-authenticated route, active hierarchy validation, idempotent one-time credential issuance, Audit, and focused coverage.
 
 ## In Progress
 
-- [ ] Event Source issuance HTTP vertical slice.
+- [ ] Single-event ingestion vertical slice.
 
 ## Remaining Milestone 5
 
-- [ ] Single-event ingestion vertical slice.
-- [ ] Remaining Event Ingestion capabilities explicitly required by MVP.
+- [ ] Event ingestion read/query capabilities explicitly required by MVP.
+- [ ] Milestone 5 completion review.
 
 ## Next Recommended Task
 
-Implement the Event Source issuance HTTP vertical slice: `event_source.create` authorization and owner-permission provisioning/backfill, nested route, idempotency, one-time credential response, Audit, and focused tests.
+Implement authenticated single-event ingestion with active hierarchy validation, immutable canonical Event persistence, independent idempotency and source duplicate detection, and transactional `event.accepted` Outbox publication.
 
 ## Status Update Rules
 
