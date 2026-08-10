@@ -225,7 +225,6 @@ The module may consume:
 organization.suspended
 organization.archived
 application.archived
-environment.disabled
 environment.archived
 plugin.data_received
 retention.policy_applied
@@ -480,11 +479,13 @@ Signal creation should atomically commit:
 Event and Signal retention depends on:
 
 * Organization Policy.
-* Environment criticality.
+* Environment type.
 * data classification.
 * evidence dependencies.
 * Legal Hold.
 * archive requirements.
+
+Environment criticality is not part of the current Registry contract. A future retention capability may consider it only after that Environment capability is introduced.
 
 Deleting an Event must not invalidate retained Incident evidence without an approved preservation strategy.
 

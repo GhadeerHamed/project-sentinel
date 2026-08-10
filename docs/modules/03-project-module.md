@@ -14,13 +14,10 @@ The module owns:
 
 * Project.
 * Project lifecycle.
-* Project profile.
-* Project settings.
-* Project-level operational defaults.
-* Project ownership references.
-* Project history.
 
 Applications and Environments are owned by their respective modules.
+
+Project profile and metadata updates, settings, operational defaults, ownership references, and separate lifecycle history are deferred Registry capabilities.
 
 ---
 
@@ -29,12 +26,11 @@ Applications and Environments are owned by their respective modules.
 The module is responsible for:
 
 * Creating Projects within an Organization.
-* maintaining Project identity and metadata.
-* managing lifecycle transitions.
-* defining Project-level defaults.
+* Listing and retrieving Projects within an Organization.
+* Archiving active Projects.
 * validating Organization ownership.
 * exposing Project status to dependent modules.
-* publishing Project lifecycle events.
+* publishing the current Project lifecycle events.
 
 ---
 
@@ -103,7 +99,6 @@ An Active Project may:
 * Contain Applications.
 * receive new operational Resources.
 * participate in Search and reporting.
-* provide defaults to Applications.
 * be used as an authorization scope.
 
 All operations remain subject to Organization status and permissions.
@@ -126,18 +121,14 @@ Archiving a Project does not automatically delete its Applications or operationa
 
 ## Commands
 
-Primary commands include:
+The MVP commands are:
 
 ```text
 CreateProject
-RenameProject
-ChangeProjectSlug
-UpdateProjectDescription
-UpdateProjectSettings
 ArchiveProject
 ```
 
-Commands require Organization context and optimistic concurrency where applicable.
+`ArchiveProject` requires optimistic concurrency. Project rename, slug change, description or metadata update, and settings update are deferred.
 
 ## Create Project
 
@@ -156,28 +147,23 @@ The server owns the Organization reference, UUIDv7 identifier, active status, cr
 
 ## Queries
 
-Primary queries include:
+The MVP queries are:
 
 ```text
 GetProject
-GetProjectBySlug
 ListProjects
-GetProjectSettings
-GetProjectStatus
 ```
 
-Queries must preserve Organization and authorization scope.
+Queries preserve Organization and authorization scope. Project settings and status-specific query contracts are deferred.
 
 ---
 
 ## Published Events
 
-The module publishes:
+The MVP publishes:
 
 ```text
 project.created
-project.renamed
-project.settings_updated
 project.archived
 ```
 
@@ -197,7 +183,7 @@ event_version
 
 ## Consumed Events
 
-The module may consume:
+The MVP does not define consumed Project events. Future Project behavior may consume:
 
 ```text
 organization.suspended
@@ -205,9 +191,7 @@ organization.reactivated
 organization.archived
 ```
 
-Organization lifecycle changes may restrict Project operations without changing every Project’s authoritative lifecycle state.
-
-Consumers must remain idempotent.
+Those future consumers must remain idempotent.
 
 ---
 
@@ -240,7 +224,7 @@ The Project module must not write Application state.
 
 ---
 
-## Settings
+## Deferred Project Settings
 
 Project settings are a separate capability and are not part of Project creation.
 
@@ -266,16 +250,10 @@ Typical permissions include:
 ```text
 project.create
 project.read
-project.update
 project.archive
 ```
 
-Authorization may also consider:
-
-* Organization Membership.
-* Project scope.
-* Project status.
-* authentication strength for high-risk changes.
+The MVP requires an active Organization Membership, Tenant Context, and the relevant permission. Project scope and high-risk authentication extensions are deferred.
 
 Role names must not be embedded in Project domain logic.
 
@@ -317,11 +295,9 @@ The module owns repository contracts such as:
 
 ```text
 ProjectRepository
-ProjectSettingsRepository
-ProjectHistoryRepository
 ```
 
-Other modules should use Project queries or contracts rather than changing Project persistence directly.
+Settings and history repository contracts are deferred. Other modules should use Project queries or contracts rather than changing Project persistence directly.
 
 ---
 
@@ -330,7 +306,6 @@ Other modules should use Project queries or contracts rather than changing Proje
 Project state changes should atomically commit:
 
 * Project state.
-* lifecycle history where required.
 * Audit metadata.
 * Outbox Records.
 
@@ -340,13 +315,7 @@ Dependent module reactions occur through events.
 
 ## Optimistic Concurrency
 
-Project updates should use a Resource Version.
-
-Concurrency protection is required for:
-
-* Settings changes.
-* metadata updates.
-* archival.
+Project archival uses a Resource Version.
 
 Conflicting writes must not silently overwrite newer changes.
 
@@ -388,10 +357,7 @@ Search remains derived and must not become authoritative Project state.
 Audit Records are required for:
 
 * Project creation.
-* metadata changes.
-* settings changes.
 * archival.
-* privileged access to archived Projects.
 
 Audit payloads must exclude secrets and unrestricted tenant data.
 
@@ -406,7 +372,7 @@ Tests must cover:
 * identical slugs across different Organizations.
 * inactive Organization rejection.
 * cross-Organization access rejection.
-* metadata updates.
+* authorized list and historical retrieval.
 * optimistic concurrency.
 * archival.
 * prevention of new child Resources after archival.
@@ -441,8 +407,8 @@ The following are prohibited:
 * Projects cannot move between Organizations.
 * archived Projects retain historical data but reject normal writes.
 * Applications are owned by the Application module.
-* Project defaults may influence but do not own child Resource configuration.
-* Project state changes are versioned, auditable, and event-producing.
+* Project settings and defaults are deferred.
+* Project archival is versioned, auditable, and event-producing.
 * all Project access remains Organization-scoped.
 
 ---

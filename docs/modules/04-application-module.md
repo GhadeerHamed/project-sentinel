@@ -14,13 +14,10 @@ The module owns:
 
 * Application.
 * Application lifecycle.
-* Application profile.
-* Application settings.
-* Application ownership metadata.
-* Application operational defaults.
-* Application history.
 
 Environments are owned by the Environment module.
+
+Application profile and metadata updates, settings, ownership metadata, operational defaults, and separate lifecycle history are deferred Registry capabilities.
 
 ---
 
@@ -29,12 +26,11 @@ Environments are owned by the Environment module.
 The module is responsible for:
 
 * Creating Applications within Projects.
-* maintaining Application metadata.
-* managing lifecycle transitions.
+* Listing and retrieving Applications through their Projects.
+* Archiving active Applications.
 * validating Project and Organization ownership.
-* defining Application-level operational defaults.
 * exposing Application status.
-* publishing Application lifecycle events.
+* publishing the current Application lifecycle events.
 
 ---
 
@@ -132,23 +128,21 @@ Archival does not delete child Resources.
 
 ## Commands
 
-Primary commands include:
+The MVP commands are:
 
 ```text
 CreateApplication
-RenameApplication
-ChangeApplicationSlug
-UpdateApplicationDescription
-UpdateApplicationSettings
 ArchiveApplication
 ```
 
-Commands require:
+`ArchiveApplication` requires:
 
 * Tenant Context.
 * valid Project ownership.
 * authorization.
-* optimistic concurrency where applicable.
+* optimistic concurrency.
+
+Application rename, slug change, description or metadata update, criticality mutation, and settings update are deferred.
 
 ## Create Application
 
@@ -168,28 +162,23 @@ Criticality values are `critical`, `high`, `medium`, and `low`; no default is ap
 
 ## Queries
 
-Primary queries include:
+The MVP queries are:
 
 ```text
 GetApplication
-GetApplicationBySlug
 ListApplications
-GetApplicationSettings
-GetApplicationStatus
 ```
 
-Queries must remain Organization-scoped and enforce the Application's persisted Project ownership. Project-nested operations must enforce Organization, Project, and Application ownership together.
+Queries must remain Organization-scoped and enforce the Application's persisted Project ownership. The MVP HTTP API always nests Application list, get, and archive operations beneath Organization and Project.
 
 ---
 
 ## Published Events
 
-The module publishes:
+The MVP publishes:
 
 ```text
 application.created
-application.renamed
-application.settings_updated
 application.archived
 ```
 
@@ -235,7 +224,7 @@ Application creation requires:
 * matching Organization ownership.
 * authorized identity.
 
-An Application cannot move between Projects or Organizations through a normal update.
+An Application cannot move between Projects or Organizations through normal MVP operations. Any future ownership migration must be explicitly governed.
 
 ---
 
@@ -269,7 +258,7 @@ They must not copy or mutate authoritative Application state.
 
 ---
 
-## Settings
+## Deferred Application Settings
 
 Application settings may define defaults such as:
 
@@ -296,18 +285,10 @@ Typical permissions include:
 ```text
 application.create
 application.read
-application.update
 application.archive
-environment.create
 ```
 
-Authorization may consider:
-
-* Organization Membership.
-* Project scope.
-* Application scope.
-* Application state.
-* authentication strength for sensitive changes.
+The MVP requires an active Organization Membership, Tenant Context, and the relevant permission. Project and Application scope extensions, high-risk authentication, and Environment permissions are owned by future access-scope or Environment capabilities.
 
 ---
 
@@ -338,11 +319,9 @@ The module owns repository contracts such as:
 
 ```text
 ApplicationRepository
-ApplicationSettingsRepository
-ApplicationHistoryRepository
 ```
 
-Other modules use public Application contracts rather than modifying Application persistence directly.
+Settings and history repository contracts are deferred. Other modules use public Application contracts rather than modifying Application persistence directly.
 
 ---
 
@@ -351,7 +330,6 @@ Other modules use public Application contracts rather than modifying Application
 Application state changes should atomically commit:
 
 * Application state.
-* history where required.
 * Audit metadata.
 * Outbox Records.
 
@@ -361,7 +339,7 @@ Reactions in other modules occur through published events.
 
 ## Optimistic Concurrency
 
-Application metadata, settings, and lifecycle changes should use a Resource Version.
+Application archival uses a Resource Version.
 
 Conflicting changes must return a concurrency conflict rather than overwrite newer state.
 
@@ -391,7 +369,6 @@ The Search module may maintain derived Application documents containing:
 * description.
 * status.
 * Project reference.
-* operational ownership metadata.
 
 Search remains derived and rebuildable.
 
@@ -402,10 +379,7 @@ Search remains derived and rebuildable.
 Audit Records are required for:
 
 * Application creation.
-* metadata changes.
-* settings changes.
 * archival.
-* privileged access to archived Applications.
 
 Sensitive configuration must be redacted.
 
@@ -422,7 +396,7 @@ Tests must cover:
 * identical slugs in different Projects.
 * required criticality validation.
 * cross-tenant access rejection.
-* settings updates.
+* authorized list and historical retrieval.
 * optimistic concurrency.
 * archival.
 * prevention of new child Resources after archival.
@@ -460,7 +434,8 @@ The following are prohibited:
 * archived Applications retain history but reject normal writes.
 * Environments are owned by the Environment module.
 * operational modules reference Applications without owning them.
-* state changes are versioned, auditable, and event-producing.
+* Application updates, settings, and criticality mutation are deferred.
+* Application archival is versioned, auditable, and event-producing.
 * all Application access remains tenant-scoped.
 
 ---

@@ -40,7 +40,6 @@ Supported statuses:
 | `GET`   | `/organizations/{organization_id}/projects`                         | List Projects        |
 | `POST`  | `/organizations/{organization_id}/projects`                         | Create a Project     |
 | `GET`   | `/organizations/{organization_id}/projects/{project_id}`            | Read a Project       |
-| `PATCH` | `/organizations/{organization_id}/projects/{project_id}`            | Update a Project     |
 | `POST`  | `/organizations/{organization_id}/projects/{project_id}/archive`    | Archive a Project    |
 
 ---
@@ -62,6 +61,10 @@ Default ordering:
 ```text
 created_at DESC, id DESC
 ```
+
+Results are cursor-paginated. `limit` accepts values from `1` through `100`; an opaque `cursor` continues the same filter set. Responses include `pagination.next_cursor` when another page exists.
+
+Active Projects are returned by default. Authorized callers may request `status=archived` for historical list access.
 
 ---
 
@@ -104,33 +107,7 @@ Successful creation publishes `project.created`, records its Outbox message tran
 GET /api/v1/organizations/{organization_id}/projects/{project_id}
 ```
 
-Both `organization_id` and `project_id` must be used for lookup and authorization.
-
----
-
-## Update Project
-
-```http
-PATCH /api/v1/organizations/{organization_id}/projects/{project_id}
-If-Match: "2"
-```
-
-Request:
-
-```json
-{
-  "name": "Commerce Operations",
-  "description": "Operational scope for commerce services."
-}
-```
-
-Mutable fields:
-
-* `name`
-* `description`
-* approved metadata
-
-Slug changes should be restricted or handled through a dedicated command.
+Both `organization_id` and `project_id` must be used for lookup and authorization. Archived Projects remain available to authorized historical reads.
 
 ---
 
@@ -150,6 +127,14 @@ Archival should:
 
 Archival is not deletion.
 
+The request requires a quoted `If-Match` version. A successful archive returns `204 No Content` with the next quoted `ETag`; a stale version returns `412 Precondition Failed`.
+
+---
+
+## Deferred Project Capabilities
+
+Project profile and metadata updates, slug changes, settings and defaults, ownership records, suspension, reactivation, deletion, and restoration are future capabilities. They have no current MVP endpoint or permission contract.
+
 ---
 
 ## Authorization
@@ -159,11 +144,10 @@ Typical permissions:
 ```text
 project.read
 project.create
-project.update
 project.archive
 ```
 
-Access may also be restricted by Project membership or Team scope.
+Project membership and Team-scoped authorization are deferred.
 
 ---
 

@@ -39,23 +39,21 @@ Supported statuses:
 
 | Method  | Endpoint                                                                    | Purpose                   |
 | ------- | --------------------------------------------------------------------------- | ------------------------- |
-| `GET`   | `/organizations/{organization_id}/applications`                             | List Applications         |
 | `POST`  | `/organizations/{organization}/projects/{project}/applications`             | Create an Application     |
-| `GET`   | `/organizations/{organization_id}/applications/{application_id}`            | Read an Application       |
-| `PATCH` | `/organizations/{organization_id}/applications/{application_id}`            | Update an Application     |
-| `POST`  | `/organizations/{organization_id}/applications/{application_id}/archive`    | Archive an Application    |
+| `GET`   | `/organizations/{organization}/projects/{project}/applications`             | List Applications         |
+| `GET`   | `/organizations/{organization}/projects/{project}/applications/{application}` | Read an Application     |
+| `POST`  | `/organizations/{organization}/projects/{project}/applications/{application}/archive` | Archive an Application |
 
 ---
 
 ## List Applications
 
 ```http
-GET /api/v1/organizations/{organization_id}/applications
+GET /api/v1/organizations/{organization}/projects/{project}/applications
 ```
 
 Supported filters:
 
-* `project_id`
 * `status`
 * `name`
 * `slug`
@@ -65,6 +63,10 @@ Default ordering:
 ```text
 created_at DESC, id DESC
 ```
+
+Results are cursor-paginated. `limit` accepts values from `1` through `100`; an opaque `cursor` continues the same filter set. Responses include `pagination.next_cursor` when another page exists.
+
+Active Applications are returned by default. Authorized callers may request `status=archived` for historical list access.
 
 ---
 
@@ -107,50 +109,25 @@ The `201 Created` response returns the canonical Application resource, including
 ## Read Application
 
 ```http
-GET /api/v1/organizations/{organization_id}/applications/{application_id}
+GET /api/v1/organizations/{organization}/projects/{project}/applications/{application}
 ```
 
-The lookup must include both:
+The lookup must include:
 
 ```text
 organization_id
+project_id
 application_id
 ```
 
-The persisted Application Project relationship must also belong to that Organization. Project-nested operations enforce Organization, Project, and Application ownership together.
-
----
-
-## Update Application
-
-```http
-PATCH /api/v1/organizations/{organization_id}/applications/{application_id}
-If-Match: "3"
-```
-
-Request:
-
-```json
-{
-  "name": "Checkout Service",
-  "description": "Handles checkout orchestration."
-}
-```
-
-Mutable fields:
-
-* `name`
-* `description`
-* approved metadata
-
-Changing Project ownership is outside the MVP and would require a future governed migration process.
+The persisted Application Project relationship must also belong to that Organization. Archived Applications and their archived Project parents remain available to authorized historical reads.
 
 ---
 
 ## Archive Application
 
 ```http
-POST /api/v1/organizations/{organization_id}/applications/{application_id}/archive
+POST /api/v1/organizations/{organization}/projects/{project}/applications/{application}/archive
 If-Match: "5"
 ```
 
@@ -161,6 +138,14 @@ Archival:
 * removes the Application from default active listings.
 * does not delete data.
 
+The request requires a quoted `If-Match` version. A successful archive returns `204 No Content` with the next quoted `ETag`; a stale version returns `412 Precondition Failed`.
+
+---
+
+## Deferred Application Capabilities
+
+Application updates, including criticality mutation, settings, runtime/framework metadata, repository/source metadata, suspension, reactivation, deletion, and restoration are future capabilities. They have no current MVP endpoint or permission contract. Any future Project ownership change requires a governed migration process.
+
 ---
 
 ## Authorization
@@ -170,11 +155,10 @@ Typical permissions:
 ```text
 application.read
 application.create
-application.update
 application.archive
 ```
 
-Authorization may also depend on Project or Team scope.
+Project and Team-scoped authorization extensions are deferred.
 
 ---
 

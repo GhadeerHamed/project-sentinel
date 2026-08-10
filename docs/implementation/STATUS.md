@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-**Milestone 4 — Project and Application Registry**
+**Milestone 5 — Event Ingestion**
 
 ## Completed Capabilities
 
@@ -75,6 +75,7 @@
 - [x] List Environments vertical slice with `environment.read` authorization, Project and Application ownership validation, active-by-default archived visibility, PostgreSQL read projection, cursor pagination, and authenticated HTTP endpoint.
 - [x] Get Environment vertical slice with `environment.read` authorization, tenant-scoped Project, Application, and Environment projection lookups, historical archived visibility, and authenticated nested HTTP endpoint.
 - [x] Archive Environment vertical slice with `environment.archive` authorization, canonical active-to-archived lifecycle, optimistic concurrency, Outbox, Audit, PostgreSQL persistence, owner-permission backfill, and authenticated nested HTTP endpoint.
+- [x] Milestone 4 — Project and Application Registry completed, including final reconciliation of Project and Application API/module contracts and Event Ingestion's current Environment assumptions.
 
 ## Milestone 3 Deferred
 
@@ -82,21 +83,23 @@
 - [ ] Ownership transfer / distinct business-ownership invariant — deferred.
 - [ ] Custom Role CRUD and broader Role/Permission listing — deferred.
 
+## Milestone 4 Deferred
+
+- [ ] Project and Application profile, metadata, settings, ownership, and scoped-access capabilities.
+- [ ] Project and Application lifecycle transitions other than `active` → `archived`, including suspension, reactivation, deletion, and restoration.
+- [ ] Application criticality mutation and Environment settings, criticality, and advanced lifecycle capabilities.
+
 ## Current Milestone
 
-**Milestone 4 — Project and Application Registry**
+**Milestone 5 — Event Ingestion**
 
 ## In Progress
 
-- [ ] Milestone 4 completion review.
-
-## Remaining Milestone 4
-
-- [ ] Confirm no required Project/Application/Environment MVP capabilities remain.
+- [ ] Event Ingestion canonical contract review.
 
 ## Next Recommended Task
 
-Review Milestone 4 against the canonical roadmap and Registry documentation, confirm the implemented Project/Application/Environment capabilities satisfy MVP scope, identify only genuine remaining gaps, and recommend the next milestone.
+Reconcile the canonical Event model, source identity, hierarchy ownership, deduplication, idempotency, immutable persistence, ingestion timestamps, payload/schema rules, and `event.accepted` publication contract before implementing the first ingestion vertical slice.
 
 ## Status Update Rules
 
