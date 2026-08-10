@@ -13,6 +13,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Sentinel\Application\Domain\Exception\ApplicationNotFound;
 use Sentinel\Application\Domain\Exception\ApplicationSlugConflict;
+use Sentinel\Environment\Domain\Exception\EnvironmentNotFound;
+use Sentinel\Environment\Domain\Exception\EnvironmentSlugConflict;
 use Sentinel\Project\Domain\Exception\ProjectNotFound;
 use Sentinel\Project\Domain\Exception\ProjectSlugConflict;
 use Sentinel\Shared\Domain\Concurrency\OptimisticConcurrencyConflict;
@@ -33,6 +35,8 @@ final class ApiExceptionRenderer
         $exceptions->render($this->renderOptimisticConcurrencyConflict(...));
         $exceptions->render($this->renderApplicationNotFound(...));
         $exceptions->render($this->renderApplicationSlugConflict(...));
+        $exceptions->render($this->renderEnvironmentNotFound(...));
+        $exceptions->render($this->renderEnvironmentSlugConflict(...));
         $exceptions->render($this->renderProjectNotFound(...));
         $exceptions->render($this->renderProjectSlugConflict(...));
         $exceptions->render($this->renderIdempotencyKeyConflict(...));
@@ -132,6 +136,24 @@ final class ApiExceptionRenderer
         }
 
         return $this->errorResponse('application.not_found', 'The application is not available.', 404);
+    }
+
+    private function renderEnvironmentSlugConflict(EnvironmentSlugConflict $exception, Request $request): ?JsonResponse
+    {
+        if (! $this->isApiRequest($request)) {
+            return null;
+        }
+
+        return $this->errorResponse('environment.slug_conflict', 'The environment slug is already in use by this application.', 409, $exception->context());
+    }
+
+    private function renderEnvironmentNotFound(EnvironmentNotFound $exception, Request $request): ?JsonResponse
+    {
+        if (! $this->isApiRequest($request)) {
+            return null;
+        }
+
+        return $this->errorResponse('environment.not_found', 'The environment is not available.', 404);
     }
 
     private function renderProjectNotFound(ProjectNotFound $exception, Request $request): ?JsonResponse

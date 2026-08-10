@@ -21,6 +21,7 @@ final class CorePermissions
             self::createApplication(),
             self::readApplications(),
             self::archiveApplication(),
+            self::createEnvironment(),
         ];
     }
 
@@ -75,5 +76,10 @@ final class CorePermissions
     public static function archiveApplication(): PermissionCode
     {
         return PermissionCode::fromString('application.archive');
+    }
+
+    public static function createEnvironment(): PermissionCode
+    {
+        return PermissionCode::fromString('environment.create');
     }
 }

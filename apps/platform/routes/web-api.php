@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\ArchiveApplicationController;
 use App\Http\Controllers\Api\V1\ArchiveProjectController;
 use App\Http\Controllers\Api\V1\AssignRoleController;
 use App\Http\Controllers\Api\V1\CreateApplicationController;
+use App\Http\Controllers\Api\V1\CreateEnvironmentController;
 use App\Http\Controllers\Api\V1\CreateOrganizationController;
 use App\Http\Controllers\Api\V1\CreateProjectController;
 use App\Http\Controllers\Api\V1\GetApplicationController;
@@ -44,6 +45,9 @@ Route::prefix('api/v1')
         Route::post('/organizations/{organization}/projects/{project}/applications', CreateApplicationController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.applications.store');
+        Route::post('/organizations/{organization}/projects/{project}/applications/{application}/environments', CreateEnvironmentController::class)
+            ->middleware(ResolveTenantContext::class)
+            ->name('organizations.projects.applications.environments.store');
         Route::get('/organizations/{organization}/projects/{project}/applications', ListApplicationsController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.applications.index');

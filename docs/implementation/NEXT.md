@@ -1,16 +1,16 @@
 # Current Task
 
-Implement the Create Environment vertical slice.
+Implement the List Environments vertical slice.
 
 ## Required
 
 - Follow the reconciled Environment module, API, database, security, and MVP documentation.
 - Use the existing authenticated `IdentityReference`.
 - Require the resolved `TenantContext`.
-- Use the canonical `environment.create` permission.
-- Add it to `CorePermissions` if not already present.
-- Ensure the built-in `organization_owner` Role receives `environment.create`.
-- Reuse `OrganizationPermissionAuthorizer` through an operation-specific Create Environment Policy.
+- Use the canonical Environment read permission from existing documentation; do not invent a permission code.
+- Add it to `CorePermissions` only if canonically required and not already present.
+- Ensure the built-in `organization_owner` Role receives the permission.
+- Authorize through an operation-specific Policy using `OrganizationPermissionAuthorizer`.
 
 ## Ownership
 
@@ -18,225 +18,137 @@ Canonical hierarchy:
 
 Organization → Project → Application → Environment
 
-Environment persists:
+- Resolve the Project within the Organization from `TenantContext`.
+- Resolve the Application within the Organization and route Project.
+- Environment queries must be scoped by Organization and Application.
+- Project ownership is validated through the Application relationship.
+- Do not accept tenant or parent identifiers from query input.
+- Cross-Organization and cross-Project parents must return tenant-safe not-found behavior.
 
-- `organization_id`
-- `application_id`
+## Parent Historical Access
 
-Environment does not persist `project_id`.
+Follow the reconciled historical-read rules.
 
-The handler must:
+- Archived Projects remain available for authorized historical reads.
+- Archived Applications remain available for authorized historical reads.
+- Listing Environments beneath archived parents must remain read-only.
+- Suspended Organizations remain blocked by existing `TenantContext` resolution.
 
-- derive Organization from `TenantContext`;
-- resolve the route Project within the Organization;
-- resolve the route Application within the Organization and Project;
-- require both Project and Application to be active;
-- reject missing, cross-Organization, cross-Project, or archived parents;
-- never accept tenant or parent IDs from the request body.
+## Read Model
 
-## Domain
+- Do not hydrate Environment aggregates for this read-only operation.
+- Add a framework-independent Environment read DTO containing only API-required fields.
+- Add the smallest query/read contract required.
+- Implement a scoped PostgreSQL projection selecting only required columns.
+- Avoid N+1 queries.
+- Reuse `CreatedAtIdCursor` for cursor pagination where compatible.
+- Do not introduce another resource-specific cursor implementation if the shared cursor already satisfies the contract.
 
-Implement the framework-independent Environment domain foundation required by this slice.
-
-Canonical fields:
+Canonical public fields should include only documented values such as:
 
 - `id`
-- `organization_id`
-- `application_id`
+- `application_id` where required
 - `name`
 - `slug`
 - `environment_type`
 - `status`
-- `created_by_identity_id`
+- `version`
 - `created_at`
 - `updated_at`
-- nullable `archived_at`
-- `version`
 
-Initial status:
+Do not expose creator identity or internal archival metadata unless explicitly required.
 
-`active`
+## Filtering
 
-Canonical `environment_type` values:
+Support only canonical documented filters.
 
-- `production`
-- `staging`
-- `testing`
-- `development`
-- `sandbox`
-- `other`
+At minimum verify the reconciled API contract for:
 
-Use UUIDv7 and the existing `ResourceVersion` foundation.
+- `status`
+- `environment_type`
+- `slug`
 
-Emit:
+Rules:
 
-`environment.created`
+- active Environments are the default list view;
+- archived Environments are available for authorized historical reads according to the documented status filter;
+- reject unsupported filter values;
+- filter state must participate in cursor scope so a cursor cannot be reused with incompatible filters.
 
-Do not add deferred fields or lifecycle states.
+## Ordering and Pagination
 
-## Application Layer
+Use canonical ordering:
 
-Add the framework-independent:
+- `created_at DESC`
+- `id DESC`
 
-- command;
-- result;
-- Policy;
-- handler;
-- repository contracts required by this slice.
+Use stable keyset cursor pagination.
 
-The handler must:
-
-1. authorize `environment.create`;
-2. validate active Project and Application ownership;
-3. enforce idempotency;
-4. create the Environment through the Domain model;
-5. persist it;
-6. append Domain Events to Outbox;
-7. record Audit action `environment.create`;
-8. commit atomically.
-
-Reuse existing shared infrastructure where appropriate:
-
-- `TransactionManager`
-- UUIDv7 generator
-- Clock
-- `TenantScopedOperationRecorder`
-- existing creation-idempotency abstraction
-
-## Idempotency
-
-Require:
-
-`Idempotency-Key`
-
-Reuse the existing creation-idempotency infrastructure.
-
-Scope:
-
-- Organization;
-- acting identity;
-- operation;
-- idempotency key;
-- normalized request hash.
-
-Required behavior:
-
-- same key + same normalized request replays the original successful result;
-- same key + different request conflicts;
-- concurrent identical requests create only one Environment.
-
-Do not create a second idempotency implementation.
-
-## Persistence
-
-Add canonical PostgreSQL Environment persistence.
-
-Required:
-
-- native UUID ID;
-- Organization foreign key;
-- Application foreign key;
-- name;
-- slug;
-- required `environment_type`;
-- canonical status;
-- creator identity;
-- timestamps;
-- nullable `archived_at`;
-- version;
-- unique `(organization_id, application_id, slug)`.
-
-Repository operations must preserve Organization and Application ownership.
-
-Do not persist `project_id`.
+Reuse the existing shared pagination infrastructure.
 
 ## HTTP
 
 Expose:
 
-`POST /api/v1/organizations/{organization}/projects/{project}/applications/{application}/environments`
+`GET /api/v1/organizations/{organization}/projects/{project}/applications/{application}/environments`
 
 Require:
 
 - session authentication;
 - resolved `TenantContext`;
-- `environment.create`;
-- `Idempotency-Key`.
-
-Request body:
-
-- `name` — required;
-- `slug` — required;
-- `environment_type` — required.
-
-Do not accept client-controlled:
-
-- `organization_id`;
-- `project_id`;
-- `application_id`;
-- status;
-- version;
-- creator identity;
-- timestamps;
-- archival metadata.
-
-Success:
-
-`201 Created`
-
-Return the canonical Environment representation through a dedicated API Resource/Presenter.
+- canonical Environment read permission;
+- valid Project/Application ownership.
 
 Keep the controller thin.
 
+Use a dedicated Environment API Resource/Presenter.
+
 ## Security
 
-- Tenant access alone does not authorize Environment creation.
-- Project and Application ownership must be validated before creation.
-- Archived Projects or Applications must reject creation.
-- Cross-Organization and cross-Project parent references must use tenant-safe not-found behavior.
-- `environment_type = production` must not grant or bypass authorization.
+- Tenant access alone does not authorize Environment reads.
+- Applications belonging to another Project must never expose Environments.
+- Environments belonging to another Application must never be returned.
+- `environment_type = production` does not alter authorization.
 - Do not authorize through Role names.
-- Suspended Organizations remain blocked by `TenantContext`.
+- Do not expose unrelated tenant, Role, permission, or credential data.
 
 ## Tests
 
 Cover at minimum:
 
-- authorized creation;
+- authorized listing;
 - unauthorized actor;
 - unauthenticated request;
-- missing Project;
-- cross-Organization Project;
-- missing Application;
-- Application belonging to another Project;
-- archived Project rejects creation;
-- archived Application rejects creation;
-- canonical active initial status;
-- all canonical environment types are accepted;
-- invalid environment type is rejected;
-- server-owned fields cannot be supplied;
-- slug uniqueness is scoped by Organization + Application;
-- same slug may exist under different Applications;
-- matching idempotency replay;
-- mismatched idempotency conflict;
-- concurrent identical requests create only one Environment;
-- `environment.created` Outbox record;
-- `environment.create` Audit record;
-- newly created Organization owner receives `environment.create` without manual permission seeding.
+- cross-Organization Project rejection;
+- Application belonging to another Project rejection;
+- only Environments belonging to the requested Application are returned;
+- active Environments are returned by default;
+- archived Environment historical filtering;
+- filtering by `environment_type`;
+- filtering by slug where canonically supported;
+- invalid filters are rejected;
+- canonical `created_at DESC, id DESC` ordering;
+- cursor pagination;
+- cursor/filter mismatch rejection;
+- archived Project historical read behavior;
+- archived Application historical read behavior;
+- canonical public fields;
+- read path does not hydrate aggregates;
+- owner receives the read permission without manual seeding.
 
 ## Excluded
 
 Do not add:
 
+- Get Environment.
 - Environment update.
 - Environment archive.
-- Environment list/get endpoints.
 - Environment criticality.
 - region.
 - settings.
 - endpoint/runtime metadata.
-- deferred lifecycle states.
 - downstream Event/Alert/Incident integration.
+- new lifecycle states.
 - unrelated Milestone 4 functionality.
 
 ## Verification
@@ -251,16 +163,14 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 
 Return only:
 
-- permission used
-- Environment domain model
-- parent ownership enforcement
-- environment-type behavior
-- idempotency behavior
-- persistence/uniqueness behavior
-- owner bootstrap change
+- permission/visibility rule used
+- parent ownership behavior
+- archived visibility behavior
+- filters implemented
+- read-model/pagination approach
 - endpoint
-- event/audit behavior
+- files changed
 - tests
 - blockers
 
-Maximum 15 lines.
+Maximum 12 lines.

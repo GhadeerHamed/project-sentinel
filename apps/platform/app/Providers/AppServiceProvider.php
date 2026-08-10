@@ -9,6 +9,7 @@ use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayCreat
 use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayGetApplicationPolicy;
 use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayListApplicationsPolicy;
 use App\Infrastructure\Authentication\ActiveIdentityUserProvider;
+use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayCreateEnvironmentPolicy;
 use App\Infrastructure\Identifier\LaravelUuidV7Generator;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayAssignRolePolicy;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayInviteMembershipPolicy;
@@ -22,6 +23,7 @@ use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMayUpda
 use App\Infrastructure\Persistence\Application\Queries\PgsqlApplicationListQuery;
 use App\Infrastructure\Persistence\Application\Queries\PgsqlApplicationLookupQuery;
 use App\Infrastructure\Persistence\Application\Repositories\PgsqlApplicationRepository;
+use App\Infrastructure\Persistence\Environment\Repositories\PgsqlEnvironmentRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlAdministrativeAccessRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlOrganizationRoleRepository;
@@ -51,6 +53,8 @@ use Sentinel\Application\Application\Policy\ApplicationRetrievalPolicy;
 use Sentinel\Application\Application\Query\ApplicationListQuery;
 use Sentinel\Application\Application\Query\ApplicationLookupQuery;
 use Sentinel\Application\Domain\Repository\ApplicationRepository;
+use Sentinel\Environment\Application\Policy\EnvironmentCreationPolicy;
+use Sentinel\Environment\Domain\Repository\EnvironmentRepository;
 use Sentinel\IdentityAccess\Application\Policy\MembershipInvitationPolicy;
 use Sentinel\IdentityAccess\Application\Policy\MembershipRemovalPolicy;
 use Sentinel\IdentityAccess\Application\Policy\MembershipSuspensionPolicy;
@@ -119,6 +123,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ApplicationRepository::class, PgsqlApplicationRepository::class);
         $this->app->singleton(ApplicationListQuery::class, PgsqlApplicationListQuery::class);
         $this->app->singleton(ApplicationLookupQuery::class, PgsqlApplicationLookupQuery::class);
+        $this->app->singleton(EnvironmentRepository::class, PgsqlEnvironmentRepository::class);
 
         $this->app->singleton(IdempotencyRepository::class, PgsqlIdempotencyRepository::class);
 
@@ -174,6 +179,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ApplicationArchivalPolicy::class, ActiveMembershipWithPermissionMayArchiveApplicationPolicy::class);
         $this->app->singleton(ApplicationListingPolicy::class, ActiveMembershipWithPermissionMayListApplicationsPolicy::class);
         $this->app->singleton(ApplicationRetrievalPolicy::class, ActiveMembershipWithPermissionMayGetApplicationPolicy::class);
+        $this->app->singleton(EnvironmentCreationPolicy::class, ActiveMembershipWithPermissionMayCreateEnvironmentPolicy::class);
         $this->app->singleton(MembershipInvitationPolicy::class, ActiveMembershipWithPermissionMayInviteMembershipPolicy::class);
         $this->app->singleton(MembershipRemovalPolicy::class, ActiveMembershipWithPermissionMayRemoveMembershipPolicy::class);
         $this->app->singleton(MembershipSuspensionPolicy::class, ActiveMembershipWithPermissionMaySuspendMembershipPolicy::class);
