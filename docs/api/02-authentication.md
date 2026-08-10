@@ -114,7 +114,7 @@ An MVP Event Source is the first supported `api_client` identity for Event inges
 
 The credential is `esc_{credential_id}.{secret}`. Its public UUIDv7 credential identifier supports indexed lookup, while only a one-way hash of the random secret is persisted. The plaintext bearer credential is returned in the initial issuance response only; it cannot be retrieved later, is never logged, and does not appear in Audit metadata. An active credential resolves only within its Organization and to its active Event Source; it is scoped to that source's Project, Application, and Environment.
 
-One active credential is permitted per Event Source. Rotation, replacement, retrieval, and additional Event Source credential types are deferred.
+One active credential is permitted per Event Source. An authorized Human User may revoke it through the Event Source credential-revocation endpoint; revocation takes effect immediately and is the only MVP credential-lifecycle operation. Rotation, replacement, retrieval, deactivation, and additional Event Source credential types are deferred. Event ingestion uses this bearer credential only, not a request-signing scheme.
 
 ---
 

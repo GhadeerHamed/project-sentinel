@@ -250,7 +250,7 @@ Redis
 Docker Compose
 Queue Workers
 Scheduler
-Outbox publisher
+Outbox publisher (required immediately before the first asynchronous consumer; durable Outbox persistence is sufficient for Milestone 5)
 Audit foundation
 Structured Logs
 Health endpoints
@@ -398,6 +398,8 @@ Deliver:
 * Event storage.
 * Event browsing.
 
+Milestone 5 durably persists `event.accepted` Outbox records but does not require the dispatcher because it has no consumer. The Outbox publisher is a shared prerequisite immediately before Milestone 6 begins consuming `event.accepted`.
+
 Success:
 
 ```text
@@ -410,6 +412,7 @@ A real application can send trusted Events to Sentinel.
 
 Deliver:
 
+* Outbox publisher before the first `event.accepted` consumer.
 * Signal derivation.
 * basic Alert Rules.
 * Alert lifecycle.

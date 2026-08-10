@@ -39,11 +39,11 @@ Events are append-only and cannot be updated or deleted through the API. The `20
 | Method | Endpoint                                             | Purpose                |
 | ------ | ---------------------------------------------------- | ---------------------- |
 | `POST` | `/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/event-sources` | Issue an Event Source |
+| `POST` | `/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/event-sources/{event-source}/credentials/{credential}/revoke` | Revoke the issued credential |
 | `POST` | `/organizations/{organization}/events`               | Ingest one Event       |
+| `POST` | `/organizations/{organization}/events/batch`         | Ingest a bounded batch |
 | `GET`  | `/organizations/{organization}/events`               | List Events            |
 | `GET`  | `/organizations/{organization}/events/{event}`       | Read one Event         |
-
-Batch ingestion is a later Milestone 5 capability and has no current API contract.
 
 ---
 
@@ -102,7 +102,19 @@ Response:
 
 `issued_credential` is not part of the reusable Event Source resource and is present only in the initial successful response. Its bearer token must be copied immediately; it cannot later be retrieved. The server stores only its hash and never includes the secret in Logs, Audit records, domain events, or idempotency records.
 
-Idempotency is required and scoped by Organization, acting Human identity, operation `event_source.create`, key, and normalized request hash. A matching retry returns the original public Event Source but omits `issued_credential`; reuse with changed input returns `409 Conflict` and `idempotency.key_conflict`. Creation atomically persists the Event Source, its one credential, the idempotency result, Audit action `event_source.create`, and companion Audit action `event_source.credential.issue`; neither Audit action contains the secret. No Event Source list, get, update, credential retrieval, rotation, revocation, or deletion route is an MVP endpoint.
+Idempotency is required and scoped by Organization, acting Human identity, operation `event_source.create`, key, and normalized request hash. A matching retry returns the original public Event Source but omits `issued_credential`; reuse with changed input returns `409 Conflict` and `idempotency.key_conflict`. Creation atomically persists the Event Source, its one credential, the idempotency result, Audit action `event_source.create`, and companion Audit action `event_source.credential.issue`; neither Audit action contains the secret. Event Source list, get, update, credential retrieval, rotation, and deletion routes are deferred.
+
+---
+
+## Revoke Event Source Credential
+
+```http
+POST /api/v1/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/event-sources/{event-source}/credentials/{credential}/revoke
+```
+
+The caller is a session-authenticated Human User with an active Organization Membership, resolved Tenant Context, and effective `event_source.credential.revoke` permission. The nested hierarchy, Event Source, and credential are tenant-scoped; invalid or cross-Organization resources return `404`.
+
+This is the sole MVP credential-lifecycle operation. It atomically transitions the active credential to `revoked`, sets `revoked_at`, and records Audit action `event_source.credential.revoke` without a secret. The active-state transition is idempotent; it does not use `If-Match` because the credential has no Resource Version. A revoked credential cannot authenticate. No Event Source deactivation, credential replacement, rotation, or Outbox event is part of the MVP.
 
 ---
 
@@ -118,8 +130,6 @@ Request:
 
 ```json
 {
-  "application_id": "0198f3b5-e313-7d70-8778-72c427f32c01",
-  "environment_id": "0198f3b5-f5dc-7f37-884d-83223d29b991",
   "external_event_id": "evt-98421",
   "event_type": "application.error",
   "schema_version": "1",
@@ -168,7 +178,7 @@ Response:
 
 Accepted ingestion means the Event was durably persisted and `event.accepted` was committed to the Outbox. Signal detection, Alert creation, Search indexing, and Agent analysis may occur asynchronously and are not implied by this response. An idempotent replay or matching source duplicate returns the same logical Event resource with `202 Accepted`.
 
-Source identity is derived from the bearer credential; the request must not contain source identity fields.
+The bearer credential alone authenticates this request; no Event signing scheme or request signature is used. The server derives Organization, Project, Application, Environment, and Event Source identity from the credential. The request must not contain any of those identifiers or other source identity fields.
 
 ---
 
@@ -176,8 +186,6 @@ Source identity is derived from the bearer credential; the request must not cont
 
 Required fields:
 
-* `application_id`
-* `environment_id`
 * `event_type`
 * `schema_version`
 * `occurred_at`
@@ -192,7 +200,7 @@ Optional fields:
 * `causation_id`
 * `trace_id`
 
-The Application and Environment must belong to the Organization in the route, to the same active Project, and to the authenticated Event Source scope. The server derives and persists the Project identifier; clients do not provide it.
+The authenticated Event Source supplies the Organization, Project, Application, Environment, and Event Source scope. The server validates the active persisted hierarchy and derives all five identifiers; clients do not provide ownership identifiers.
 
 ---
 
@@ -216,9 +224,17 @@ When supplied, severity must be one of `critical`, `high`, `medium`, `low`, `inf
 
 ---
 
-## Later Milestone 5 Batch Ingestion
+## Batch Ingestion
 
-Batch ingestion is deferred beyond the first Event ingestion slice.
+```http
+POST /api/v1/organizations/{organization}/events/batch
+Authorization: Bearer esc_{credential_id}.{secret}
+Idempotency-Key: {key}
+```
+
+The request body is an object with one `events` array containing 1–100 single-Event envelopes. Each envelope follows the single-ingestion required and optional fields and must not contain hierarchy or source identifiers. The 64 KiB `payload` plus `attributes` limit applies per Event.
+
+The batch key is required and scoped by Organization, authenticated Event Source, operation `event.ingest_batch`, key, and normalized ordered-batch hash. The operation is atomic: any invalid item rejects the complete request and persists no Event or Outbox record. Every item applies independent `external_event_id` duplicate detection. On success, return `202 Accepted` with Event resources in input order; an idempotency retry returns the same logical result. Each newly created Event persists one `event.accepted` Outbox record in the batch transaction; duplicate items do not publish another record. Partial success and streaming are deferred.
 
 ---
 
@@ -241,13 +257,19 @@ Supported filters:
 * `project_id`
 * `application_id`
 * `environment_id`
+* `event_source_id`
 * `event_type`
+* `category`
 * `severity`
 * `correlation_id`
 * `occurred_from`
 * `occurred_to`
+* `received_from`
+* `received_to`
 
-Default ordering:
+The caller is a session-authenticated Human User with an active Organization Membership, resolved Tenant Context, and effective `event.read` permission. The query is an Organization-scoped projection and does not hydrate Event aggregates. `from` is inclusive and `to` is exclusive; filters and cursor are bound to the Organization. Archived parents remain visible historically when their persisted hierarchy belongs to the Organization.
+
+Default ordering and cursor:
 
 ```text
 occurred_at DESC, id DESC
@@ -263,7 +285,9 @@ Cursor pagination is required.
 GET /api/v1/organizations/{organization}/events/{event}
 ```
 
-The response contains the Event resource shown above. The first slice does not expose Signal, Alert, Incident, Plugin, or relationship references. Raw or sensitive attributes must be filtered according to Policy.
+The caller is a session-authenticated Human User with an active Organization Membership, resolved Tenant Context, and effective `event.read` permission. The Organization-scoped projection verifies the Event and persisted Project, Application, and Environment ownership; archived parents remain historically visible. Project, Application, and Environment nesting is not required.
+
+The response contains the Event resource shown above plus `created_at`, `correlation_id`, `causation_id`, and `trace_id`; direct retrieval includes `payload` and `attributes` only after applicable sensitivity Policy filtering. It does not expose Signal, Alert, Incident, Plugin, or relationship references.
 
 ---
 
@@ -295,7 +319,7 @@ Large files or evidence should use dedicated storage and references.
 
 ## Authentication
 
-The first Event Source type is an active `api_client` with one active opaque bearer credential. The credential format is `esc_{credential_id}.{secret}`; its secret is shown once and stored only as a one-way hash. Revoked, disabled, expired, or replaced credentials fail authentication immediately. Multiple active credentials, credential rotation overlap, human ingestion, Plugins, and Agents are deferred.
+The first Event Source type is an active `api_client` with one active opaque bearer credential. MVP Event ingestion uses only `Authorization: Bearer esc_{credential_id}.{secret}`; it does not use signed Events or request signing. The secret is shown once and stored only as a one-way hash. A revoked credential fails authentication immediately. Expiration, disabling, replacement, multiple active credentials, credential rotation overlap, human ingestion, Plugins, and Agents are deferred.
 
 Typical permissions:
 
@@ -346,6 +370,7 @@ project.archived
 application.archived
 environment.archived
 event_source.inactive
+event_source.credential_revoked
 authentication.invalid_credential
 authorization.denied
 rate_limit.exceeded
@@ -365,6 +390,7 @@ rate_limit.exceeded
 * Duplicate Events must not create duplicate downstream effects.
 * Event reads remain authorization-filtered.
 * Cross-Organization ingestion and access are prohibited.
+* Milestone 5 durably persists Outbox records; dispatch is required immediately before the first Milestone 6 consumer.
 
 ---
 

@@ -230,8 +230,8 @@ Deliver:
 * idempotency.
 * Event normalization.
 * immutable Event storage.
-* Signal derivation foundation.
-* Event and Signal APIs.
+* Event Source credential revocation.
+* Event read APIs.
 
 Exit criteria:
 
@@ -240,6 +240,7 @@ Exit criteria:
 * invalid ownership is rejected.
 * accepted Events publish Outbox messages.
 * source attribution is preserved.
+* authorized Event browsing is available.
 
 ---
 
@@ -247,6 +248,8 @@ Exit criteria:
 
 Deliver:
 
+* Outbox publisher before the first `event.accepted` consumer.
+* Signal derivation.
 * Alert Rules.
 * Signal evaluation.
 * Alert creation.

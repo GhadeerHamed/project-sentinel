@@ -149,10 +149,12 @@ Primary commands include:
 
 ```text
 RegisterEventSource
+RevokeEventSourceCredential
 IngestEvent
+IngestEventBatch
 ```
 
-The MVP sequence begins with `RegisterEventSource`, then `IngestEvent`. Batch ingestion, reprocessing, Signal derivation, and evidence attachment are later Milestone 5 capabilities. Administrative reprocessing must not change the original Event payload.
+The MVP sequence begins with `RegisterEventSource`, then `RevokeEventSourceCredential`, `IngestEvent`, and `IngestEventBatch`. Reprocessing and evidence attachment are deferred; Signal derivation begins in Milestone 6. Administrative reprocessing must not change the original Event payload.
 
 ---
 
@@ -163,14 +165,13 @@ Primary queries include:
 ```text
 GetEvent
 ListEvents
-GetEventTimeline
 GetEventEvidence
 ListSignals
 GetSignal
 GetSignalEvidence
 ```
 
-Queries must preserve tenant, Application, Environment, and sensitivity scope. Signal queries are deferred until Signal derivation is introduced.
+Queries must preserve tenant, Project, Application, Environment, and sensitivity scope. `ListEvents` and `GetEvent` are Milestone 5 projection queries; timeline and evidence queries are deferred. Signal queries are deferred until Signal derivation is introduced.
 
 ---
 
@@ -228,19 +229,17 @@ Consumption must remain idempotent.
 
 ## Ingestion Contract
 
-Every ingestion request must establish:
+Every ingestion request establishes:
 
 ```text
 organization_id
 authenticated Event Source identity
-application_id
-environment_id
 idempotency key
 schema version
 received timestamp
 ```
 
-The route Organization plus request Application and Environment must resolve to one active Organization → Project → Application → Environment hierarchy. The Project identifier is derived from that relationship and persisted with the Event. Suspended Organizations and archived Projects, Applications, or Environments reject ingestion.
+The route Organization and authenticated Event Source resolve one active Organization → Project → Application → Environment hierarchy. The server derives and persists that complete hierarchy with the Event. Suspended Organizations and archived Projects, Applications, or Environments reject ingestion. Clients must not submit or override Organization, Project, Application, Environment, or Event Source identifiers.
 
 The source identity is derived exclusively from authentication. Client-supplied `source`, `source_id`, `source_type`, or source-system fields are not accepted.
 
@@ -254,7 +253,7 @@ The first supported Event Source type is `api_client`. An Event Source has a ser
 Authorization: Bearer esc_{credential_id}.{secret}
 ```
 
-The server resolves the credential to its Event Source and verifies that its Organization matches the route Organization. Credential secrets are shown only at issuance and stored only as a one-way hash; they must never be logged or persisted in plaintext. The first slice permits one active credential per Event Source. Revoking, disabling, expiring, or replacing that credential immediately prevents ingestion; rotation and overlapping credentials are deferred.
+The server resolves the credential to its Event Source and verifies that its Organization matches the route Organization. Credential secrets are shown only at issuance and stored only as a one-way hash; they must never be logged or persisted in plaintext. The MVP permits one active credential per Event Source. Credential revocation immediately prevents ingestion. Expiration, disabling, replacement, rotation, and overlapping credentials are deferred.
 
 Event Source attribution is distinct from a future human acting identity. Plugin, Agent, webhook, manual, and platform sources are deferred.
 
@@ -276,7 +275,19 @@ The HTTP route is:
 POST /api/v1/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/event-sources
 ```
 
-Invalid or cross-Organization parent ownership is tenant-safely unavailable (`404`); an archived parent is rejected. Event Source list, get, update, credential retrieval, rotation, revocation, and deletion endpoints are deferred.
+Invalid or cross-Organization parent ownership is tenant-safely unavailable (`404`); an archived parent is rejected. Event Source list, get, update, credential retrieval, rotation, and deletion endpoints are deferred.
+
+## Event Source Credential Revocation
+
+Credential revocation is the sole MVP credential-lifecycle operation. Event Source deactivation is not required: revoking its one active credential is sufficient to prevent the issued bearer credential from authenticating while preserving the source and its Event attribution.
+
+A session-authenticated Human User with an active Membership, resolved Tenant Context, and effective Organization permission `event_source.credential.revoke` may revoke the credential. The built-in `organization_owner` Role receives that Core permission. The nested source and credential must belong to the active Organization → Project → Application → Environment route hierarchy; cross-tenant resources are tenant-safely unavailable.
+
+```text
+POST /api/v1/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/event-sources/{event-source}/credentials/{credential}/revoke
+```
+
+The credential transitions atomically from `active` to `revoked` and receives `revoked_at`. The operation is conditional on active status, so it is idempotent and does not require `If-Match` or a credential Resource Version. It records Audit action `event_source.credential.revoke` without the secret and does not publish an Outbox event because Milestone 5 has no credential-lifecycle consumer. Credential rotation, replacement, multiple credentials, and Event Source deactivation remain deferred.
 
 ---
 
@@ -308,18 +319,13 @@ Invalid Events must not enter authoritative processing.
 
 ---
 
-## Deferred Batch Ingestion
+## Batch Ingestion
 
-Batch ingestion should:
+`POST /api/v1/organizations/{organization}/events/batch` accepts an ordered JSON object containing `events`, with at most 100 canonical Event envelopes. It uses the same bearer authentication and source-derived hierarchy as single ingestion. `Idempotency-Key` is required for the complete ordered batch and is scoped by Organization, authenticated Event Source, operation `event.ingest_batch`, key, and normalized batch hash.
 
-* Apply one trusted tenant and source context.
-* validate each item independently.
-* enforce bounded batch size.
-* preserve per-item results.
-* avoid one invalid item corrupting accepted items.
-* support batch-level idempotency where useful.
+The 64 KiB `payload` plus `attributes` limit applies independently to each Event. Each item applies the same optional `external_event_id` uniqueness rule as single ingestion within `(organization_id, event_source_id, external_event_id)`.
 
-Partial acceptance must be explicit.
+Batch acceptance is atomic: every item must validate and all persistence, per-item duplicate resolution, batch idempotency, and Outbox records commit in one transaction, or none do. One invalid item rejects the whole batch; partial success is not an MVP behavior. A successful new or matching retry returns `202 Accepted` with Event resources in input order. Each newly accepted Event creates one transactional `event.accepted` Outbox record; matching idempotency or source-duplicate items create no additional Outbox record. Streaming ingestion is deferred.
 
 ---
 
@@ -545,9 +551,18 @@ Typical permissions include:
 
 ```text
 event.ingest
+event.read
+event_source.create
+event_source.credential.revoke
 ```
 
-The first slice grants its authenticated Event Source only `event.ingest`; Event read, reprocessing, export, and Signal permissions are later capabilities.
+The authenticated Event Source has only `event.ingest`. `ListEvents` and `GetEvent` require a session-authenticated Human User with an active Membership, resolved Tenant Context, and effective Organization permission `event.read`; Event Source credentials cannot read Events. Both are tenant-scoped projection queries and never hydrate Event aggregates.
+
+`GET /api/v1/organizations/{organization}/events` supports `project_id`, `application_id`, `environment_id`, `event_source_id`, `event_type`, `category`, `severity`, `occurred_from`, `occurred_to`, `received_from`, and `received_to`. Time ranges are UTC with inclusive `from` and exclusive `to`. Results use opaque cursor pagination ordered by `occurred_at DESC, id DESC`; the cursor is bound to the complete filter set. Archived parents remain historically visible when their persisted hierarchy belongs to the Organization and the caller is authorized.
+
+`GET /api/v1/organizations/{organization}/events/{event}` requires only Organization and Event ID in the route. It verifies the Event and its persisted hierarchy belong to the Tenant Context and remains available after parent archival. The public read representation contains the Event ID; Project, Application, Environment, and Event Source IDs; external Event ID; type, category, severity, schema version; occurred, received, and created timestamps; correlation, causation, and trace IDs. The direct resource also includes payload and attributes only after applicable sensitivity Policy filtering. There are no Event update or delete operations.
+
+Reprocessing, export, and Signal permissions are later capabilities.
 
 Administrative reprocessing requires elevated authorization and Audit.
 
@@ -575,7 +590,10 @@ Tests must cover:
 
 * Canonical normalization.
 * authenticated active Event Source validation.
+* credential revocation prevents authentication without changing Event history.
 * idempotent ingestion and source-level duplicate handling.
+* atomic bounded batch acceptance and retry behavior.
+* authorized Event list and direct retrieval, including archived-parent visibility.
 * cross-tenant and inactive-parent rejection.
 * timestamp and payload validation.
 * immutable Event behavior.
@@ -608,7 +626,7 @@ The following are prohibited:
 * ingestion is idempotent.
 * source-level duplicate detection is separate from request idempotency.
 * provider-specific schemas remain outside the domain contract.
-* Signal derivation, Alerts, and Incidents are outside the first ingestion slice.
+* Signal derivation, Alerts, and Incidents are outside Milestone 5.
 * accepted state and Outbox publication eligibility are committed atomically.
 * retention must preserve required operational evidence.
 

@@ -97,7 +97,7 @@ Stores one active ingestion credential for an Event Source.
 | `organization_id`   | UUID        | Required    |
 | `event_source_id`   | UUID        | Required    |
 | `secret_hash`       | VARCHAR     | Required    |
-| `status`            | VARCHAR     | Required    |
+| `status`            | VARCHAR     | Required: `active` or `revoked` |
 | `created_at`        | TIMESTAMPTZ | Required    |
 | `revoked_at`        | TIMESTAMPTZ | Optional    |
 | `expires_at`        | TIMESTAMPTZ | Optional    |
@@ -117,7 +117,7 @@ FOREIGN KEY (organization_id, event_source_id)
 REFERENCES event_sources (organization_id, id)
 ```
 
-Credential issuance is required before ingestion. The public `credential_id` after `esc_` is the indexed lookup identifier; the secret is verified only against `secret_hash`. The MVP supports one active credential per Event Source; rotation and concurrent credentials are deferred. The credential secret is not copied into the idempotency record used by Event Source issuance, so an idempotent retry returns the created public Event Source without re-disclosing that secret.
+Credential issuance is required before ingestion. The public `credential_id` after `esc_` is the indexed lookup identifier; the secret is verified only against `secret_hash`. The MVP supports one active credential per Event Source; an authorized human may transition it from `active` to `revoked`, setting `revoked_at`, to prevent authentication immediately. Expiration, disabling, rotation, replacement, and concurrent credentials are deferred. The credential secret is not copied into the idempotency record used by Event Source issuance, so an idempotent retry returns the created public Event Source without re-disclosing that secret.
 
 ---
 
@@ -139,14 +139,14 @@ Future source types may include:
 
 ## `event_ingestion_records`
 
-Represents one received ingestion request.
+Represents one received single or bounded-batch ingestion request. `operation` is `event.ingest` for a single Event or `event.ingest_batch` for the ordered batch; batch idempotency covers the complete normalized array while `external_event_id` duplicate detection remains per Event.
 
 | Column                | Type        | Rules       |
 | --------------------- | ----------- | ----------- |
 | `id`                  | UUID        | Primary key |
 | `organization_id`     | UUID        | Required    |
 | `event_source_id`     | UUID        | Required    |
-| `operation`           | VARCHAR     | Required: `event.ingest` |
+| `operation`           | VARCHAR     | Required: `event.ingest` or `event.ingest_batch` |
 | `idempotency_key`     | VARCHAR     | Required    |
 | `request_fingerprint` | VARCHAR     | Required    |
 | `status`              | VARCHAR     | Required    |

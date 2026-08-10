@@ -1,402 +1,228 @@
 # Current Task
 
-Implement the Single Event Ingestion vertical slice.
+Implement the Event Source credential revocation vertical slice.
 
 ## Required
 
-Follow the reconciled Event module, API, database, functional, and security documentation.
+Follow the reconciled Event Source, Event API, credential-security, and Milestone 5 documentation.
 
-This is the first production Event ingestion path.
+Implement only credential revocation.
 
-Reuse:
+Do not implement Event Source deactivation or credential rotation.
 
-- Event Source bearer authentication;
-- `EventSourceIdentity`;
-- active hierarchy validation;
-- shared idempotency foundation;
-- UUIDv7 generation;
-- Clock;
-- TransactionManager;
-- Outbox infrastructure.
+## Permission
 
-Do not implement downstream Event processing.
+Use:
+
+`event_source.credential.revoke`
+
+Requirements:
+
+- add it to `CorePermissions` if not already present;
+- ensure new `organization_owner` Roles receive it;
+- backfill existing `organization_owner` Roles;
+- authorize using effective Organization permissions;
+- use an operation-specific credential-revocation Policy;
+- reuse `OrganizationPermissionAuthorizer`.
+
+Do not authorize by Role name.
 
 ## Authentication
 
-Use Event Source bearer authentication.
-
-Do not use:
-
-- human browser/session authentication;
-- Membership authorization;
-- human `TenantContext`.
-
-The authenticated Event Source determines:
-
-- `event_source_id`;
-- Organization ownership;
-- Project/Application/Environment scope.
-
-The client must never submit or override source identity.
-
-## Route
-
-Expose:
-
-`POST /api/v1/organizations/{organization}/events`
+This is a human administrative operation.
 
 Require:
 
-`Authorization: Bearer <event-source-credential>`
+- browser/session authentication;
+- authenticated human identity;
+- resolved `TenantContext`;
+- `event_source.credential.revoke`.
 
-Require:
+Do not allow Event Source bearer authentication to authorize credential revocation.
 
-`Idempotency-Key`
+## Hierarchy
 
-The route Organization must match the authenticated Event Source Organization.
-
-Cross-Organization use must fail safely.
-
-## Active Hierarchy
-
-Before accepting an Event, validate the source's complete hierarchy:
+Validate the complete canonical hierarchy:
 
 Organization
 → Project
 → Application
 → Environment
-
-All must be active.
-
-Reject ingestion when:
-
-- Organization is suspended or archived;
-- Project is archived;
-- Application is archived;
-- Environment is archived;
-- persisted source hierarchy is inconsistent.
-
-Do not trust request-supplied parent relationships.
-
-## Canonical Event
-
-Create an immutable framework-independent Event model.
-
-Required persisted fields:
-
-- `id`
-- `organization_id`
-- `project_id`
-- `application_id`
-- `environment_id`
-- `event_source_id`
-- `event_type`
-- `category`
-- `schema_version`
-- `occurred_at`
-- `received_at`
-- `payload`
-- `created_at`
-
-Optional documented fields:
-
-- `severity`
-- `external_event_id`
-- `correlation_id`
-- `causation_id`
-- `trace_id`
-- normalized `attributes`
-
-Do not add undocumented fields.
-
-Sentinel Event ID:
-
-- server-generated UUIDv7.
-
-Accepted Event data is immutable.
-
-No update/delete lifecycle.
-
-## Request Contract
-
-Accept only fields defined by the reconciled Events API.
-
-At minimum:
-
-- `event_type`
-- `schema_version`
-- `occurred_at`
-- `payload`
-
-Accept optional documented fields where supported:
-
-- `external_event_id`
-- `severity`
-- `attributes`
-- `correlation_id`
-- `causation_id`
-- `trace_id`
-
-Do not accept client-controlled:
-
-- Event ID;
-- Organization ID;
-- Project ID;
-- Application ID;
-- Environment ID;
-- Event Source ID;
-- category;
-- received timestamp;
-- created timestamp;
-- processing state.
-
-Hierarchy and category are server-derived.
-
-## Schema Version
-
-Support exactly:
-
-`1`
-
-Reject unsupported schema versions.
-
-Do not implement schema registry behavior.
-
-## Event Type
-
-Use the documented fixed lowercase Event-type catalog.
+→ Event Source
+→ Credential
 
 Requirements:
 
-- reject unknown Event types;
-- normalize according to the canonical contract;
-- derive canonical `category` server-side;
-- do not accept client-controlled category.
+- Project belongs to Organization;
+- Application belongs to Project;
+- Environment belongs to Application;
+- Event Source belongs to the Environment hierarchy;
+- Credential belongs to the Event Source;
+- every lookup is tenant scoped;
+- cross-Organization or cross-parent references return tenant-safe not found.
 
-Do not expand the Event taxonomy.
+Do not perform global credential lookup followed by ownership validation.
 
-## Payload
+## Lifecycle
 
-Require `payload` to be a JSON object.
+Canonical credential transition:
 
-Rules:
+`active` → `revoked`
 
-- nested objects are allowed;
-- arrays may appear inside the object where JSON permits;
-- empty object behavior follows canonical docs;
-- payload plus normalized attributes must respect the documented 64 KiB limit;
-- reject oversized requests using canonical validation semantics.
+On successful revocation:
 
-Do not add metadata or tags.
+- set `status = revoked`;
+- set server-owned `revoked_at`;
+- prevent the credential from authenticating immediately.
 
-## Time Semantics
+Already revoked credentials must follow the documented invalid-transition/conflict behavior.
 
-Producer provides:
+Do not introduce:
 
-`occurred_at`
+- credential reactivation;
+- credential rotation;
+- credential replacement;
+- multiple credentials;
+- source deactivation.
 
-Server assigns:
+## Application Layer
 
-`received_at`
+Implement the minimum framework-independent:
 
-and:
+- command;
+- result where needed;
+- Policy;
+- handler;
+- repository capability required by this slice.
 
-`created_at`
+The operation must:
 
-Normalize timestamps to UTC.
+1. authorize the human actor;
+2. validate tenant and hierarchy ownership;
+3. resolve the active credential;
+4. revoke it;
+5. persist the transition;
+6. record Audit action `event_source.credential.revoke`;
+7. commit atomically.
 
-Do not invent age or future-skew thresholds.
+Use the existing Clock for `revoked_at`.
 
-## Idempotency
-
-Require:
-
-`Idempotency-Key`
-
-Scope:
-
-- Organization;
-- authenticated Event Source;
-- operation `event.ingest`;
-- key;
-- normalized request hash.
-
-Behavior:
-
-- first request creates one Event;
-- same key + same normalized request returns the same accepted Event;
-- same key + changed request returns conflict;
-- concurrent identical requests create exactly one Event.
-
-Reuse the shared idempotency implementation.
-
-Do not conflate this mechanism with source duplicate detection.
-
-## Source Duplicate Detection
-
-When `external_event_id` is supplied, enforce uniqueness across:
-
-`organization_id`
-+ `event_source_id`
-+ `external_event_id`
-
-This is independent from `Idempotency-Key`.
-
-Rules:
-
-- the same external Event must never create a second Sentinel Event;
-- concurrent duplicate submissions must remain safe;
-- use the documented normalized-event hash to distinguish equivalent duplicate submissions from conflicting reuse of the same external Event ID;
-- follow the reconciled API conflict/replay semantics.
-
-Do not rely only on application-level pre-checks; persistence must enforce duplicate safety.
+Do not create an Outbox record.
 
 ## Persistence
 
-Implement PostgreSQL Event persistence according to the reconciled schema.
+Reuse the existing Event Source credential table.
 
-Requirements:
+Do not create a second credential model or table.
 
-- UUID columns for identifiers;
-- immutable Event row;
-- persisted full accepted hierarchy;
-- Event Source foreign ownership;
-- JSONB payload;
-- optional attributes in canonical representation;
-- canonical timestamps;
-- source duplicate uniqueness;
-- appropriate tenant/time indexes.
+Ensure revocation persistence is race-safe.
 
-Do not implement:
+Two concurrent attempts must never produce inconsistent state.
 
-- partitions;
-- retention jobs;
-- Signal tables;
-- mutable Event status.
+Use the smallest persistence mechanism consistent with the existing repository architecture.
 
-## Transaction Boundary
+## HTTP
 
-The following must be atomic:
+Expose exactly the canonical nested revocation route defined by the reconciled documentation.
 
-1. idempotency acquisition/completion;
-2. duplicate validation;
-3. Event persistence;
-4. `event.accepted` Outbox persistence.
+Do not invent a different route.
 
-A failure in any step must leave no partially accepted Event.
+Require:
 
-## Publication
+- session authentication;
+- TenantContext;
+- `event_source.credential.revoke`.
 
-Emit exactly:
+Keep the controller thin.
 
-`event.accepted`
+Do not accept client-controlled:
 
-Do not emit:
+- status;
+- revoked_at;
+- Organization or parent ownership;
+- credential secret.
 
-`event.ingested`
+Return the documented success representation/status.
 
-The Outbox message must reference the accepted Event and contain only the documented downstream handoff data.
+Do not return the bearer credential or credential hash.
 
-The Outbox record and Event must commit in the same transaction.
+## Authentication Invalidation
 
-Do not execute downstream processing synchronously.
+After revocation, the existing Event Source bearer middleware must reject that credential.
 
-## Response
+Verify this through an integration/feature test using the actual authentication path.
 
-Return:
+Do not add caching that can keep revoked credentials valid.
 
-`202 Accepted`
+## Audit
 
-The response represents a durably accepted Event.
+Record:
 
-Return the canonical public Event representation.
+`event_source.credential.revoke`
 
-The response must not imply that:
+Audit must include only safe identifiers/context.
 
-- Signals were derived;
-- Alerts were evaluated;
-- Incidents were created;
-- downstream processing completed.
+Never include:
 
-Matching idempotency replay returns the same logical Event.
+- plaintext bearer secret;
+- secret hash;
+- Authorization header.
+
+A failed revocation must not leave a successful Audit record.
 
 ## Security
 
 Verify:
 
-- valid active Event Source can ingest;
-- unknown bearer credential fails;
-- revoked/inactive credential fails;
-- inactive Event Source fails;
-- route Organization mismatch fails;
-- archived parent hierarchy rejects ingestion;
-- source identity cannot be spoofed;
-- category cannot be spoofed;
-- server-owned fields cannot be overridden;
-- cross-tenant Event creation is impossible.
-
-Do not expose credential details anywhere in Event responses or Outbox payloads.
+- unauthenticated human rejected;
+- unauthorized member rejected;
+- Event Source bearer credential cannot revoke itself;
+- cross-Organization references return 404;
+- cross-Project/Application/Environment/Event Source references return 404;
+- credential belonging to another Event Source cannot be revoked;
+- plaintext credential is never exposed;
+- credential hash is never exposed;
+- revoked credential immediately fails Event Source authentication.
 
 ## Tests
 
 Cover at minimum:
 
-- valid Event ingestion;
-- `202 Accepted`;
-- canonical UUIDv7 Event ID;
-- Event Source attribution;
-- hierarchy IDs are derived from source;
-- active hierarchy accepted;
-- archived Project rejected;
-- archived Application rejected;
-- archived Environment rejected;
-- suspended/archived Organization rejected;
-- route Organization mismatch rejected;
-- valid schema version `1`;
-- unsupported schema version rejected;
-- every supported Event type maps to canonical category;
-- unknown Event type rejected;
-- JSON-object payload accepted;
-- invalid non-object payload rejected;
-- 64 KiB boundary;
-- oversized payload rejected;
-- producer `occurred_at` retained in UTC;
-- server-owned `received_at`;
-- server-owned `created_at`;
-- optional severity behavior;
-- optional correlation/causation/trace behavior;
-- source identity cannot be supplied;
-- hierarchy IDs cannot be supplied;
-- category cannot be supplied;
-- first idempotent request creates Event;
-- matching idempotency replay returns same Event;
-- mismatched idempotency request conflicts;
-- concurrent identical idempotent requests create one Event;
-- external Event ID creates one Event;
-- repeated equivalent external Event submission does not create a second Event;
-- conflicting reuse of external Event ID follows canonical conflict semantics;
-- concurrent external-ID duplicates create one Event;
-- `event.accepted` Outbox record exists;
-- no `event.ingested` Outbox record exists;
-- failed persistence produces neither Event nor Outbox;
-- Event row remains immutable.
+- authorized revocation;
+- owner permission bootstrap;
+- existing owner permission backfill;
+- unauthorized human;
+- unauthenticated request;
+- Event Source bearer auth cannot authorize revocation;
+- cross-Organization hierarchy;
+- wrong Project/Application/Environment ownership;
+- credential belonging to another Event Source;
+- active → revoked transition;
+- `revoked_at` persisted;
+- already revoked credential rejected according to canonical semantics;
+- revoked credential fails bearer authentication;
+- Audit record written;
+- Audit contains no secret/hash;
+- no Outbox record written;
+- persistence failure rolls back Audit/state;
+- concurrent revoke attempts remain consistent.
 
 ## Excluded
 
 Do not add:
 
+- Event Source deactivation;
+- Event Source list/get;
+- credential rotation;
+- credential replacement;
+- credential retrieval;
+- multiple credentials;
+- List Events;
+- Get Event;
 - batch ingestion;
-- Event update/delete;
-- Event listing;
-- Event get endpoint unless explicitly required by this slice;
-- Signal processing;
-- Alert evaluation;
-- Incident creation;
-- notification dispatch;
-- AI analysis;
-- Plugin ingestion;
-- Agent ingestion;
-- retention/partitioning.
+- Event processing;
+- Signals;
+- Alerts.
 
 ## Verification
 
@@ -410,18 +236,16 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 
 Return only:
 
-- authentication model
-- endpoint
-- canonical Event model
+- permission used
+- route
 - hierarchy behavior
-- schema/type normalization
-- payload/time behavior
-- idempotency behavior
-- source duplicate behavior
-- persistence
-- publication
-- response
+- lifecycle behavior
+- authentication invalidation
+- Audit behavior
+- Outbox behavior
+- owner permission bootstrap
+- files changed
 - tests
 - blockers
 
-Maximum 18 lines.
+Maximum 15 lines.

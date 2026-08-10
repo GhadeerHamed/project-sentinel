@@ -121,6 +121,8 @@ Inactive credentials must not be used.
 
 An Event Source bearer credential is verifier-backed rather than stored in a secret-reference system: the public credential UUID and a one-way secret hash are retained, while the plaintext `esc_{credential_id}.{secret}` value is returned only at issuance. It must never be written to application data, Logs, Audit Records, domain events, or idempotency records. The public identifier is safe to use for indexed credential lookup; the secret is verified only against the retrieved hash.
 
+MVP revocation changes the one active Event Source credential from `active` to `revoked` and records its revocation time. Authentication rejects revoked credentials immediately. Rotation, replacement, expiration, disabling, and multiple active credentials are not MVP capabilities.
+
 ---
 
 ## Rotation

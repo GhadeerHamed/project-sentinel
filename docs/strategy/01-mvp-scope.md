@@ -58,7 +58,7 @@ The engineer confirms the cause and resolution
 
 ### Event Ingestion
 
-* Receive signed events.
+* Receive Events authenticated with Event Source bearer credentials.
 * Validate and normalize payloads.
 * Prevent duplicate processing.
 * Preserve the original payload.

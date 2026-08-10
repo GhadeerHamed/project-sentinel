@@ -100,18 +100,22 @@
 - [x] Event Source issuance contract reconciliation: `event_source.create` authorization, nested active-hierarchy route, server-owned fields, one-time credential response, Audit actions, and idempotency without secret replay.
 - [x] Event Source issuance HTTP vertical slice with `event_source.create` authorization, owner-permission bootstrap/backfill, nested session-authenticated route, active hierarchy validation, idempotent one-time credential issuance, Audit, and focused coverage.
 - [x] Single Event ingestion vertical slice with Event Source bearer authentication, active hierarchy validation, immutable canonical Event persistence, independent idempotency and source-duplicate safety, transactional `event.accepted` Outbox publication, and focused coverage.
+- [x] Remaining Milestone 5 contract reconciliation: credential-only revocation, source-derived ingestion hierarchy, bearer-only authentication, Event reads, atomic bounded batches, and Outbox publisher boundary.
 
 ## In Progress
 
-- [ ] Event ingestion read/query capabilities explicitly required by MVP.
+- [ ] Event Source credential revocation vertical slice.
 
 ## Remaining Milestone 5
 
-- [ ] Milestone 5 completion review.
+- [ ] List Events.
+- [ ] Get Event.
+- [ ] Bounded batch Event ingestion.
+- [ ] Milestone 5 final completion review.
 
 ## Next Recommended Task
 
-Implement the Event ingestion read/query capabilities required by the MVP with tenant-scoped authorization and documented visibility rules.
+Implement human-authorized Event Source credential revocation with tenant-safe hierarchy validation, canonical `active` → `revoked` lifecycle, immediate authentication invalidation, and secret-free Audit.
 
 ## Status Update Rules
 
