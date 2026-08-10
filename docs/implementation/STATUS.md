@@ -73,6 +73,7 @@
 - [x] Environment Registry documentation reconciled around canonical ownership, `environment_type`, slug uniqueness, MVP lifecycle, `environment.create`, idempotency, nested routes, and historical read semantics.
 - [x] Create Environment vertical slice with `environment.create` authorization, active Project and Application ownership validation, transactional idempotency, PostgreSQL persistence, owner permission bootstrap, `environment.created` Outbox event, Audit, and authenticated HTTP endpoint.
 - [x] List Environments vertical slice with `environment.read` authorization, Project and Application ownership validation, active-by-default archived visibility, PostgreSQL read projection, cursor pagination, and authenticated HTTP endpoint.
+- [x] Get Environment vertical slice with `environment.read` authorization, tenant-scoped Project, Application, and Environment projection lookups, historical archived visibility, and authenticated nested HTTP endpoint.
 
 ## Milestone 3 Deferred
 
@@ -86,16 +87,15 @@
 
 ## In Progress
 
-- [ ] Get Environment vertical slice.
+- [ ] Archive Environment vertical slice.
 
 ## Remaining Milestone 4
 
-- [ ] Archive Environment.
 - [ ] Milestone 4 completion review.
 
 ## Next Recommended Task
 
-Implement the Get Environment vertical slice with `environment.read` authorization, Project and Application ownership validation, historical archived visibility, PostgreSQL read projection, and authenticated HTTP API.
+Implement the Archive Environment vertical slice with tenant-scoped authorization, canonical `active` → `archived` lifecycle, optimistic concurrency, parent ownership enforcement, Outbox, Audit, persistence, and authenticated HTTP endpoint.
 
 ## Status Update Rules
 

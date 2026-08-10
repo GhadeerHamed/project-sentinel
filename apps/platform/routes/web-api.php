@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\CreateEnvironmentController;
 use App\Http\Controllers\Api\V1\CreateOrganizationController;
 use App\Http\Controllers\Api\V1\CreateProjectController;
 use App\Http\Controllers\Api\V1\GetApplicationController;
+use App\Http\Controllers\Api\V1\GetEnvironmentController;
 use App\Http\Controllers\Api\V1\GetProjectController;
 use App\Http\Controllers\Api\V1\InviteMembershipController;
 use App\Http\Controllers\Api\V1\ListAccessibleOrganizationsController;
@@ -52,6 +53,9 @@ Route::prefix('api/v1')
         Route::get('/organizations/{organization}/projects/{project}/applications/{application}/environments', ListEnvironmentsController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.applications.environments.index');
+        Route::get('/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}', GetEnvironmentController::class)
+            ->middleware(ResolveTenantContext::class)
+            ->name('organizations.projects.applications.environments.show');
         Route::get('/organizations/{organization}/projects/{project}/applications', ListApplicationsController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.applications.index');
