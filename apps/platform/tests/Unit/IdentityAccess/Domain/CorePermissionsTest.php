@@ -37,7 +37,7 @@ final class CorePermissionsTest extends TestCase
         self::assertInstanceOf(PermissionCode::class, $applicationRead);
         self::assertSame('application.read', $applicationRead->value());
         self::assertSame(
-            ['organization.member.manage', 'organization.update', 'organization.suspend', 'project.create', 'project.read', 'project.archive', 'application.create', 'application.read'],
+            ['organization.member.manage', 'organization.update', 'organization.suspend', 'project.create', 'project.read', 'project.archive', 'application.create', 'application.read', 'application.archive'],
             CorePermissions::values(),
         );
     }

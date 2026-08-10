@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AcceptMembershipInvitationController;
+use App\Http\Controllers\Api\V1\ArchiveApplicationController;
 use App\Http\Controllers\Api\V1\ArchiveProjectController;
 use App\Http\Controllers\Api\V1\AssignRoleController;
 use App\Http\Controllers\Api\V1\CreateApplicationController;
@@ -49,6 +50,7 @@ Route::prefix('api/v1')
         Route::get('/organizations/{organization}/projects/{project}/applications/{application}', GetApplicationController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.applications.show');
+        Route::post('/organizations/{organization}/projects/{project}/applications/{application}/archive', ArchiveApplicationController::class)->middleware(ResolveTenantContext::class)->name('organizations.projects.applications.archive');
         Route::get('/organizations/{organization}/projects', ListProjectsController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.index');

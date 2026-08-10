@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Sentinel\Application\Domain\Entity;
 
 use DateTimeImmutable;
+use Sentinel\Application\Domain\Event\ApplicationArchived;
 use Sentinel\Application\Domain\Event\ApplicationCreated;
 use Sentinel\Application\Domain\Exception\InvalidApplication;
+use Sentinel\Application\Domain\Exception\InvalidApplicationTransition;
 use Sentinel\Application\Domain\ValueObject\ApplicationCriticality;
 use Sentinel\Application\Domain\ValueObject\ApplicationId;
 use Sentinel\Application\Domain\ValueObject\ApplicationStatus;
@@ -197,6 +199,17 @@ final class Application
         return $this->version;
     }
 
+    public function archive(DateTimeImmutable $at, string $eventId, string $correlationId, ?string $causationId = null): self
+    {
+        if ($this->status !== ApplicationStatus::ACTIVE) {
+            throw InvalidApplicationTransition::fromTo($this->status, ApplicationStatus::ARCHIVED);
+        }
+
+        $archived = new self($this->id, $this->organizationId, $this->projectId, $this->name, $this->slug, $this->description, $this->criticality, ApplicationStatus::ARCHIVED, $this->createdByIdentityId, $this->createdAt, $at, $at, $this->version->next(), $this->recordedEvents);
+
+        return $archived->withEvent(ApplicationArchived::fromValues($eventId, $archived->organizationId->value(), $archived->id->value(), $at, $correlationId, $causationId, $archived->version->value()));
+    }
+
     /** @return list<DomainEvent> */
     public function pullDomainEvents(): array
     {
@@ -208,8 +221,9 @@ final class Application
 
     private function withEvent(DomainEvent $event): self
     {
-        $this->recordedEvents[] = $event;
+        $copy = clone $this;
+        $copy->recordedEvents[] = $event;
 
-        return $this;
+        return $copy;
     }
 }

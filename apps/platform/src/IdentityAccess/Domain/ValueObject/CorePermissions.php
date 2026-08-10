@@ -20,6 +20,7 @@ final class CorePermissions
             self::archiveProject(),
             self::createApplication(),
             self::readApplications(),
+            self::archiveApplication(),
         ];
     }
 
@@ -69,5 +70,10 @@ final class CorePermissions
     public static function readApplications(): PermissionCode
     {
         return PermissionCode::fromString('application.read');
+    }
+
+    public static function archiveApplication(): PermissionCode
+    {
+        return PermissionCode::fromString('application.archive');
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayArchiveApplicationPolicy;
 use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayCreateApplicationPolicy;
 use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayGetApplicationPolicy;
 use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayListApplicationsPolicy;
@@ -43,6 +44,7 @@ use App\Infrastructure\Shared\Transaction\LaravelTransactionManager;
 use App\Infrastructure\Tenant\TenantContextStore;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
+use Sentinel\Application\Application\Policy\ApplicationArchivalPolicy;
 use Sentinel\Application\Application\Policy\ApplicationCreationPolicy;
 use Sentinel\Application\Application\Policy\ApplicationListingPolicy;
 use Sentinel\Application\Application\Policy\ApplicationRetrievalPolicy;
@@ -169,6 +171,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ProjectListingPolicy::class, ActiveMembershipWithPermissionMayListProjectsPolicy::class);
         $this->app->singleton(ProjectRetrievalPolicy::class, ActiveMembershipWithPermissionMayGetProjectPolicy::class);
         $this->app->singleton(ApplicationCreationPolicy::class, ActiveMembershipWithPermissionMayCreateApplicationPolicy::class);
+        $this->app->singleton(ApplicationArchivalPolicy::class, ActiveMembershipWithPermissionMayArchiveApplicationPolicy::class);
         $this->app->singleton(ApplicationListingPolicy::class, ActiveMembershipWithPermissionMayListApplicationsPolicy::class);
         $this->app->singleton(ApplicationRetrievalPolicy::class, ActiveMembershipWithPermissionMayGetApplicationPolicy::class);
         $this->app->singleton(MembershipInvitationPolicy::class, ActiveMembershipWithPermissionMayInviteMembershipPolicy::class);

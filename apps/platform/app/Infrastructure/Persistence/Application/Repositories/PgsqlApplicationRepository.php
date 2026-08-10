@@ -13,7 +13,9 @@ use Sentinel\Application\Domain\Exception\ApplicationSlugConflict;
 use Sentinel\Application\Domain\Repository\ApplicationRepository;
 use Sentinel\Application\Domain\ValueObject\ApplicationId;
 use Sentinel\Project\Domain\ValueObject\ProjectId;
+use Sentinel\Shared\Domain\Concurrency\CurrentVersion;
 use Sentinel\Shared\Domain\Concurrency\ExpectedVersion;
+use Sentinel\Shared\Domain\Concurrency\OptimisticConcurrencyConflict;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 
 final class PgsqlApplicationRepository implements ApplicationRepository
@@ -36,7 +38,14 @@ final class PgsqlApplicationRepository implements ApplicationRepository
     public function save(Application $application, ExpectedVersion $expectedVersion): void
     {
         if (! $expectedVersion->isNone()) {
-            throw new \LogicException('Application updates are not implemented.');
+            $data = ApplicationMapper::toPersistence($application);
+            $updated = ApplicationRecord::query()->where('id', $application->id()->value())->where('organization_id', $application->organizationId()->value())->where('project_id', $application->projectId()->value())->where('version', $expectedVersion->value()?->value())->update($data);
+            if ($updated === 0) {
+                $current = ApplicationRecord::query()->where('id', $application->id()->value())->where('organization_id', $application->organizationId()->value())->where('project_id', $application->projectId()->value())->value('version');
+                throw OptimisticConcurrencyConflict::forVersions($expectedVersion, $current === null ? CurrentVersion::none() : CurrentVersion::fromInt((int) $current));
+            }
+
+            return;
         }
 
         try {
