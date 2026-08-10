@@ -61,6 +61,7 @@
 - [x] Update Role Permissions vertical slice with Core-catalog validation, tenant-scoped authorization, soft grant revocation/restoration, administrative-recovery protection, Outbox, Audit, and authenticated HTTP API.
 - [x] Milestone 3 completion review completed; Organization reactivation explicitly deferred because it is not required by the MVP scope.
 - [x] Project Registry documentation reconciliation with canonical Milestone 4 naming, Project fields, MVP lifecycle, and Create Project contract.
+- [x] Create Project vertical slice with `project.create` authorization, canonical Project domain model, transactional idempotency, PostgreSQL persistence, owner permission bootstrap, `project.created` Outbox event, Audit, and authenticated HTTP endpoint.
 
 ## Milestone 3 Deferred
 
@@ -74,18 +75,18 @@
 
 ## In Progress
 
-- [ ] Create Project vertical slice.
+- [ ] List Projects vertical slice.
 
 ## Remaining Milestone 4
 
-- [ ] Project retrieval/listing required by MVP.
-- [ ] Project archive lifecycle.
+- [ ] Get Project.
+- [ ] Archive Project.
 - [ ] Application Registry capabilities.
 - [ ] Environment Registry capabilities.
 
 ## Next Recommended Task
 
-Implement the Create Project vertical slice using the approved canonical Project contract, tenant-scoped authorization, idempotency, persistence, Outbox, Audit, and authenticated HTTP endpoint.
+Implement tenant-scoped Project listing using a dedicated read model and authenticated Organization-scoped HTTP endpoint.
 
 ## Status Update Rules
 

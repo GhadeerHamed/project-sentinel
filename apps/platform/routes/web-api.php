@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AcceptMembershipInvitationController;
 use App\Http\Controllers\Api\V1\AssignRoleController;
 use App\Http\Controllers\Api\V1\CreateOrganizationController;
+use App\Http\Controllers\Api\V1\CreateProjectController;
 use App\Http\Controllers\Api\V1\InviteMembershipController;
 use App\Http\Controllers\Api\V1\ListAccessibleOrganizationsController;
 use App\Http\Controllers\Api\V1\ReactivateMembershipController;
@@ -30,6 +31,9 @@ Route::prefix('api/v1')
         Route::post('/organizations/{organization}/suspend', SuspendOrganizationController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.suspend');
+        Route::post('/organizations/{organization}/projects', CreateProjectController::class)
+            ->middleware(ResolveTenantContext::class)
+            ->name('organizations.projects.store');
         Route::post('/organizations/{organization}/memberships', InviteMembershipController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.memberships.store');

@@ -23,8 +23,11 @@ use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlRoleAssignme
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlRoleProvisioningRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlUserRepository;
 use App\Infrastructure\Persistence\Organization\Repositories\PgsqlOrganizationRepository;
+use App\Infrastructure\Persistence\Project\Repositories\PgsqlProjectRepository;
 use App\Infrastructure\Persistence\Shared\Audit\PgsqlAuditRecorder;
+use App\Infrastructure\Persistence\Shared\Idempotency\PgsqlIdempotencyRepository;
 use App\Infrastructure\Persistence\Shared\Outbox\PgsqlOutboxMessageStore;
+use App\Infrastructure\Project\Policy\ActiveMembershipWithPermissionMayCreateProjectPolicy;
 use App\Infrastructure\Shared\Transaction\LaravelTransactionManager;
 use App\Infrastructure\Tenant\TenantContextStore;
 use Illuminate\Support\Facades\Auth;
@@ -46,7 +49,10 @@ use Sentinel\Organization\Application\Policy\OrganizationCreationPolicy;
 use Sentinel\Organization\Application\Policy\OrganizationSuspensionPolicy;
 use Sentinel\Organization\Application\Policy\OrganizationUpdatePolicy;
 use Sentinel\Organization\Domain\Repository\OrganizationRepository;
+use Sentinel\Project\Application\Policy\ProjectCreationPolicy;
+use Sentinel\Project\Domain\Repository\ProjectRepository;
 use Sentinel\Shared\Domain\Audit\AuditRecorder;
+use Sentinel\Shared\Domain\Idempotency\IdempotencyRepository;
 use Sentinel\Shared\Domain\Identifier\UuidV7Generator;
 use Sentinel\Shared\Domain\Outbox\OutboxMessageStore;
 use Sentinel\Shared\Domain\Tenant\TenantContext;
@@ -82,6 +88,10 @@ final class AppServiceProvider extends ServiceProvider
             OrganizationRepository::class,
             PgsqlOrganizationRepository::class,
         );
+
+        $this->app->singleton(ProjectRepository::class, PgsqlProjectRepository::class);
+
+        $this->app->singleton(IdempotencyRepository::class, PgsqlIdempotencyRepository::class);
 
         $this->app->singleton(
             MembershipRepository::class,
@@ -127,6 +137,7 @@ final class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(OrganizationUpdatePolicy::class, ActiveMembershipWithPermissionMayUpdateOrganizationPolicy::class);
         $this->app->singleton(OrganizationSuspensionPolicy::class, ActiveMembershipWithPermissionMaySuspendOrganizationPolicy::class);
+        $this->app->singleton(ProjectCreationPolicy::class, ActiveMembershipWithPermissionMayCreateProjectPolicy::class);
         $this->app->singleton(MembershipInvitationPolicy::class, ActiveMembershipWithPermissionMayInviteMembershipPolicy::class);
         $this->app->singleton(MembershipRemovalPolicy::class, ActiveMembershipWithPermissionMayRemoveMembershipPolicy::class);
         $this->app->singleton(MembershipSuspensionPolicy::class, ActiveMembershipWithPermissionMaySuspendMembershipPolicy::class);

@@ -65,7 +65,7 @@ final class CreateOrganizationHandlerTest extends TestCase
         self::assertCount(1, $fixture->membershipRepository->persisted());
         self::assertCount(1, $fixture->roleAssignmentRepository->persisted());
         self::assertSame(
-            ['organization.member.manage', 'organization.update', 'organization.suspend'],
+            ['organization.member.manage', 'organization.update', 'organization.suspend', 'project.create'],
             array_map(
                 static fn (array $assignment): string => $assignment['permissionCode']->value(),
                 $fixture->permissionAssignmentRepository->persisted(),

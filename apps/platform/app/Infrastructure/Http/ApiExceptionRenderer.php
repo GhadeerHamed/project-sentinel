@@ -11,9 +11,11 @@ use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Sentinel\Project\Domain\Exception\ProjectSlugConflict;
 use Sentinel\Shared\Domain\Concurrency\OptimisticConcurrencyConflict;
 use Sentinel\Shared\Domain\Error\ErrorCategory;
 use Sentinel\Shared\Domain\Error\TypedError;
+use Sentinel\Shared\Domain\Idempotency\IdempotencyKeyConflict;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 final class ApiExceptionRenderer
@@ -26,6 +28,8 @@ final class ApiExceptionRenderer
         $exceptions->render($this->renderAccessDeniedHttpException(...));
         $exceptions->render($this->renderThrottleRequestsException(...));
         $exceptions->render($this->renderOptimisticConcurrencyConflict(...));
+        $exceptions->render($this->renderProjectSlugConflict(...));
+        $exceptions->render($this->renderIdempotencyKeyConflict(...));
         $exceptions->render($this->renderTypedError(...));
     }
 
@@ -95,6 +99,24 @@ final class ApiExceptionRenderer
                 'current_version' => $exception->currentVersion()->value()?->value(),
             ],
         );
+    }
+
+    private function renderProjectSlugConflict(ProjectSlugConflict $exception, Request $request): ?JsonResponse
+    {
+        if (! $this->isApiRequest($request)) {
+            return null;
+        }
+
+        return $this->errorResponse('project.slug_conflict', 'The project slug is already in use by this organization.', 409, $exception->context());
+    }
+
+    private function renderIdempotencyKeyConflict(IdempotencyKeyConflict $exception, Request $request): ?JsonResponse
+    {
+        if (! $this->isApiRequest($request)) {
+            return null;
+        }
+
+        return $this->errorResponse('idempotency.key_conflict', 'The idempotency key was already used with a different request.', 409, $exception->context());
     }
 
     private function renderTypedError(TypedError $exception, Request $request): ?JsonResponse

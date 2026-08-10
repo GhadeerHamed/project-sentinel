@@ -122,6 +122,7 @@ final readonly class CreateOrganizationHandler
                 CorePermissions::manageOrganizationMembers(),
                 CorePermissions::updateOrganization(),
                 CorePermissions::suspendOrganization(),
+                CorePermissions::createProject(),
             ] as $permission) {
                 $this->permissionAssignmentRepository->assignToRole(
                     organizationId: $organization->id(),

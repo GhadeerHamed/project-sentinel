@@ -16,13 +16,16 @@ final class CorePermissionsTest extends TestCase
     {
         $memberManagement = CorePermissions::manageOrganizationMembers();
         $organizationUpdate = CorePermissions::updateOrganization();
+        $projectCreate = CorePermissions::createProject();
 
         self::assertInstanceOf(PermissionCode::class, $memberManagement);
         self::assertSame('organization.member.manage', $memberManagement->value());
         self::assertInstanceOf(PermissionCode::class, $organizationUpdate);
         self::assertSame('organization.update', $organizationUpdate->value());
+        self::assertInstanceOf(PermissionCode::class, $projectCreate);
+        self::assertSame('project.create', $projectCreate->value());
         self::assertSame(
-            ['organization.member.manage', 'organization.update', 'organization.suspend'],
+            ['organization.member.manage', 'organization.update', 'organization.suspend', 'project.create'],
             CorePermissions::values(),
         );
     }

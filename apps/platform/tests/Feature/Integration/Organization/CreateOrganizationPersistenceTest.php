@@ -16,6 +16,7 @@ use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlUserReposito
 use App\Infrastructure\Persistence\Organization\Repositories\PgsqlOrganizationRepository;
 use App\Infrastructure\Persistence\Shared\Audit\PgsqlAuditRecorder;
 use App\Infrastructure\Persistence\Shared\Outbox\PgsqlOutboxMessageStore;
+use App\Infrastructure\Project\Policy\ActiveMembershipWithPermissionMayCreateProjectPolicy;
 use App\Infrastructure\Shared\Transaction\LaravelTransactionManager;
 use DateTimeImmutable;
 use Illuminate\Database\QueryException;
@@ -132,7 +133,7 @@ final class CreateOrganizationPersistenceTest extends TestCase
         );
 
         self::assertSame(
-            ['organization.member.manage', 'organization.suspend', 'organization.update'],
+            ['organization.member.manage', 'organization.suspend', 'organization.update', 'project.create'],
             array_map(static fn ($permission): string => $permission->value(), $effectivePermissions),
         );
 
@@ -148,6 +149,14 @@ final class CreateOrganizationPersistenceTest extends TestCase
             identityId: self::CREATOR_ID,
             identityType: 'user',
             correlationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e06',
+        )));
+
+        $projectPolicy = new ActiveMembershipWithPermissionMayCreateProjectPolicy($authorizer);
+        self::assertTrue($projectPolicy->allows(TenantContext::fromValues(
+            organizationId: self::ORGANIZATION_ID,
+            identityId: self::CREATOR_ID,
+            identityType: 'user',
+            correlationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e07',
         )));
     }
 
