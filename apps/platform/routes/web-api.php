@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\AssignRoleController;
 use App\Http\Controllers\Api\V1\CreateApplicationController;
 use App\Http\Controllers\Api\V1\CreateOrganizationController;
 use App\Http\Controllers\Api\V1\CreateProjectController;
+use App\Http\Controllers\Api\V1\GetApplicationController;
 use App\Http\Controllers\Api\V1\GetProjectController;
 use App\Http\Controllers\Api\V1\InviteMembershipController;
 use App\Http\Controllers\Api\V1\ListAccessibleOrganizationsController;
@@ -45,6 +46,9 @@ Route::prefix('api/v1')
         Route::get('/organizations/{organization}/projects/{project}/applications', ListApplicationsController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.applications.index');
+        Route::get('/organizations/{organization}/projects/{project}/applications/{application}', GetApplicationController::class)
+            ->middleware(ResolveTenantContext::class)
+            ->name('organizations.projects.applications.show');
         Route::get('/organizations/{organization}/projects', ListProjectsController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.index');

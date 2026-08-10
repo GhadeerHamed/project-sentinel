@@ -1,118 +1,99 @@
 # Current Task
 
-Implement the List Applications vertical slice.
+Implement the Get Application vertical slice.
 
 ## Required
 
 - Follow the canonical Application module, API, database, security, and MVP documentation.
 - Use the existing authenticated `IdentityReference`.
 - Require the resolved `TenantContext`.
-- Use the canonical Application read permission from existing documentation; do not invent a permission code.
-- Add the permission to `CorePermissions` only if canonically required and not already present.
-- Ensure the built-in `organization_owner` Role receives the read permission when required.
+- Use `CorePermissions::readApplications()`.
 - Authorize through an operation-specific Policy using `OrganizationPermissionAuthorizer`.
+- Reuse the existing Application read model/query infrastructure.
+- Do not hydrate the Application aggregate for this read-only operation.
 
-## Parent Ownership
+## Ownership
 
 Canonical hierarchy:
 
 Organization → Project → Application
 
-- Resolve the Project only within the Organization from `TenantContext`.
-- Ensure the route Project belongs to the resolved Organization.
-- Do not accept `organization_id` or `project_id` from query parameters or payload.
-- Follow the canonical historical-read behavior for archived Projects.
-- Application queries must always remain scoped by both Organization and Project.
-
-## Read Model
-
-- Do not hydrate Application aggregates for the read-only list.
-- Add a framework-independent Application read model/DTO containing only API-required fields.
-- Add the smallest query/read contract required.
-- Implement a PostgreSQL projection query selecting only required columns.
-- Avoid N+1 queries.
-- Keep persistence aggregate mapping separate from read projection mapping.
-
-The canonical public representation should expose only documented fields such as:
-
-- id
-- project_id where required by the API
-- name
-- slug
-- description
-- criticality
-- status
-- version
-- created_at
-- updated_at
-
-Do not expose creator identity or internal archival metadata unless explicitly required by the API contract.
+- Resolve the Project within the Organization from `TenantContext`.
+- Resolve the Application using Organization, Project, and Application identifiers.
+- Never perform a global Application lookup followed by tenant validation.
+- Cross-Organization or cross-Project Application IDs must return the existing tenant-safe not-found response.
+- Archived Projects remain readable according to the existing canonical historical-read behavior.
 
 ## Visibility
 
-Determine archived Application visibility from the reconciled canonical documentation.
-
-- Preserve authorized historical access where documented.
-- Apply canonical default filtering.
-- Follow existing API pagination, ordering, filtering, and cursor conventions.
-- Do not invent filters that are not documented.
+- Active Applications are readable.
+- Archived Applications remain readable for authorized historical access.
+- Do not require a `status` query parameter for direct retrieval.
+- Suspended Organizations remain blocked by existing `TenantContext` resolution.
 
 ## HTTP
 
-Expose the canonical endpoint:
+Expose:
 
-`GET /api/v1/organizations/{organization}/projects/{project}/applications`
+`GET /api/v1/organizations/{organization}/projects/{project}/applications/{application}`
 
 Require:
 
 - session authentication;
 - resolved `TenantContext`;
-- canonical Application read authorization;
+- `application.read`;
 - valid tenant-scoped parent Project.
 
 Keep the controller thin.
 
-Use a dedicated Application API Resource/Presenter.
+Reuse the existing Application API Resource/Presenter where possible.
 
-## Security
+Return only the canonical public Application representation.
 
-- Tenant access alone does not authorize Application reads.
-- Cross-Organization Projects must return the existing tenant-safe not-found response.
-- Applications from another Project must never be returned.
-- Suspended Organizations remain blocked by TenantContext resolution.
-- Do not authorize using Role names.
-- Do not expose unrelated tenant, Role, permission, or credential data.
+Do not expose:
+
+- creator identity;
+- internal archival metadata;
+- Roles or permissions;
+- unrelated tenant data.
+
+## Read Model
+
+- Reuse the existing Application read DTO if it contains all required fields.
+- Add only the smallest lookup-query capability required.
+- Select only API-required columns.
+- Keep aggregate persistence mapping separate from projection mapping.
+- Avoid unnecessary joins or N+1 queries.
 
 ## Tests
 
 Cover at minimum:
 
-- authorized listing;
+- authorized Application retrieval;
 - unauthorized actor;
 - unauthenticated request;
+- missing Application;
 - cross-Organization Project rejection;
-- only Applications belonging to the requested Project are returned;
-- Applications from another Project are excluded;
-- archived Application visibility follows canonical documentation;
-- archived parent Project behavior follows canonical documentation;
-- criticality and canonical fields are represented correctly;
-- canonical pagination/order behavior;
-- response does not expose internal fields;
-- read path does not hydrate Application aggregates;
-- newly created Organization owner has the required read permission without manual permission seeding.
+- Application belonging to another Project returns tenant-safe not found;
+- active Application retrieval;
+- archived Application historical retrieval;
+- archived parent Project remains readable;
+- canonical criticality and public fields;
+- internal fields are not exposed;
+- read path does not hydrate the aggregate.
 
 ## Excluded
 
 Do not add:
 
-- Get Application.
 - Application update.
 - Application archive.
 - criticality mutation.
 - Application settings.
 - runtime/framework metadata.
-- Environment implementation.
-- unrelated Milestone 4 capabilities.
+- Environment capabilities.
+- new permission codes.
+- unrelated Milestone 4 functionality.
 
 ## Verification
 
@@ -126,8 +107,8 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 
 Return only:
 
-- permission/visibility rule used
-- parent Project behavior
+- permission used
+- parent ownership behavior
 - archived visibility behavior
 - read-model/query approach
 - endpoint
