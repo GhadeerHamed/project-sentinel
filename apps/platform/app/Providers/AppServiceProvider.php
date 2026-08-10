@@ -9,6 +9,7 @@ use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayCreat
 use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayGetApplicationPolicy;
 use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayListApplicationsPolicy;
 use App\Infrastructure\Authentication\ActiveIdentityUserProvider;
+use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayArchiveEnvironmentPolicy;
 use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayCreateEnvironmentPolicy;
 use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayGetEnvironmentPolicy;
 use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayListEnvironmentsPolicy;
@@ -57,6 +58,7 @@ use Sentinel\Application\Application\Policy\ApplicationRetrievalPolicy;
 use Sentinel\Application\Application\Query\ApplicationListQuery;
 use Sentinel\Application\Application\Query\ApplicationLookupQuery;
 use Sentinel\Application\Domain\Repository\ApplicationRepository;
+use Sentinel\Environment\Application\Policy\EnvironmentArchivalPolicy;
 use Sentinel\Environment\Application\Policy\EnvironmentCreationPolicy;
 use Sentinel\Environment\Application\Policy\EnvironmentListingPolicy;
 use Sentinel\Environment\Application\Policy\EnvironmentRetrievalPolicy;
@@ -190,6 +192,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ApplicationListingPolicy::class, ActiveMembershipWithPermissionMayListApplicationsPolicy::class);
         $this->app->singleton(ApplicationRetrievalPolicy::class, ActiveMembershipWithPermissionMayGetApplicationPolicy::class);
         $this->app->singleton(EnvironmentCreationPolicy::class, ActiveMembershipWithPermissionMayCreateEnvironmentPolicy::class);
+        $this->app->singleton(EnvironmentArchivalPolicy::class, ActiveMembershipWithPermissionMayArchiveEnvironmentPolicy::class);
         $this->app->singleton(EnvironmentListingPolicy::class, ActiveMembershipWithPermissionMayListEnvironmentsPolicy::class);
         $this->app->singleton(EnvironmentRetrievalPolicy::class, ActiveMembershipWithPermissionMayGetEnvironmentPolicy::class);
         $this->app->singleton(MembershipInvitationPolicy::class, ActiveMembershipWithPermissionMayInviteMembershipPolicy::class);

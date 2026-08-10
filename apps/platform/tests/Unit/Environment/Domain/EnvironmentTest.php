@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Sentinel\Environment\Domain\Entity\Environment;
 use Sentinel\Environment\Domain\Exception\InvalidEnvironment;
+use Sentinel\Environment\Domain\Exception\InvalidEnvironmentTransition;
 
 final class EnvironmentTest extends TestCase
 {
@@ -98,6 +99,77 @@ final class EnvironmentTest extends TestCase
             updatedAt: new DateTimeImmutable('2026-08-10T12:00:00+00:00'),
             archivedAt: null,
             version: 1,
+        );
+    }
+
+    #[Test]
+    public function it_archives_an_active_environment_with_an_archival_timestamp_version_increment_and_event(): void
+    {
+        $createdAt = new DateTimeImmutable('2026-08-10T12:00:00+00:00');
+        $archivedAt = new DateTimeImmutable('2026-08-10T13:00:00+00:00');
+        $environment = Environment::fromValues(
+            id: '0198f3b6-48ae-7a45-9192-6f8029df5f40',
+            organizationId: '0198f3b6-48ae-7a45-9192-6f8029df5f41',
+            applicationId: '0198f3b6-48ae-7a45-9192-6f8029df5f42',
+            name: 'Production',
+            slug: 'production',
+            environmentType: 'production',
+            status: 'active',
+            createdByIdentityId: '0198f3b6-48ae-7a45-9192-6f8029df5f43',
+            createdAt: $createdAt,
+            updatedAt: $createdAt,
+            archivedAt: null,
+            version: 1,
+        );
+
+        $archived = $environment->archive(
+            at: $archivedAt,
+            actorIdentityId: '0198f3b6-48ae-7a45-9192-6f8029df5f44',
+            eventId: '0198f3b6-48ae-7a45-9192-6f8029df5f45',
+            correlationId: '0198f3b6-48ae-7a45-9192-6f8029df5f46',
+            causationId: '0198f3b6-48ae-7a45-9192-6f8029df5f47',
+        );
+
+        self::assertSame('archived', $archived->status()->value);
+        self::assertSame($archivedAt, $archived->updatedAt());
+        self::assertSame($archivedAt, $archived->archivedAt());
+        self::assertSame(2, $archived->version()->value());
+        $events = $archived->pullDomainEvents();
+        self::assertCount(1, $events);
+        self::assertSame('environment.archived', $events[0]->eventName());
+        self::assertSame([
+            'application_id' => '0198f3b6-48ae-7a45-9192-6f8029df5f42',
+            'environment_id' => '0198f3b6-48ae-7a45-9192-6f8029df5f40',
+            'actor_identity_id' => '0198f3b6-48ae-7a45-9192-6f8029df5f44',
+            'environment_status' => 'archived',
+        ], $events[0]->payload());
+    }
+
+    #[Test]
+    public function it_rejects_archiving_an_archived_environment(): void
+    {
+        $environment = Environment::fromValues(
+            id: '0198f3b6-48ae-7a45-9192-6f8029df5f50',
+            organizationId: '0198f3b6-48ae-7a45-9192-6f8029df5f51',
+            applicationId: '0198f3b6-48ae-7a45-9192-6f8029df5f52',
+            name: 'Production',
+            slug: 'production',
+            environmentType: 'production',
+            status: 'archived',
+            createdByIdentityId: '0198f3b6-48ae-7a45-9192-6f8029df5f53',
+            createdAt: new DateTimeImmutable('2026-08-10T12:00:00+00:00'),
+            updatedAt: new DateTimeImmutable('2026-08-10T13:00:00+00:00'),
+            archivedAt: new DateTimeImmutable('2026-08-10T13:00:00+00:00'),
+            version: 2,
+        );
+
+        $this->expectException(InvalidEnvironmentTransition::class);
+
+        $environment->archive(
+            at: new DateTimeImmutable('2026-08-10T14:00:00+00:00'),
+            actorIdentityId: '0198f3b6-48ae-7a45-9192-6f8029df5f54',
+            eventId: '0198f3b6-48ae-7a45-9192-6f8029df5f55',
+            correlationId: '0198f3b6-48ae-7a45-9192-6f8029df5f56',
         );
     }
 

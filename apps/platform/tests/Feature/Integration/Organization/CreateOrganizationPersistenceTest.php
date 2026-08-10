@@ -6,6 +6,7 @@ namespace Tests\Feature\Integration\Organization;
 
 use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayCreateApplicationPolicy;
 use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayListApplicationsPolicy;
+use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayArchiveEnvironmentPolicy;
 use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayCreateEnvironmentPolicy;
 use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayListEnvironmentsPolicy;
 use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
@@ -138,7 +139,7 @@ final class CreateOrganizationPersistenceTest extends TestCase
         );
 
         self::assertSame(
-            ['application.archive', 'application.create', 'application.read', 'environment.create', 'environment.read', 'organization.member.manage', 'organization.suspend', 'organization.update', 'project.archive', 'project.create', 'project.read'],
+            ['application.archive', 'application.create', 'application.read', 'environment.archive', 'environment.create', 'environment.read', 'organization.member.manage', 'organization.suspend', 'organization.update', 'project.archive', 'project.create', 'project.read'],
             array_map(static fn ($permission): string => $permission->value(), $effectivePermissions),
         );
 
@@ -194,6 +195,14 @@ final class CreateOrganizationPersistenceTest extends TestCase
             identityId: self::CREATOR_ID,
             identityType: 'user',
             correlationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e11',
+        )));
+
+        $environmentArchivePolicy = new ActiveMembershipWithPermissionMayArchiveEnvironmentPolicy($authorizer);
+        self::assertTrue($environmentArchivePolicy->allows(TenantContext::fromValues(
+            organizationId: self::ORGANIZATION_ID,
+            identityId: self::CREATOR_ID,
+            identityType: 'user',
+            correlationId: '01890f7a-5b7c-7cc0-98c4-dc0c0c073e13',
         )));
 
         $environmentListingPolicy = new ActiveMembershipWithPermissionMayListEnvironmentsPolicy($authorizer);

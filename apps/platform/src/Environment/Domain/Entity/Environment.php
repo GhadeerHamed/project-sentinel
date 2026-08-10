@@ -6,8 +6,10 @@ namespace Sentinel\Environment\Domain\Entity;
 
 use DateTimeImmutable;
 use Sentinel\Application\Domain\ValueObject\ApplicationId;
+use Sentinel\Environment\Domain\Event\EnvironmentArchived;
 use Sentinel\Environment\Domain\Event\EnvironmentCreated;
 use Sentinel\Environment\Domain\Exception\InvalidEnvironment;
+use Sentinel\Environment\Domain\Exception\InvalidEnvironmentTransition;
 use Sentinel\Environment\Domain\ValueObject\EnvironmentId;
 use Sentinel\Environment\Domain\ValueObject\EnvironmentStatus;
 use Sentinel\Environment\Domain\ValueObject\EnvironmentType;
@@ -179,6 +181,47 @@ final class Environment
     public function version(): ResourceVersion
     {
         return $this->version;
+    }
+
+    public function archive(
+        DateTimeImmutable $at,
+        string $actorIdentityId,
+        string $eventId,
+        string $correlationId,
+        ?string $causationId = null,
+    ): self {
+        if ($this->status !== EnvironmentStatus::ACTIVE) {
+            throw InvalidEnvironmentTransition::fromTo($this->status, EnvironmentStatus::ARCHIVED);
+        }
+
+        $archived = new self(
+            id: $this->id,
+            organizationId: $this->organizationId,
+            applicationId: $this->applicationId,
+            name: $this->name,
+            slug: $this->slug,
+            environmentType: $this->environmentType,
+            status: EnvironmentStatus::ARCHIVED,
+            createdByIdentityId: $this->createdByIdentityId,
+            createdAt: $this->createdAt,
+            updatedAt: $at,
+            archivedAt: $at,
+            version: $this->version->next(),
+            recordedEvents: $this->recordedEvents,
+        );
+
+        return $archived->withEvent(EnvironmentArchived::fromValues(
+            eventId: $eventId,
+            organizationId: $archived->organizationId->value(),
+            applicationId: $archived->applicationId->value(),
+            environmentId: $archived->id->value(),
+            occurredAt: $at,
+            correlationId: $correlationId,
+            causationId: $causationId,
+            actorIdentityId: $actorIdentityId,
+            environmentStatus: $archived->status,
+            aggregateVersion: $archived->version->value(),
+        ));
     }
 
     /** @return list<DomainEvent> */

@@ -1,170 +1,139 @@
 # Current Task
 
-Implement the Archive Environment vertical slice.
+Perform the Milestone 4 completion review.
 
 ## Required
 
-- Follow the reconciled Environment module, API, database, security, and MVP documentation.
-- Use the existing authenticated `IdentityReference`.
-- Require the resolved `TenantContext`.
-- Use the canonical Environment archive permission from `CorePermissions`.
-- Add the permission only if canonically required and not already present.
-- Ensure the built-in `organization_owner` Role receives the permission.
-- Reuse `OrganizationPermissionAuthorizer` through an operation-specific Archive Environment Policy.
+This is a documentation and implementation-status review only.
 
-## Ownership
+Do not modify application code, migrations, tests, `STATUS.md`, or `NEXT.md`.
 
-Canonical hierarchy:
+Review:
 
-Organization → Project → Application → Environment
+- `docs/implementation/00-implementation-plan.md`
+- `docs/implementation/02-mvp-roadmap.md`
+- `docs/strategy/01-mvp-scope.md`
+- directly relevant Project, Application, and Environment module/API/functional/database documentation
+- current `STATUS.md`
 
-- Resolve the Project within the Organization from `TenantContext`.
-- Resolve the Application within the Organization and route Project.
-- Resolve the Environment within the Organization and Application.
-- Validate Project ownership through the Application relationship.
-- Cross-Organization, cross-Project, and cross-Application mutations must be impossible.
-- Never perform a global Environment lookup followed by tenant validation.
+## Verify Project Coverage
 
-## Parent Lifecycle
+Confirm whether Milestone 4 requires anything beyond the implemented:
 
-Environment archive is allowed for historical cleanup beneath active or archived parents where canonical documentation permits it.
+- Create Project
+- List Projects
+- Get Project
+- Archive Project
 
-Verify the reconciled contract before enforcing parent lifecycle restrictions.
+Check specifically whether MVP still requires:
 
-Do not allow archived parent state to bypass tenant or authorization checks.
+- Project update
+- Project settings
+- Project criticality
+- additional lifecycle transitions
+- additional Project read capabilities
 
-## Lifecycle
+Do not infer conventional CRUD.
 
-Allow only:
+## Verify Application Coverage
 
-`active` → `archived`
+Confirm whether Milestone 4 requires anything beyond:
 
-The Environment domain model must:
+- Create Application
+- List Applications
+- Get Application
+- Archive Application
+- required Application criticality
 
-- enforce the transition;
-- set `archived_at` using the existing Clock;
-- increment `ResourceVersion`;
-- emit the canonical `environment.archived` Domain Event.
+Check specifically whether MVP still requires:
 
-Already archived Environments must follow canonical invalid-transition/conflict semantics.
+- Application update
+- criticality mutation
+- settings
+- runtime/framework metadata
+- repository/source metadata
+- additional lifecycle transitions
 
-Do not introduce:
+## Verify Environment Coverage
 
-- disabled;
-- maintenance;
-- suspended;
-- reactivation;
-- provisioning;
-- restoration;
-- deletion.
+Confirm whether Milestone 4 requires anything beyond:
 
-## Concurrency
+- Create Environment
+- List Environments
+- Get Environment
+- Archive Environment
+- canonical `environment_type`
+- documented filters and historical reads
 
-Require the existing optimistic-concurrency contract.
+Check specifically whether MVP still requires:
 
-- Require `If-Match`.
-- Persist using `ExpectedVersion`.
-- Stale versions return the canonical concurrency response.
-- Successful mutation returns the quoted updated ETag.
+- Environment update
+- region
+- settings
+- criticality
+- endpoint metadata
+- additional lifecycle transitions
 
-## Application Layer
+## Cross-Cutting Verification
 
-Add the framework-independent:
+Confirm the Registry implementation has the required:
 
-- command;
-- result;
-- Policy;
-- handler.
+- tenant isolation
+- parent ownership enforcement
+- effective permission authorization
+- owner permission bootstrap
+- UUIDv7 identifiers
+- optimistic concurrency for mutations
+- creation idempotency
+- Outbox
+- Audit
+- historical archived reads
+- projection-based read models
+- cursor pagination where required
 
-The handler must:
+Identify any implementation capability explicitly required by the canonical Registry MVP that is still missing.
 
-1. authorize the archive operation;
-2. resolve Project, Application, and Environment within the tenant hierarchy;
-3. execute the Environment domain transition;
-4. persist the Environment;
-5. append Domain Events to Outbox;
-6. record Audit action `environment.archive`;
-7. commit atomically.
+## Deferred Documentation
 
-Reuse `TenantScopedOperationRecorder` where appropriate.
+Review the downstream references previously noted for:
 
-## HTTP
+- deferred Environment lifecycle states
+- Environment criticality
+- other stale Registry assumptions
 
-Expose the canonical Environment archive endpoint from the reconciled API documentation.
+Determine whether they must be corrected before Milestone 4 closes or can safely wait until those downstream domains are implemented.
 
-Require:
+## Next Milestone
 
-- session authentication;
-- resolved `TenantContext`;
-- Environment archive authorization;
-- `If-Match`.
+Determine from the canonical roadmap:
 
-Keep the controller thin.
+- the next milestone name;
+- its objective;
+- its required MVP capabilities;
+- its dependencies on the completed Registry;
+- the smallest recommended first vertical slice.
 
-## Security
+Do not implement it.
 
-- Tenant access alone does not authorize Environment archive.
-- Cross-parent Environment mutation must return tenant-safe not-found behavior.
-- `environment_type = production` must not bypass or replace permission authorization.
-- Do not accept tenant, parent, status, version, or archive metadata from the request body.
-- Suspended Organizations remain blocked by `TenantContext`.
-- Do not authorize through Role names.
+## Rules
 
-## Tests
-
-Cover at minimum:
-
-- authorized archive succeeds;
-- unauthorized actor is rejected;
-- unauthenticated request is rejected;
-- missing Environment is rejected;
-- cross-Organization Project is rejected;
-- Application belonging to another Project is rejected;
-- Environment belonging to another Application is rejected;
-- active Environment becomes archived;
-- `archived_at` is persisted;
-- version increments;
-- already archived Environment is rejected;
-- missing `If-Match` is rejected;
-- stale `If-Match` returns the canonical concurrency response;
-- success returns quoted ETag;
-- `environment.archived` Outbox record is written;
-- `environment.archive` Audit record is written;
-- failed mutation writes neither Outbox nor Audit;
-- newly created Organization owner receives the required archive permission without manual seeding.
-
-## Excluded
-
-Do not add:
-
-- Environment update.
-- Environment reactivation.
-- Environment deletion/restoration.
-- Environment criticality.
-- region.
-- settings.
-- endpoint/runtime metadata.
-- downstream Event/Alert/Incident integration.
-- unrelated Milestone 4 functionality.
-
-## Verification
-
-Run targeted tests and `docker compose exec app composer quality`.
-
-Update `STATUS.md`; do not modify `NEXT.md`.
+- Do not reopen completed Registry scope without canonical evidence.
+- Do not add conventional CRUD merely for completeness.
+- Do not expand MVP scope.
+- Treat explicitly deferred capabilities as non-blocking unless the next milestone proves a dependency.
+- State documentation inconsistencies separately from implementation gaps.
 
 ## Reporting
 
 Return only:
 
-- permission used
-- lifecycle transition
-- parent ownership behavior
-- concurrency behavior
-- endpoint
-- event/audit behavior
-- files changed
-- tests
+- Milestone 4 completion verdict
+- required capabilities confirmed complete
+- genuine remaining implementation gaps
+- deferred/non-blocking capabilities
+- documentation cleanup required
+- next milestone name/objective
+- recommended first vertical slice
 - blockers
 
-Maximum 12 lines.
+Maximum 25 lines.

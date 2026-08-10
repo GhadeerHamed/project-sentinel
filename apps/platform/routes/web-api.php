@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AcceptMembershipInvitationController;
 use App\Http\Controllers\Api\V1\ArchiveApplicationController;
+use App\Http\Controllers\Api\V1\ArchiveEnvironmentController;
 use App\Http\Controllers\Api\V1\ArchiveProjectController;
 use App\Http\Controllers\Api\V1\AssignRoleController;
 use App\Http\Controllers\Api\V1\CreateApplicationController;
@@ -56,6 +57,9 @@ Route::prefix('api/v1')
         Route::get('/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}', GetEnvironmentController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.applications.environments.show');
+        Route::post('/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/archive', ArchiveEnvironmentController::class)
+            ->middleware(ResolveTenantContext::class)
+            ->name('organizations.projects.applications.environments.archive');
         Route::get('/organizations/{organization}/projects/{project}/applications', ListApplicationsController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.applications.index');

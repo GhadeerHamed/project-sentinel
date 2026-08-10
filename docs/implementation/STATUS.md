@@ -74,6 +74,7 @@
 - [x] Create Environment vertical slice with `environment.create` authorization, active Project and Application ownership validation, transactional idempotency, PostgreSQL persistence, owner permission bootstrap, `environment.created` Outbox event, Audit, and authenticated HTTP endpoint.
 - [x] List Environments vertical slice with `environment.read` authorization, Project and Application ownership validation, active-by-default archived visibility, PostgreSQL read projection, cursor pagination, and authenticated HTTP endpoint.
 - [x] Get Environment vertical slice with `environment.read` authorization, tenant-scoped Project, Application, and Environment projection lookups, historical archived visibility, and authenticated nested HTTP endpoint.
+- [x] Archive Environment vertical slice with `environment.archive` authorization, canonical active-to-archived lifecycle, optimistic concurrency, Outbox, Audit, PostgreSQL persistence, owner-permission backfill, and authenticated nested HTTP endpoint.
 
 ## Milestone 3 Deferred
 
@@ -87,15 +88,15 @@
 
 ## In Progress
 
-- [ ] Archive Environment vertical slice.
+- [ ] Milestone 4 completion review.
 
 ## Remaining Milestone 4
 
-- [ ] Milestone 4 completion review.
+- [ ] Confirm no required Project/Application/Environment MVP capabilities remain.
 
 ## Next Recommended Task
 
-Implement the Archive Environment vertical slice with tenant-scoped authorization, canonical `active` → `archived` lifecycle, optimistic concurrency, parent ownership enforcement, Outbox, Audit, persistence, and authenticated HTTP endpoint.
+Review Milestone 4 against the canonical roadmap and Registry documentation, confirm the implemented Project/Application/Environment capabilities satisfy MVP scope, identify only genuine remaining gaps, and recommend the next milestone.
 
 ## Status Update Rules
 
