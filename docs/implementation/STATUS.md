@@ -69,6 +69,8 @@
 - [x] Create Application vertical slice with `application.create` authorization, active tenant-scoped Project validation, transactional idempotency, PostgreSQL persistence, owner permission bootstrap, `application.created` Outbox event, Audit, and authenticated HTTP endpoint.
 - [x] List Applications vertical slice with `application.read` authorization, tenant-scoped Project validation, active-by-default archived visibility, PostgreSQL read projection, cursor pagination, and authenticated Project-scoped HTTP endpoint.
 - [x] Get Application vertical slice with `application.read` authorization, tenant-scoped Project and Application ownership enforcement, historical archived visibility, PostgreSQL read projection, and authenticated Project-scoped HTTP endpoint.
+- [x] Archive Application vertical slice with `application.archive` authorization, canonical active-to-archived lifecycle, optimistic concurrency, Outbox, Audit, PostgreSQL persistence, owner-permission backfill, and authenticated HTTP endpoint.
+- [x] Environment Registry documentation reconciled around canonical ownership, `environment_type`, slug uniqueness, MVP lifecycle, `environment.create`, idempotency, nested routes, and historical read semantics.
 
 ## Milestone 3 Deferred
 
@@ -82,15 +84,18 @@
 
 ## In Progress
 
-- [ ] Archive Application vertical slice.
+- [ ] Create Environment vertical slice.
 
 ## Remaining Milestone 4
 
-- [ ] Environment Registry capabilities.
+- [ ] List Environments.
+- [ ] Get Environment.
+- [ ] Archive Environment.
+- [ ] Milestone 4 completion review.
 
 ## Next Recommended Task
 
-Implement the Archive Application vertical slice with tenant-scoped authorization, canonical `active` → `archived` lifecycle, optimistic concurrency, Outbox, Audit, persistence, and authenticated HTTP endpoint.
+Implement the Create Environment vertical slice using the approved Environment contract, active parent validation, `environment.create` authorization, shared idempotency, persistence, Outbox, Audit, and authenticated HTTP endpoint.
 
 ## Status Update Rules
 

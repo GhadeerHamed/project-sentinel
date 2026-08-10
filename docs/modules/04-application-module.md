@@ -298,7 +298,7 @@ application.create
 application.read
 application.update
 application.archive
-application.environment.create
+environment.create
 ```
 
 Authorization may consider:

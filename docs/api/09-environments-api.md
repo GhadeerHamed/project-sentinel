@@ -2,14 +2,7 @@
 
 ## Purpose
 
-This document defines the API for managing runtime Environments within an Application.
-
-Examples include:
-
-* Production.
-* staging.
-* testing.
-* development.
+This document defines the MVP API for managing Environments within an Application.
 
 ---
 
@@ -25,69 +18,46 @@ Examples include:
     "slug": "production",
     "environment_type": "production",
     "status": "active",
-    "version": 2,
+    "version": 1,
     "created_at": "2026-08-01T16:30:00Z",
-    "updated_at": "2026-08-01T17:00:00Z"
+    "updated_at": "2026-08-01T16:30:00Z"
   }
 }
 ```
 
-Supported environment types:
-
-* `production`
-* `staging`
-* `testing`
-* `development`
-* `sandbox`
-* `custom`
-
-Supported statuses:
-
-* `active`
-* `suspended`
-* `archived`
+Supported `environment_type` values are `production`, `staging`, `testing`, `development`, `sandbox`, and `other`. The only MVP statuses are `active` and `archived`.
 
 ---
 
 ## Endpoints
 
-| Method  | Endpoint                                                                      | Purpose                   |
-| ------- | ----------------------------------------------------------------------------- | ------------------------- |
-| `GET`   | `/organizations/{organization_id}/environments`                               | List Environments         |
-| `POST`  | `/organizations/{organization_id}/applications/{application_id}/environments` | Create an Environment     |
-| `GET`   | `/organizations/{organization_id}/environments/{environment_id}`              | Read an Environment       |
-| `PATCH` | `/organizations/{organization_id}/environments/{environment_id}`              | Update an Environment     |
-| `POST`  | `/organizations/{organization_id}/environments/{environment_id}/suspend`      | Suspend an Environment    |
-| `POST`  | `/organizations/{organization_id}/environments/{environment_id}/reactivate`   | Reactivate an Environment |
-| `POST`  | `/organizations/{organization_id}/environments/{environment_id}/archive`      | Archive an Environment    |
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/organizations/{organization}/projects/{project}/applications/{application}/environments` | List Environments |
+| `POST` | `/organizations/{organization}/projects/{project}/applications/{application}/environments` | Create an Environment |
+| `GET` | `/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}` | Read an Environment |
+| `POST` | `/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/archive` | Archive an Environment |
+
+Every route validates the Organization → Project → Application → Environment relationship. Cross-Organization and cross-Project Resources are tenant-safe not-found results.
 
 ---
 
 ## List Environments
 
 ```http
-GET /api/v1/organizations/{organization_id}/environments
+GET /api/v1/organizations/{organization}/projects/{project}/applications/{application}/environments
 ```
 
-Supported filters:
+Supported filters are `status`, `environment_type`, and `slug`. The canonical ordering is `created_at DESC, id DESC`.
 
-* `application_id`
-* `environment_type`
-* `status`
-* `slug`
-
-Default ordering:
-
-```text
-created_at DESC, id DESC
-```
+Active Environments are returned by default. Authorized callers may request `status=archived` for historical list access.
 
 ---
 
 ## Create Environment
 
 ```http
-POST /api/v1/organizations/{organization_id}/applications/{application_id}/environments
+POST /api/v1/organizations/{organization}/projects/{project}/applications/{application}/environments
 Idempotency-Key: {key}
 ```
 
@@ -101,160 +71,48 @@ Request:
 }
 ```
 
-Response:
+The caller requires an active Organization Membership, resolved Tenant Context, and `environment.create`. The Project and Application must be active, belong to the resolved Organization, and the Application must belong to the route Project.
 
-```http
-201 Created
-```
+The server assigns the UUIDv7 identifier, Organization and Application ownership, active status, creator identity, timestamps, `archived_at = null`, and version `1`. The request does not accept ownership, status, archival metadata, creator identity, or version fields. Creation does not use `If-Match`.
 
-The Application and Organization must match.
+Idempotency is scoped by Organization, acting identity, operation, key, and normalized request hash. A matching retry returns the original result; reuse with a different request returns `409 Conflict`.
+
+Successful creation atomically persists the Environment, publishes `environment.created` through the Outbox, records Audit action `environment.create`, and returns `201 Created` with the canonical Environment resource. Creator and archival metadata are not exposed by the response.
 
 ---
 
 ## Read Environment
 
 ```http
-GET /api/v1/organizations/{organization_id}/environments/{environment_id}
+GET /api/v1/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}
 ```
 
-Lookup and authorization must include both:
-
-```text
-organization_id
-environment_id
-```
-
----
-
-## Update Environment
-
-```http
-PATCH /api/v1/organizations/{organization_id}/environments/{environment_id}
-If-Match: "2"
-```
-
-Request:
-
-```json
-{
-  "name": "Primary Production"
-}
-```
-
-Mutable fields may include:
-
-* `name`
-* approved metadata
-* selected operational settings
-
-Changing Application ownership should require a dedicated operation, if supported.
-
----
-
-## Suspend Environment
-
-```http
-POST /api/v1/organizations/{organization_id}/environments/{environment_id}/suspend
-If-Match: "2"
-```
-
-Request:
-
-```json
-{
-  "reason": "Environment temporarily disabled"
-}
-```
-
-Suspension may prevent:
-
-* New Event ingestion.
-* Plugin synchronization.
-* Agent execution.
-* Workflow execution.
-* automated Actions.
-
-Historical data remains available according to authorization and retention rules.
-
----
-
-## Reactivate Environment
-
-```http
-POST /api/v1/organizations/{organization_id}/environments/{environment_id}/reactivate
-If-Match: "3"
-```
-
-The parent Organization, Project, and Application must be Active.
+The lookup is scoped by Organization, Application, and Environment, with the Application additionally verified against the route Project. Archived Environments remain available to authorized callers for historical access.
 
 ---
 
 ## Archive Environment
 
 ```http
-POST /api/v1/organizations/{organization_id}/environments/{environment_id}/archive
-If-Match: "4"
+POST /api/v1/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/archive
+If-Match: "1"
 ```
 
-Archival:
-
-* Stops normal activity.
-* preserves historical operational data.
-* excludes the Environment from default active listings.
-* does not delete data.
+Only `active → archived` is supported. Archival preserves operational history, removes the Environment from default active lists, publishes `environment.archived`, records Audit action `environment.archive`, and returns the updated quoted ETag. Stale versions return the canonical concurrency conflict response.
 
 ---
 
-## Authorization
+## Authorization and Errors
 
-Typical permissions:
+MVP permissions are `environment.create`, `environment.read`, and `environment.archive`. `environment_type` is descriptive and cannot grant authorization or bypass Policy enforcement.
 
-```text
-environment.read
-environment.create
-environment.update
-environment.suspend
-environment.reactivate
-environment.archive
-```
-
-Access may also be restricted by Project, Application, Team, or Environment scope.
-
-Production Environments may require stronger permissions than non-production Environments.
+Common errors are `environment.not_found`, `environment.slug_conflict`, `environment.archived`, `application.not_found`, `project.not_found`, `organization.suspended`, `authorization.denied`, and `concurrency.version_conflict`.
 
 ---
 
-## Errors
+## Deferred
 
-Common errors:
-
-```text
-environment.not_found
-environment.slug_conflict
-environment.suspended
-environment.archived
-application.not_found
-application.suspended
-project.suspended
-organization.suspended
-authorization.denied
-concurrency.version_conflict
-```
-
----
-
-## Business Rules
-
-* Every Environment belongs to one Application and Organization.
-* Environment lookup always includes Organization scope.
-* Environment slugs are unique within their Application.
-* Parent Resource state may restrict Environment operations.
-* Suspended or Archived Environments cannot accept normal new activity.
-* Production Environments may have stricter authorization Policies.
-* Creation uses idempotency.
-* Lifecycle changes use optimistic concurrency.
-* Archival preserves operational history.
-* Cross-Organization relationships are prohibited.
+Environment update, suspension, reactivation, maintenance, provisioning, restoration, deletion, settings, criticality, and arbitrary custom environment types are deferred beyond the MVP.
 
 ---
 
@@ -262,6 +120,5 @@ concurrency.version_conflict
 
 * `docs/api/07-projects-api.md`
 * `docs/api/08-applications-api.md`
-* `docs/api/10-events-api.md`
+* `docs/modules/05-environment-module.md`
 * `docs/database/04-application-environment-schema.md`
-* `docs/database/05-event-signal-schema.md`

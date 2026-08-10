@@ -2,61 +2,21 @@
 
 ## Purpose
 
-The Environment module owns deployment environments within Sentinel Applications.
+The Environment module owns deployment Environments within Sentinel Applications. An Environment represents one operational runtime, such as production, staging, testing, development, or sandbox.
 
-An Environment represents a distinct operational runtime such as production, staging, testing, or development.
-
----
-
-## Owns
-
-The module owns:
-
-* Environment.
-* Environment lifecycle.
-* Environment classification.
-* Environment settings.
-* Environment operational criticality.
-* Environment history.
-
-Runtime telemetry is owned by the Event module.
+The initial Milestone 4 slice establishes the Environment Registry. Runtime telemetry remains owned by the Event module.
 
 ---
 
-## Responsibilities
+## Ownership
 
-The module is responsible for:
+The canonical hierarchy is:
 
-* Creating Environments within Applications.
-* maintaining Environment metadata.
-* classifying operational criticality.
-* managing lifecycle transitions.
-* validating Application ownership.
-* defining Environment-level operational defaults.
-* publishing Environment lifecycle events.
+```text
+Organization → Project → Application → Environment
+```
 
----
-
-## Does Not Own
-
-The module does not own:
-
-* Applications.
-* deployment infrastructure.
-* application releases.
-* Events or Signals.
-* Alerts or Incidents.
-* Plugin credentials.
-* Agent executions.
-* runtime configuration secrets.
-
-It must not modify Resources owned by other modules directly.
-
----
-
-## Environment Resource
-
-Important attributes include:
+Every Environment belongs to exactly one Application and Organization. It persists:
 
 ```text
 id
@@ -64,25 +24,30 @@ organization_id
 application_id
 name
 slug
-type
+environment_type
 status
-criticality
-settings
+created_by_identity_id
 created_at
 updated_at
 archived_at
 version
 ```
 
-The primary identifier uses UUIDv7.
+`id` uses UUIDv7. `project_id` is not persisted on Environment; Project ownership is validated through the Application relationship. An Environment cannot move between Applications or Organizations.
 
-The slug is unique within its Application.
+The canonical uniqueness constraint is:
+
+```text
+UNIQUE (organization_id, application_id, slug)
+```
+
+Environment names are not unique, and there is no separate Environment key.
 
 ---
 
 ## Environment Type
 
-Suggested types:
+`environment_type` is required and must be one of:
 
 ```text
 production
@@ -93,456 +58,98 @@ sandbox
 other
 ```
 
-Environment type describes intended usage.
-
-It must not be used as the sole authorization control.
-
----
-
-## Criticality
-
-Suggested criticality levels:
-
-```text
-critical
-high
-medium
-low
-```
-
-Criticality may influence:
-
-* Alert severity.
-* Notification routing.
-* approval requirements.
-* Agent Action restrictions.
-* retention defaults.
-* operational prioritization.
-
-Owning modules remain responsible for applying these rules.
+It is descriptive classification. It must not grant authorization or bypass Policy enforcement; production-specific controls require an explicit Policy.
 
 ---
 
 ## Lifecycle
 
-Suggested states:
+Environments are created `active`. The only supported MVP transition is:
 
 ```text
-active
-disabled
-archived
-```
-
-Supported transitions:
-
-```text
-active → disabled
-disabled → active
 active → archived
-disabled → archived
 ```
 
-Archived Environments should not return to normal operation without an explicit recovery policy.
+Archived Environments are read-only, retain operational history, reject normal new activity, and remain available for authorized historical reads.
+
+Disabled, maintenance, suspension, reactivation, provisioning, restoration, deletion, settings, and Environment criticality are deferred beyond the initial Registry slice.
 
 ---
 
-## Active Environment
+## Commands and Queries
 
-An Active Environment may:
-
-* Receive Events.
-* participate in Signal and Alert processing.
-* create Incidents.
-* run approved Plugins and Agents.
-* appear in Search and dashboards.
-
-All operations remain subject to parent Resource status and authorization.
-
----
-
-## Disabled Environment
-
-A Disabled Environment:
-
-* Rejects normal Event ingestion.
-* prevents new operational executions.
-* retains existing history.
-* remains available for authorized investigation.
-* may permit controlled maintenance operations.
-
-Disabling is reversible.
-
----
-
-## Archived Environment
-
-An Archived Environment:
-
-* Rejects new telemetry.
-* cannot receive normal configuration changes.
-* retains historical Resources.
-* follows retention and Legal Hold rules.
-* remains accessible only for authorized historical use.
-
-Archival does not delete operational data.
-
----
-
-## Commands
-
-Primary commands include:
+The MVP exposes:
 
 ```text
 CreateEnvironment
-RenameEnvironment
-ChangeEnvironmentSlug
-ChangeEnvironmentType
-ChangeEnvironmentCriticality
-UpdateEnvironmentSettings
-DisableEnvironment
-EnableEnvironment
 ArchiveEnvironment
-```
-
-Commands require Tenant Context, authorization, and valid parent ownership.
-
----
-
-## Queries
-
-Primary queries include:
-
-```text
-GetEnvironment
-GetEnvironmentBySlug
 ListEnvironments
-GetEnvironmentStatus
-GetEnvironmentSettings
-GetEnvironmentCriticality
+GetEnvironment
 ```
 
-Queries must remain Organization- and Application-scoped.
+Commands require Tenant Context, authorization, valid parent ownership, and the applicable lifecycle rules. List and get operations are Application-scoped and retain authorized historical access to archived Environments.
 
 ---
 
-## Published Events
-
-The module publishes:
-
-```text
-environment.created
-environment.renamed
-environment.type_changed
-environment.criticality_changed
-environment.settings_updated
-environment.disabled
-environment.enabled
-environment.archived
-```
-
-Events must include:
-
-```text
-organization_id
-application_id
-environment_id
-event_id
-occurred_at
-correlation_id
-causation_id
-event_version
-```
-
----
-
-## Consumed Events
-
-The module may consume:
-
-```text
-organization.suspended
-organization.archived
-project.archived
-application.archived
-```
-
-Parent lifecycle changes restrict Environment operations.
-
-Consumers must remain idempotent.
-
----
-
-## Application Integration
-
-Every Environment belongs to exactly one Application.
+## Parent Validation and Tenant Isolation
 
 Environment creation requires:
 
-* Active Organization.
-* active Project.
-* active Application.
-* matching Organization ownership.
-* authorized identity.
-* available plan capacity.
+* an active Organization resolved through Tenant Context;
+* an active Project belonging to that Organization;
+* an active Application belonging to that Organization and Project;
+* an authorized acting identity.
 
-An Environment cannot move between Applications or Organizations.
+Project-nested HTTP operations must validate the Organization, Project, Application, and Environment relationship. Environment repository lookups are scoped by `organization_id`, `application_id`, and `environment_id`; cross-Organization and cross-Project references must be tenant-safe not-found results.
 
----
-
-## Event Integration
-
-The Event module references an Environment when telemetry is environment-specific.
-
-Before accepting an Event, the Event module should verify that the Environment:
-
-* Exists.
-* belongs to the expected Application and Organization.
-* is Active.
-* may receive telemetry.
-
-The Environment module does not write Event data.
+Archived Projects and Applications cannot receive new Environments. Environment identifiers alone never establish access.
 
 ---
 
-## Alert and Incident Integration
+## Create Environment
 
-Alerts and Incidents may reference an Environment.
+Creation requires `environment.create` and an `Idempotency-Key`. The request accepts only `name`, `slug`, and `environment_type`.
 
-Environment criticality may contribute to:
+The server owns Organization and Application ownership, the UUIDv7 identifier, active status, creator identity, timestamps, `archived_at = null`, and version `1`. Creation does not use `If-Match`.
 
-* Alert severity calculation.
-* Incident priority.
-* escalation Policy.
-* Notification routing.
+Idempotency is scoped by Organization, acting identity, operation, key, and normalized request hash. A matching retry returns the original result; reusing a key with a different request is a conflict.
 
-The Alert and Incident modules remain authoritative for those decisions.
+Successful creation atomically persists the Environment, publishes `environment.created` through the Outbox, and records Audit action `environment.create`.
 
 ---
 
-## Plugin and Agent Integration
+## Events and Transactions
 
-Plugin Installations and Agent executions may be scoped to one or more Environments.
-
-They must verify:
-
-* Organization ownership.
-* Application ownership.
-* Environment status.
-* granted Resource scope.
-* production restrictions.
-
-Production Environments may require stronger authorization or approval.
-
----
-
-## Settings
-
-Environment settings may define:
-
-* Event ingestion preferences.
-* Alert evaluation defaults.
-* Notification routing.
-* retention preferences.
-* production protection rules.
-* Agent and Plugin restrictions.
-* operational ownership metadata.
-
-Credentials and secrets must use secure secret references.
-
----
-
-## Authorization
-
-Typical permissions include:
+The MVP publishes:
 
 ```text
-environment.create
-environment.read
-environment.update
-environment.disable
-environment.archive
-environment.production.manage
+environment.created
+environment.archived
 ```
 
-Sensitive production changes may require:
+Events include `organization_id`, `application_id`, `environment_id`, `event_id`, `occurred_at`, `correlation_id`, `causation_id`, and `event_version`.
 
-* Strong authentication.
-* elevated permission.
-* approval.
-* recent reauthentication.
-* Audit recording.
+State changes atomically commit Environment state, required Audit metadata, and Outbox records. Archive uses Resource Version optimistic concurrency; conflicts must not overwrite newer state.
 
 ---
 
-## Tenant Isolation
+## Integration Boundaries
 
-All Environment operations require:
+The Environment module does not own Applications, deployment infrastructure, Events, Alerts, Incidents, Plugin credentials, Agent executions, or runtime configuration secrets. Other modules reference Environments through public contracts and must not write Environment state directly.
 
-```text
-organization_id
-application_id
-environment_id
-```
-
-Cross-Organization or cross-Application references must be rejected.
-
-Environment identifiers alone never establish access.
-
----
-
-## Repository Interfaces
-
-The module owns repository contracts such as:
-
-```text
-EnvironmentRepository
-EnvironmentSettingsRepository
-EnvironmentHistoryRepository
-```
-
-Other modules use public Environment contracts rather than modifying Environment persistence directly.
-
----
-
-## Transactions
-
-Environment state changes should atomically commit:
-
-* Environment state.
-* lifecycle history.
-* required Audit metadata.
-* Outbox Records.
-
-Dependent module reactions occur through published events.
-
----
-
-## Optimistic Concurrency
-
-Environment metadata, settings, criticality, and lifecycle changes should use a Resource Version.
-
-Conflicting writes must return a concurrency conflict.
-
----
-
-## Environment Disablement
-
-Disabling an Environment should:
-
-1. Validate current state.
-2. authorize the operation.
-3. mark the Environment Disabled.
-4. publish `environment.disabled`.
-5. reject new normal ingestion and executions.
-6. preserve existing operational history.
-
-Dependent modules decide how active work is paused or completed.
-
----
-
-## Environment Archival
-
-Archiving should:
-
-1. Validate current state.
-2. authorize the operation.
-3. mark the Environment Archived.
-4. publish `environment.archived`.
-5. reject new operational activity.
-6. retain history according to Policy.
-
----
-
-## Search Integration
-
-The Search module may maintain derived Environment documents containing:
-
-* Name.
-* slug.
-* type.
-* status.
-* criticality.
-* Application reference.
-* operational ownership metadata.
-
-Search remains derived and rebuildable.
-
----
-
-## Audit Requirements
-
-Audit Records are required for:
-
-* Environment creation.
-* type and criticality changes.
-* settings changes.
-* disablement and reactivation.
-* archival.
-* privileged production changes.
-
-Sensitive configuration must be redacted.
+Event ingestion must verify that an Environment belongs to the expected Application and Organization and is active before accepting environment-specific telemetry.
 
 ---
 
 ## Testing Requirements
 
-Tests must cover:
-
-* Environment creation.
-* parent ownership validation.
-* inactive Application rejection.
-* slug uniqueness within an Application.
-* cross-tenant rejection.
-* lifecycle transitions.
-* criticality changes.
-* production authorization.
-* optimistic concurrency.
-* Event ingestion eligibility.
-* event publication.
-
----
-
-## Prohibited Practices
-
-The following are prohibited:
-
-* Treating Environment as an independent tenant.
-* moving Environments between Applications.
-* querying by Environment ID without tenant scope.
-* storing telemetry inside this module.
-* storing plaintext credentials in settings.
-* accepting telemetry for disabled or archived Environments.
-* using Environment type as the only production safeguard.
-* deleting history during archival.
-* allowing other modules to write Environment tables.
-* duplicating authoritative Environment state.
-
----
-
-## Business Rules
-
-* Every Environment belongs to one Application and Organization.
-* Environment defines an operational runtime scope.
-* Environment identifiers use UUIDv7.
-* slugs are unique within an Application.
-* Environments cannot move between Applications.
-* disabled Environments retain history but reject normal activity.
-* archived Environments are historical and read-only.
-* production Environments may require stronger controls.
-* Event, Alert, Incident, Agent, and Plugin modules reference but do not own Environments.
-* state changes are versioned, auditable, and event-producing.
+Tests must cover creation, parent ownership validation, archived-parent rejection, slug uniqueness, tenant isolation, idempotency, `active → archived`, optimistic concurrency, Outbox, Audit, and authorized historical reads.
 
 ---
 
 ## Related Documents
 
-* `docs/modules/00-module-architecture.md`
 * `docs/modules/04-application-module.md`
-* `docs/modules/06-event-module.md`
-* `docs/modules/07-alert-module.md`
-* `docs/modules/08-incident-module.md`
-* `docs/modules/10-agent-module.md`
-* `docs/modules/11-plugin-module.md`
 * `docs/database/04-application-environment-schema.md`
 * `docs/api/09-environments-api.md`
 * `docs/security/02-tenant-isolation.md`

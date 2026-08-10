@@ -102,7 +102,7 @@ Identity includes:
 - environment identifier
 - owning application
 - environment name
-- environment key
+- environment slug
 - operational status
 - creation timestamp
 
@@ -112,9 +112,9 @@ Names may evolve without affecting historical operational data.
 
 ---
 
-# Environment Key
+# Environment Slug
 
-Each Environment has a human-readable key.
+Each Environment has a human-readable slug.
 
 Examples include:
 
@@ -126,9 +126,9 @@ Examples include:
 - DR
 - SANDBOX
 
-Keys simplify operational communication.
+Slugs simplify operational communication.
 
-Keys must remain unique within an Application.
+Slugs must remain unique within an Application. Environment names are not unique, and there is no separate Environment key.
 
 ---
 
@@ -192,46 +192,26 @@ The Environment models business deployment context rather than infrastructure im
 
 ---
 
-# Environment Classification
+# Environment Type
 
-Organizations may classify Environments.
+Every Environment has a required descriptive `environment_type`.
 
-Examples include:
+Allowed values are:
 
-- Development
-- Test
-- Pre-Production
-- Production
-- Disaster Recovery
-- Experimental
-- Demonstration
-- Training
+- `production`
+- `staging`
+- `testing`
+- `development`
+- `sandbox`
+- `other`
 
-Classification improves governance without changing Environment identity.
+Environment type improves governance without changing identity. It does not grant authorization or bypass Policy enforcement.
 
 ---
 
 # Criticality
 
-Environments may possess different operational criticality.
-
-Examples include:
-
-- Mission Critical
-- High Availability
-- Business Critical
-- Standard
-- Experimental
-
-Criticality provides context for:
-
-- incident prioritization
-- notification routing
-- automation policies
-- evidence requirements
-- operational reporting
-
-Dependent domains determine operational behavior.
+Environment criticality is deferred beyond the MVP Registry. A future capability may define criticality and its effects on dependent domains without changing the canonical Environment identity.
 
 ---
 
@@ -303,11 +283,10 @@ The Environment domain enforces the following rules:
 
 - Every Environment belongs to exactly one Application.
 - Environment identifiers are immutable.
-- Environment keys are unique within an Application.
+- Environment slugs are unique within an Application.
 - Environments represent deployment contexts.
 - Operational history remains preserved.
 - Cross-application ownership is prohibited.
-- Environment deletion follows lifecycle policies.
 
 ---
 
@@ -316,16 +295,9 @@ The Environment domain enforces the following rules:
 Representative events include:
 
 - EnvironmentCreated
-- EnvironmentRenamed
-- EnvironmentActivated
 - EnvironmentArchived
-- EnvironmentDeleted
-- EnvironmentClassificationChanged
-- EnvironmentCriticalityChanged
-- EnvironmentOwnershipUpdated
-- EnvironmentConfigurationUpdated
 
-These events enable dependent bounded contexts to react without introducing direct coupling.
+Additional metadata, configuration, and lifecycle events are deferred beyond the MVP Registry.
 
 ---
 
@@ -354,6 +326,10 @@ The Environment Management domain follows these principles.
 
 The Environment lifecycle defines the business evolution of an Environment from creation through retirement.
 
+For the MVP Registry, Environments are created `active` and support only `active` → `archived`. Archived Environments are read-only and remain available for authorized historical reads.
+
+Provisioning, restricted, suspended, restoration, pending deletion, deletion, maintenance, and every transition involving those states are deferred beyond the MVP.
+
 Lifecycle management governs the availability of an Environment as an operational deployment context within Sentinel. It is independent of deployment frequency, infrastructure replacement, scaling events, or runtime health.
 
 An Environment may experience thousands of deployments while remaining in the same lifecycle state.
@@ -375,7 +351,7 @@ The Environment lifecycle must:
 
 ---
 
-# Lifecycle States
+# Deferred Complete-Platform Lifecycle States
 
 Every Environment exists in exactly one lifecycle state.
 
@@ -516,7 +492,7 @@ Deletion is irreversible.
 
 ---
 
-# State Transition Rules
+# Deferred Complete-Platform State Transition Rules
 
 Lifecycle transitions follow explicit business rules.
 
@@ -716,6 +692,8 @@ The Environment lifecycle follows these principles.
 # Environment Governance & Operational Ownership
 
 ## Purpose
+
+Environment governance and operational ownership are deferred beyond the MVP Registry.
 
 Environment governance defines how deployment-specific operational responsibility is established, delegated, and maintained throughout the lifecycle of an Environment.
 
@@ -1054,6 +1032,8 @@ The Environment Governance model follows these principles.
 # Environment Configuration & Runtime Policies
 
 ## Purpose
+
+Environment configuration and runtime policies are deferred beyond the MVP Registry.
 
 Environment configuration defines deployment-specific operational behavior for an Application.
 

@@ -725,7 +725,7 @@ Examples:
 ```text
 UNIQUE (organization_id, slug)
 UNIQUE (organization_id, email)
-UNIQUE (organization_id, application_id, name)
+UNIQUE (organization_id, application_id, slug)
 UNIQUE (organization_id, plugin_installation_id, external_id)
 ```
 
