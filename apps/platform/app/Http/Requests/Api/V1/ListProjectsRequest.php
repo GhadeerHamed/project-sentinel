@@ -10,7 +10,7 @@ use Illuminate\Validation\Validator;
 use InvalidArgumentException;
 use JsonException;
 use Sentinel\Project\Application\Query\ListProjectsQuery;
-use Sentinel\Project\Application\Query\ProjectListCursor;
+use Sentinel\Shared\Application\Pagination\CreatedAtIdCursor;
 
 final class ListProjectsRequest extends FormRequest
 {
@@ -72,7 +72,7 @@ final class ListProjectsRequest extends FormRequest
                 is_string($name) ? $name : null,
                 is_string($slug) ? $slug : null,
                 is_numeric($limit) ? (int) $limit : null,
-                ProjectListCursor::fromEncoded($cursor, $query->filterHash()),
+                CreatedAtIdCursor::fromEncoded($cursor, $query->filterHash()),
             );
         } catch (InvalidArgumentException|JsonException) {
             throw ValidationException::withMessages(['cursor' => ['The cursor is invalid.']]);

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Sentinel\Project\Application\ReadModel;
 
-use Sentinel\Project\Application\Query\ProjectListCursor;
+use Sentinel\Shared\Application\Pagination\CreatedAtIdCursor;
 
 final readonly class ProjectListResult
 {
     /** @param list<ProjectListItem> $projects */
     public function __construct(
         private array $projects,
-        private ?ProjectListCursor $nextCursor,
+        private ?CreatedAtIdCursor $nextCursor,
     ) {}
 
     /** @return list<ProjectListItem> */
@@ -20,7 +20,7 @@ final readonly class ProjectListResult
         return $this->projects;
     }
 
-    public function nextCursor(): ?ProjectListCursor
+    public function nextCursor(): ?CreatedAtIdCursor
     {
         return $this->nextCursor;
     }

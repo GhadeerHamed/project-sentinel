@@ -8,10 +8,10 @@ use App\Infrastructure\Persistence\Project\Mappers\ProjectListItemMapper;
 use App\Infrastructure\Persistence\Project\Records\ProjectRecord;
 use Illuminate\Database\Eloquent\Builder;
 use Sentinel\Project\Application\Query\ListProjectsQuery;
-use Sentinel\Project\Application\Query\ProjectListCursor;
 use Sentinel\Project\Application\Query\ProjectListQuery;
 use Sentinel\Project\Application\ReadModel\ProjectListItem;
 use Sentinel\Project\Application\ReadModel\ProjectListResult;
+use Sentinel\Shared\Application\Pagination\CreatedAtIdCursor;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 
 final class PgsqlProjectListQuery implements ProjectListQuery
@@ -46,7 +46,7 @@ final class PgsqlProjectListQuery implements ProjectListQuery
                 $cursorQuery->where('created_at', '<', $cursor->createdAt())
                     ->orWhere(static function (Builder $sameTimestampQuery) use ($cursor): void {
                         $sameTimestampQuery->where('created_at', $cursor->createdAt())
-                            ->where('id', '<', $cursor->projectId()->value());
+                            ->where('id', '<', $cursor->id());
                     });
             });
         }
@@ -63,7 +63,10 @@ final class PgsqlProjectListQuery implements ProjectListQuery
         $hasMore = count($items) > $query->limit();
         $page = array_slice($items, 0, $query->limit());
         $nextCursor = $hasMore && $page !== []
-            ? ProjectListCursor::fromItem($page[array_key_last($page)])
+            ? CreatedAtIdCursor::fromValues(
+                $page[array_key_last($page)]->createdAt(),
+                $page[array_key_last($page)]->id(),
+            )
             : null;
 
         return new ProjectListResult($page, $nextCursor);

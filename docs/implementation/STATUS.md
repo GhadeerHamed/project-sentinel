@@ -67,6 +67,7 @@
 - [x] Archive Project vertical slice with `project.archive` authorization, canonical active-to-archived lifecycle, optimistic concurrency, Outbox, Audit, and authenticated HTTP endpoint.
 - [x] Application Registry documentation reconciled around the canonical Organization → Project → Application hierarchy, required criticality, slug uniqueness, MVP lifecycle, `application.create`, idempotency, and Create Application API contract.
 - [x] Create Application vertical slice with `application.create` authorization, active tenant-scoped Project validation, transactional idempotency, PostgreSQL persistence, owner permission bootstrap, `application.created` Outbox event, Audit, and authenticated HTTP endpoint.
+- [x] List Applications vertical slice with `application.read` authorization, tenant-scoped Project validation, active-by-default archived visibility, PostgreSQL read projection, cursor pagination, and authenticated Project-scoped HTTP endpoint.
 
 ## Milestone 3 Deferred
 
@@ -80,17 +81,16 @@
 
 ## In Progress
 
-- [ ] List Applications vertical slice.
+- [ ] Get Application vertical slice.
 
 ## Remaining Milestone 4
 
-- [ ] Get Application.
 - [ ] Archive Application.
 - [ ] Environment Registry capabilities.
 
 ## Next Recommended Task
 
-Implement tenant-scoped Application listing using the canonical read permission, Project ownership enforcement, dedicated read projections, and the authenticated Project-scoped HTTP endpoint.
+Implement tenant-scoped Get Application using `application.read`, existing Application read projections, Project ownership enforcement, and the authenticated Project-scoped HTTP endpoint.
 
 ## Status Update Rules
 

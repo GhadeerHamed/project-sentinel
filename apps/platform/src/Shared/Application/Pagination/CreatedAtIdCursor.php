@@ -2,28 +2,24 @@
 
 declare(strict_types=1);
 
-namespace Sentinel\Project\Application\Query;
+namespace Sentinel\Shared\Application\Pagination;
 
 use DateTimeImmutable;
 use InvalidArgumentException;
 use JsonException;
-use Sentinel\Project\Application\ReadModel\ProjectListItem;
-use Sentinel\Project\Domain\ValueObject\ProjectId;
 use Sentinel\Shared\Domain\Identifier\InvalidResourceId;
+use Sentinel\Shared\Domain\Identifier\ResourceId;
 
-final readonly class ProjectListCursor
+final readonly class CreatedAtIdCursor
 {
     private function __construct(
         private DateTimeImmutable $createdAt,
-        private ProjectId $projectId,
+        private ResourceId $id,
     ) {}
 
-    public static function fromItem(ProjectListItem $project): self
+    public static function fromValues(DateTimeImmutable $createdAt, string $id): self
     {
-        return new self(
-            createdAt: $project->createdAt(),
-            projectId: ProjectId::fromString($project->id()),
-        );
+        return new self($createdAt, CursorResourceId::fromString($id));
     }
 
     public static function fromEncoded(string $cursor, string $filterHash): self
@@ -51,7 +47,7 @@ final readonly class ProjectListCursor
                 throw new InvalidArgumentException('The cursor timestamp is invalid.');
             }
 
-            return new self($createdAt, ProjectId::fromString($payload['id']));
+            return self::fromValues($createdAt, $payload['id']);
         } catch (JsonException|InvalidResourceId $exception) {
             throw new InvalidArgumentException('The cursor is malformed.', previous: $exception);
         }
@@ -62,17 +58,22 @@ final readonly class ProjectListCursor
         return $this->createdAt;
     }
 
-    public function projectId(): ProjectId
+    public function id(): string
     {
-        return $this->projectId;
+        return $this->id->value();
     }
 
+    /**
+     * @throws JsonException
+     */
     public function encode(string $filterHash): string
     {
         return rtrim(strtr(base64_encode(json_encode([
             'created_at' => $this->createdAt->format('Y-m-d\\TH:i:s.uP'),
-            'id' => $this->projectId->value(),
+            'id' => $this->id->value(),
             'filter_hash' => $filterHash,
         ], JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
     }
 }
+
+final readonly class CursorResourceId extends ResourceId {}

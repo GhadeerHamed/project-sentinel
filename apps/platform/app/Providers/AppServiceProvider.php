@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayCreateApplicationPolicy;
+use App\Infrastructure\Application\Policy\ActiveMembershipWithPermissionMayListApplicationsPolicy;
 use App\Infrastructure\Authentication\ActiveIdentityUserProvider;
 use App\Infrastructure\Identifier\LaravelUuidV7Generator;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayAssignRolePolicy;
@@ -16,6 +17,7 @@ use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayUp
 use App\Infrastructure\Organization\Policy\ActiveHumanUserMayCreateOrganizationPolicy;
 use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMaySuspendOrganizationPolicy;
 use App\Infrastructure\Organization\Policy\ActiveMembershipWithPermissionMayUpdateOrganizationPolicy;
+use App\Infrastructure\Persistence\Application\Queries\PgsqlApplicationListQuery;
 use App\Infrastructure\Persistence\Application\Repositories\PgsqlApplicationRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlAdministrativeAccessRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
@@ -40,6 +42,8 @@ use App\Infrastructure\Tenant\TenantContextStore;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\ServiceProvider;
 use Sentinel\Application\Application\Policy\ApplicationCreationPolicy;
+use Sentinel\Application\Application\Policy\ApplicationListingPolicy;
+use Sentinel\Application\Application\Query\ApplicationListQuery;
 use Sentinel\Application\Domain\Repository\ApplicationRepository;
 use Sentinel\IdentityAccess\Application\Policy\MembershipInvitationPolicy;
 use Sentinel\IdentityAccess\Application\Policy\MembershipRemovalPolicy;
@@ -107,6 +111,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ProjectListQuery::class, PgsqlProjectListQuery::class);
         $this->app->singleton(ProjectLookupQuery::class, PgsqlProjectLookupQuery::class);
         $this->app->singleton(ApplicationRepository::class, PgsqlApplicationRepository::class);
+        $this->app->singleton(ApplicationListQuery::class, PgsqlApplicationListQuery::class);
 
         $this->app->singleton(IdempotencyRepository::class, PgsqlIdempotencyRepository::class);
 
@@ -159,6 +164,7 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ProjectListingPolicy::class, ActiveMembershipWithPermissionMayListProjectsPolicy::class);
         $this->app->singleton(ProjectRetrievalPolicy::class, ActiveMembershipWithPermissionMayGetProjectPolicy::class);
         $this->app->singleton(ApplicationCreationPolicy::class, ActiveMembershipWithPermissionMayCreateApplicationPolicy::class);
+        $this->app->singleton(ApplicationListingPolicy::class, ActiveMembershipWithPermissionMayListApplicationsPolicy::class);
         $this->app->singleton(MembershipInvitationPolicy::class, ActiveMembershipWithPermissionMayInviteMembershipPolicy::class);
         $this->app->singleton(MembershipRemovalPolicy::class, ActiveMembershipWithPermissionMayRemoveMembershipPolicy::class);
         $this->app->singleton(MembershipSuspensionPolicy::class, ActiveMembershipWithPermissionMaySuspendMembershipPolicy::class);

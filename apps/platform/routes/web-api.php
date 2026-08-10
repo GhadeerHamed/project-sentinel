@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\CreateProjectController;
 use App\Http\Controllers\Api\V1\GetProjectController;
 use App\Http\Controllers\Api\V1\InviteMembershipController;
 use App\Http\Controllers\Api\V1\ListAccessibleOrganizationsController;
+use App\Http\Controllers\Api\V1\ListApplicationsController;
 use App\Http\Controllers\Api\V1\ListProjectsController;
 use App\Http\Controllers\Api\V1\ReactivateMembershipController;
 use App\Http\Controllers\Api\V1\RemoveMembershipController;
@@ -41,6 +42,9 @@ Route::prefix('api/v1')
         Route::post('/organizations/{organization}/projects/{project}/applications', CreateApplicationController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.applications.store');
+        Route::get('/organizations/{organization}/projects/{project}/applications', ListApplicationsController::class)
+            ->middleware(ResolveTenantContext::class)
+            ->name('organizations.projects.applications.index');
         Route::get('/organizations/{organization}/projects', ListProjectsController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.index');

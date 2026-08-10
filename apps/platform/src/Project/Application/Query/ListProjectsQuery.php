@@ -6,6 +6,7 @@ namespace Sentinel\Project\Application\Query;
 
 use JsonException;
 use Sentinel\Project\Domain\ValueObject\ProjectStatus;
+use Sentinel\Shared\Application\Pagination\CreatedAtIdCursor;
 
 final readonly class ListProjectsQuery
 {
@@ -18,7 +19,7 @@ final readonly class ListProjectsQuery
         private ?string $name,
         private ?string $slug,
         private int $limit,
-        private ?ProjectListCursor $cursor,
+        private ?CreatedAtIdCursor $cursor,
     ) {}
 
     public static function fromValues(
@@ -26,7 +27,7 @@ final readonly class ListProjectsQuery
         ?string $name,
         ?string $slug,
         ?int $limit = null,
-        ?ProjectListCursor $cursor = null,
+        ?CreatedAtIdCursor $cursor = null,
     ): self {
         return new self(
             status: ProjectStatus::fromString($status ?? ProjectStatus::ACTIVE->value),
@@ -57,7 +58,7 @@ final readonly class ListProjectsQuery
         return $this->limit;
     }
 
-    public function cursor(): ?ProjectListCursor
+    public function cursor(): ?CreatedAtIdCursor
     {
         return $this->cursor;
     }
