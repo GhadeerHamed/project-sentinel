@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Sentinel\Project\Domain\Entity\Project;
 use Sentinel\Project\Domain\Exception\InvalidProject;
+use Sentinel\Project\Domain\Exception\InvalidProjectTransition;
 
 final class ProjectTest extends TestCase
 {
@@ -71,6 +72,73 @@ final class ProjectTest extends TestCase
             updatedAt: new DateTimeImmutable('2026-08-10T12:00:00+00:00'),
             archivedAt: null,
             version: 1,
+        );
+    }
+
+    #[Test]
+    public function it_archives_an_active_project_with_an_archival_timestamp_and_event(): void
+    {
+        $createdAt = new DateTimeImmutable('2026-08-10T12:00:00+00:00');
+        $archivedAt = new DateTimeImmutable('2026-08-10T13:00:00+00:00');
+        $project = Project::fromValues(
+            id: '0198f3b6-48ae-7a45-9192-6f8029df5f30',
+            organizationId: '0198f3b6-48ae-7a45-9192-6f8029df5f31',
+            name: 'Commerce Platform',
+            slug: 'commerce-platform',
+            description: null,
+            status: 'active',
+            createdByIdentityId: '0198f3b6-48ae-7a45-9192-6f8029df5f32',
+            createdAt: $createdAt,
+            updatedAt: $createdAt,
+            archivedAt: null,
+            version: 1,
+        );
+
+        $archived = $project->archive(
+            at: $archivedAt,
+            actorIdentityId: '0198f3b6-48ae-7a45-9192-6f8029df5f33',
+            eventId: '0198f3b6-48ae-7a45-9192-6f8029df5f34',
+            correlationId: '0198f3b6-48ae-7a45-9192-6f8029df5f35',
+        );
+
+        self::assertSame('archived', $archived->status()->value);
+        self::assertSame($archivedAt, $archived->archivedAt());
+        self::assertSame($archivedAt, $archived->updatedAt());
+        self::assertSame(2, $archived->version()->value());
+        $events = $archived->pullDomainEvents();
+        self::assertCount(1, $events);
+        self::assertSame('project.archived', $events[0]->eventName());
+        self::assertSame([
+            'project_id' => '0198f3b6-48ae-7a45-9192-6f8029df5f30',
+            'actor_identity_id' => '0198f3b6-48ae-7a45-9192-6f8029df5f33',
+            'project_status' => 'archived',
+        ], $events[0]->payload());
+    }
+
+    #[Test]
+    public function it_rejects_archiving_an_already_archived_project(): void
+    {
+        $project = Project::fromValues(
+            id: '0198f3b6-48ae-7a45-9192-6f8029df5f40',
+            organizationId: '0198f3b6-48ae-7a45-9192-6f8029df5f41',
+            name: 'Commerce Platform',
+            slug: 'commerce-platform',
+            description: null,
+            status: 'archived',
+            createdByIdentityId: '0198f3b6-48ae-7a45-9192-6f8029df5f42',
+            createdAt: new DateTimeImmutable('2026-08-10T12:00:00+00:00'),
+            updatedAt: new DateTimeImmutable('2026-08-10T13:00:00+00:00'),
+            archivedAt: new DateTimeImmutable('2026-08-10T13:00:00+00:00'),
+            version: 2,
+        );
+
+        $this->expectException(InvalidProjectTransition::class);
+
+        $project->archive(
+            at: new DateTimeImmutable('2026-08-10T14:00:00+00:00'),
+            actorIdentityId: '0198f3b6-48ae-7a45-9192-6f8029df5f43',
+            eventId: '0198f3b6-48ae-7a45-9192-6f8029df5f44',
+            correlationId: '0198f3b6-48ae-7a45-9192-6f8029df5f45',
         );
     }
 }

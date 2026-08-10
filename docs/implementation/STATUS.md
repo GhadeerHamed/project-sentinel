@@ -63,7 +63,8 @@
 - [x] Project Registry documentation reconciliation with canonical Milestone 4 naming, Project fields, MVP lifecycle, and Create Project contract.
 - [x] Create Project vertical slice with `project.create` authorization, canonical Project domain model, transactional idempotency, PostgreSQL persistence, owner permission bootstrap, `project.created` Outbox event, Audit, and authenticated HTTP endpoint.
 - [x] List Projects vertical slice with `project.read` authorization, active-by-default archived visibility, tenant-scoped PostgreSQL read projection, and authenticated HTTP endpoint.
-- [x] Get Project vertical slice with `project.read` authorization, tenant-scoped PostgreSQL read projection, archived historical visibility, tenant-safe not-found response, and authenticated HTTP endpoint.
+- [x] Get Project vertical slice with `project.read` authorization, tenant-scoped projection lookup, archived historical visibility, dedicated read model/resource, and authenticated HTTP endpoint.
+- [x] Archive Project vertical slice with `project.archive` authorization, canonical active-to-archived lifecycle, optimistic concurrency, Outbox, Audit, and authenticated HTTP endpoint.
 
 ## Milestone 3 Deferred
 
@@ -77,16 +78,15 @@
 
 ## In Progress
 
-- [ ] Archive Project vertical slice.
+- [ ] Application Registry capabilities.
 
 ## Remaining Milestone 4
 
-- [ ] Application Registry capabilities.
 - [ ] Environment Registry capabilities.
 
 ## Next Recommended Task
 
-Implement Project archival with `project.archive` authorization, optimistic concurrency, lifecycle transition, Outbox, Audit, persistence, and an authenticated Organization-scoped HTTP endpoint.
+Implement the first Application Registry vertical slice.
 
 ## Status Update Rules
 

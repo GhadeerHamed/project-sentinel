@@ -12,7 +12,9 @@ use Sentinel\Project\Domain\Exception\ProjectNotFound;
 use Sentinel\Project\Domain\Exception\ProjectSlugConflict;
 use Sentinel\Project\Domain\Repository\ProjectRepository;
 use Sentinel\Project\Domain\ValueObject\ProjectId;
+use Sentinel\Shared\Domain\Concurrency\CurrentVersion;
 use Sentinel\Shared\Domain\Concurrency\ExpectedVersion;
+use Sentinel\Shared\Domain\Concurrency\OptimisticConcurrencyConflict;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 
 final class PgsqlProjectRepository implements ProjectRepository
@@ -33,19 +35,60 @@ final class PgsqlProjectRepository implements ProjectRepository
 
     public function save(Project $project, ExpectedVersion $expectedVersion): void
     {
-        if (! $expectedVersion->isNone()) {
-            throw new \LogicException('Project persistence currently supports creation only.');
-        }
+        $data = ProjectMapper::toPersistence($project);
+        $projectId = $project->id()->value();
+        $organizationId = $project->organizationId()->value();
 
-        try {
-            ProjectRecord::query()->create(ProjectMapper::toPersistence($project));
-        } catch (QueryException $exception) {
-            if (! $this->isUniqueConstraintViolation($exception)) {
-                throw $exception;
+        if ($expectedVersion->isNone()) {
+            try {
+                ProjectRecord::query()->create($data);
+            } catch (QueryException $exception) {
+                if (! $this->isUniqueConstraintViolation($exception)) {
+                    throw $exception;
+                }
+
+                throw ProjectSlugConflict::forSlug($project->organizationId(), $project->slug());
             }
 
-            throw ProjectSlugConflict::forSlug($project->organizationId(), $project->slug());
+            return;
         }
+
+        if ($expectedVersion->isAny()) {
+            ProjectRecord::query()
+                ->where('id', $projectId)
+                ->where('organization_id', $organizationId)
+                ->update($data);
+
+            return;
+        }
+
+        $expectedVersionValue = $expectedVersion->value()?->value();
+        $updated = ProjectRecord::query()
+            ->where('id', $projectId)
+            ->where('organization_id', $organizationId)
+            ->where('version', $expectedVersionValue)
+            ->update($data);
+
+        if ($updated === 0) {
+            throw OptimisticConcurrencyConflict::forVersions(
+                $expectedVersion,
+                $this->currentVersion($projectId, $organizationId),
+            );
+        }
+    }
+
+    private function currentVersion(string $projectId, string $organizationId): CurrentVersion
+    {
+        $version = ProjectRecord::query()
+            ->where('id', $projectId)
+            ->where('organization_id', $organizationId)
+            ->value('version');
+
+        if ($version === null) {
+            return CurrentVersion::none();
+        }
+
+        return CurrentVersion::fromInt((int) $version);
     }
 
     private function isUniqueConstraintViolation(QueryException $exception): bool

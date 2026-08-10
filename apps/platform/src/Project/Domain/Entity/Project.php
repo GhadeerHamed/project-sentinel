@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Sentinel\Project\Domain\Entity;
 
 use DateTimeImmutable;
+use Sentinel\Project\Domain\Event\ProjectArchived;
 use Sentinel\Project\Domain\Event\ProjectCreated;
 use Sentinel\Project\Domain\Exception\InvalidProject;
+use Sentinel\Project\Domain\Exception\InvalidProjectTransition;
 use Sentinel\Project\Domain\ValueObject\ProjectId;
 use Sentinel\Project\Domain\ValueObject\ProjectStatus;
 use Sentinel\Shared\Domain\Concurrency\ResourceVersion;
@@ -171,6 +173,45 @@ final class Project
     public function version(): ResourceVersion
     {
         return $this->version;
+    }
+
+    public function archive(
+        DateTimeImmutable $at,
+        string $actorIdentityId,
+        string $eventId,
+        string $correlationId,
+        ?string $causationId = null,
+    ): self {
+        if ($this->status !== ProjectStatus::ACTIVE) {
+            throw InvalidProjectTransition::fromTo($this->status, ProjectStatus::ARCHIVED);
+        }
+
+        $archived = new self(
+            id: $this->id,
+            organizationId: $this->organizationId,
+            name: $this->name,
+            slug: $this->slug,
+            description: $this->description,
+            status: ProjectStatus::ARCHIVED,
+            createdByIdentityId: $this->createdByIdentityId,
+            createdAt: $this->createdAt,
+            updatedAt: $at,
+            archivedAt: $at,
+            version: $this->version->next(),
+            recordedEvents: $this->recordedEvents,
+        );
+
+        return $archived->withEvent(ProjectArchived::fromValues(
+            eventId: $eventId,
+            organizationId: $archived->organizationId->value(),
+            projectId: $archived->id->value(),
+            occurredAt: $at,
+            correlationId: $correlationId,
+            causationId: $causationId,
+            actorIdentityId: $actorIdentityId,
+            projectStatus: $archived->status,
+            aggregateVersion: $archived->version->value(),
+        ));
     }
 
     /** @return list<DomainEvent> */

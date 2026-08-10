@@ -18,6 +18,7 @@ final class CorePermissionsTest extends TestCase
         $organizationUpdate = CorePermissions::updateOrganization();
         $projectCreate = CorePermissions::createProject();
         $projectRead = CorePermissions::readProjects();
+        $projectArchive = CorePermissions::archiveProject();
 
         self::assertInstanceOf(PermissionCode::class, $memberManagement);
         self::assertSame('organization.member.manage', $memberManagement->value());
@@ -27,8 +28,10 @@ final class CorePermissionsTest extends TestCase
         self::assertSame('project.create', $projectCreate->value());
         self::assertInstanceOf(PermissionCode::class, $projectRead);
         self::assertSame('project.read', $projectRead->value());
+        self::assertInstanceOf(PermissionCode::class, $projectArchive);
+        self::assertSame('project.archive', $projectArchive->value());
         self::assertSame(
-            ['organization.member.manage', 'organization.update', 'organization.suspend', 'project.create', 'project.read'],
+            ['organization.member.manage', 'organization.update', 'organization.suspend', 'project.create', 'project.read', 'project.archive'],
             CorePermissions::values(),
         );
     }
