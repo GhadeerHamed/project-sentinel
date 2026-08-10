@@ -16,6 +16,7 @@ final class CorePermissions
             self::updateOrganization(),
             self::suspendOrganization(),
             self::createProject(),
+            self::readProject(),
         ];
     }
 
@@ -45,5 +46,10 @@ final class CorePermissions
     public static function createProject(): PermissionCode
     {
         return PermissionCode::fromString('project.create');
+    }
+
+    public static function readProject(): PermissionCode
+    {
+        return PermissionCode::fromString('project.read');
     }
 }

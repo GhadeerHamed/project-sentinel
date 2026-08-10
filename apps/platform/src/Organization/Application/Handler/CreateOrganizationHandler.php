@@ -118,12 +118,7 @@ final readonly class CreateOrganizationHandler
                 RoleKey::organizationOwner(),
             );
 
-            foreach ([
-                CorePermissions::manageOrganizationMembers(),
-                CorePermissions::updateOrganization(),
-                CorePermissions::suspendOrganization(),
-                CorePermissions::createProject(),
-            ] as $permission) {
+            foreach (CorePermissions::all() as $permission) {
                 $this->permissionAssignmentRepository->assignToRole(
                     organizationId: $organization->id(),
                     roleId: $ownerRoleId,

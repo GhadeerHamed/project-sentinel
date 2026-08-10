@@ -133,7 +133,7 @@ final class CreateOrganizationPersistenceTest extends TestCase
         );
 
         self::assertSame(
-            ['organization.member.manage', 'organization.suspend', 'organization.update', 'project.create'],
+            ['organization.member.manage', 'organization.suspend', 'organization.update', 'project.create', 'project.read'],
             array_map(static fn ($permission): string => $permission->value(), $effectivePermissions),
         );
 

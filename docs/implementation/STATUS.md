@@ -62,6 +62,7 @@
 - [x] Milestone 3 completion review completed; Organization reactivation explicitly deferred because it is not required by the MVP scope.
 - [x] Project Registry documentation reconciliation with canonical Milestone 4 naming, Project fields, MVP lifecycle, and Create Project contract.
 - [x] Create Project vertical slice with `project.create` authorization, canonical Project domain model, transactional idempotency, PostgreSQL persistence, owner permission bootstrap, `project.created` Outbox event, Audit, and authenticated HTTP endpoint.
+- [x] List Projects vertical slice with `project.read` authorization, active-by-default archived visibility, tenant-scoped PostgreSQL read projection, and authenticated HTTP endpoint.
 
 ## Milestone 3 Deferred
 
@@ -75,18 +76,17 @@
 
 ## In Progress
 
-- [ ] List Projects vertical slice.
+- [ ] Get Project vertical slice.
 
 ## Remaining Milestone 4
 
-- [ ] Get Project.
 - [ ] Archive Project.
 - [ ] Application Registry capabilities.
 - [ ] Environment Registry capabilities.
 
 ## Next Recommended Task
 
-Implement tenant-scoped Project listing using a dedicated read model and authenticated Organization-scoped HTTP endpoint.
+Implement tenant-scoped Project retrieval using the canonical Project representation and `project.read` authorization.
 
 ## Status Update Rules
 
