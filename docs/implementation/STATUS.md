@@ -100,7 +100,7 @@
 
 ## In Progress
 
-- [ ] Event Source authentication foundation.
+- [ ] Event Source authentication foundation — domain, persistence, credential verification, and bearer middleware are complete; the issuance HTTP route and human authorization permission are undocumented.
 
 ## Remaining Milestone 5
 
@@ -109,7 +109,7 @@
 
 ## Next Recommended Task
 
-Implement the minimum secure `api_client` Event Source and bearer-credential foundation required for Event ingestion.
+Define the Event Source issuance HTTP route and human authorization permission, then expose the completed registration foundation through that contract.
 
 ## Status Update Rules
 

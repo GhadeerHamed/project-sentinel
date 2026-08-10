@@ -1,5 +1,6 @@
 <?php
 
+use App\Infrastructure\Event\Authentication\AuthenticateEventSourceBearer;
 use App\Infrastructure\Http\ApiExceptionRenderer;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -13,7 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias([
+            'event_source' => AuthenticateEventSourceBearer::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -29,6 +29,8 @@ use App\Infrastructure\Persistence\Application\Repositories\PgsqlApplicationRepo
 use App\Infrastructure\Persistence\Environment\Queries\PgsqlEnvironmentListQuery;
 use App\Infrastructure\Persistence\Environment\Queries\PgsqlEnvironmentLookupQuery;
 use App\Infrastructure\Persistence\Environment\Repositories\PgsqlEnvironmentRepository;
+use App\Infrastructure\Persistence\Event\Repositories\PgsqlEventSourceCredentialRepository;
+use App\Infrastructure\Persistence\Event\Repositories\PgsqlEventSourceRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlAdministrativeAccessRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlMembershipRepository;
 use App\Infrastructure\Persistence\IdentityAccess\Repositories\PgsqlOrganizationRoleRepository;
@@ -65,6 +67,9 @@ use Sentinel\Environment\Application\Policy\EnvironmentRetrievalPolicy;
 use Sentinel\Environment\Application\Query\EnvironmentListQuery;
 use Sentinel\Environment\Application\Query\EnvironmentLookupQuery;
 use Sentinel\Environment\Domain\Repository\EnvironmentRepository;
+use Sentinel\Event\Application\Authentication\EventSourceBearerAuthenticator;
+use Sentinel\Event\Domain\Repository\EventSourceCredentialRepository;
+use Sentinel\Event\Domain\Repository\EventSourceRepository;
 use Sentinel\IdentityAccess\Application\Policy\MembershipInvitationPolicy;
 use Sentinel\IdentityAccess\Application\Policy\MembershipRemovalPolicy;
 use Sentinel\IdentityAccess\Application\Policy\MembershipSuspensionPolicy;
@@ -136,6 +141,9 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(EnvironmentRepository::class, PgsqlEnvironmentRepository::class);
         $this->app->singleton(EnvironmentListQuery::class, PgsqlEnvironmentListQuery::class);
         $this->app->singleton(EnvironmentLookupQuery::class, PgsqlEnvironmentLookupQuery::class);
+        $this->app->singleton(EventSourceRepository::class, PgsqlEventSourceRepository::class);
+        $this->app->singleton(EventSourceCredentialRepository::class, PgsqlEventSourceCredentialRepository::class);
+        $this->app->singleton(EventSourceBearerAuthenticator::class);
 
         $this->app->singleton(IdempotencyRepository::class, PgsqlIdempotencyRepository::class);
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Http;
 
+use App\Infrastructure\Event\Authentication\EventSourceAuthenticationException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -28,6 +29,7 @@ final class ApiExceptionRenderer
     public function register(Exceptions $exceptions): void
     {
         $exceptions->render($this->renderValidationException(...));
+        $exceptions->render($this->renderEventSourceAuthenticationException(...));
         $exceptions->render($this->renderAuthenticationException(...));
         $exceptions->render($this->renderAuthorizationException(...));
         $exceptions->render($this->renderAccessDeniedHttpException(...));
@@ -64,6 +66,15 @@ final class ApiExceptionRenderer
         }
 
         return $this->errorResponse('authentication.required', 'Authentication is required.', 401);
+    }
+
+    private function renderEventSourceAuthenticationException(EventSourceAuthenticationException $exception, Request $request): ?JsonResponse
+    {
+        if (! $this->isApiRequest($request)) {
+            return null;
+        }
+
+        return $this->errorResponse('authentication.invalid_credential', 'The Event Source credential is invalid.', 401);
     }
 
     private function renderAuthorizationException(AuthorizationException $exception, Request $request): ?JsonResponse
