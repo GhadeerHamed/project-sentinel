@@ -1,92 +1,230 @@
 # Current Task
 
-Implement the Archive Project vertical slice.
+Implement the Create Application vertical slice.
 
 ## Required
 
-- Follow the canonical Project module, API, database, security, and MVP documentation.
+- Follow the reconciled canonical Application module, API, database, security, and MVP documentation.
 - Use the existing authenticated `IdentityReference`.
 - Require the resolved `TenantContext`.
-- Use the canonical Project archive permission from `CorePermissions`; do not invent a permission code.
-- Ensure the built-in `organization_owner` Role receives that permission if required by the canonical permission catalog.
-- Reuse `OrganizationPermissionAuthorizer` through an operation-specific Archive Project Policy.
-- Load the target Project through the tenant-scoped Project repository.
-- Ensure the Project belongs to the Organization from `TenantContext`.
-- Allow only the canonical lifecycle transition:
-    - `active` → `archived`
-- Perform the transition through the Project domain model.
-- Set `archived_at` using the existing Clock.
-- Require optimistic concurrency using the existing `ExpectedVersion` contract.
-- Persist through the Project repository.
-- Emit the canonical `project.archived` Domain Event.
-- Append the event to the Outbox in the same transaction.
-- Record Audit action `project.archive`.
-- Reuse `TenantScopedOperationRecorder` where appropriate.
-- Expose the operation through the canonical authenticated Organization-scoped HTTP endpoint.
-- Return the updated version through the existing mutation ETag contract.
+- Use the canonical `application.create` permission.
+- Add it to `CorePermissions` if not already present.
+- Ensure the built-in `organization_owner` Role receives `application.create`.
+- Reuse `OrganizationPermissionAuthorizer` through an operation-specific Create Application Policy.
 
-## Security
+## Ownership
 
-- Tenant access alone does not authorize Project archive.
-- Cross-Organization Project mutation must be impossible.
-- Project lookup must be scoped by Organization and Project ID.
-- Do not accept `organization_id`, status, archived timestamp, or version from the request body.
-- Do not authorize through Role names.
-- Suspended Organizations remain blocked by existing TenantContext resolution.
+Canonical hierarchy:
 
-## Lifecycle
+Organization → Project → Application
 
-- `active` → `archived` is allowed.
-- Archiving an already archived Project must follow the canonical invalid-transition/conflict semantics.
-- Do not add:
-    - Project suspension;
-    - Project reactivation;
-    - deletion;
-    - restoration;
-    - provisioning/restricted states.
+The handler must:
+
+- derive Organization from `TenantContext`;
+- load the parent Project within that Organization;
+- require the Project to exist and belong to the resolved Organization;
+- require the Project to be active;
+- never accept `organization_id` or `project_id` from the request body.
+
+The route Project is authoritative.
+
+## Domain
+
+Implement the framework-independent Application domain foundation required for this slice.
+
+Canonical fields:
+
+- `id`
+- `organization_id`
+- `project_id`
+- `name`
+- `slug`
+- optional `description`
+- `criticality`
+- `status`
+- `created_by_identity_id`
+- `created_at`
+- `updated_at`
+- nullable `archived_at`
+- `version`
+
+Initial status:
+
+`active`
+
+Canonical criticality values:
+
+- `critical`
+- `high`
+- `medium`
+- `low`
+
+Use UUIDv7 and the existing `ResourceVersion` foundation.
+
+Emit:
+
+`application.created`
+
+Do not introduce deferred lifecycle states or metadata.
+
+## Application Layer
+
+Add the framework-independent:
+
+- command;
+- result;
+- Policy;
+- handler;
+- repository contracts required by this slice.
+
+The handler must:
+
+1. authorize `application.create`;
+2. validate the active parent Project within the tenant;
+3. enforce idempotency;
+4. create the Application through the Domain model;
+5. persist it;
+6. append Domain Events to Outbox;
+7. record Audit action `application.create`;
+8. commit atomically.
+
+Reuse existing shared infrastructure where appropriate:
+
+- `TransactionManager`
+- UUIDv7 generator
+- Clock
+- `TenantScopedOperationRecorder`
+- existing idempotency abstraction
+
+## Idempotency
+
+Require:
+
+`Idempotency-Key`
+
+Reuse the existing creation-idempotency infrastructure.
+
+Scope:
+
+- Organization;
+- acting identity;
+- operation;
+- idempotency key;
+- normalized request hash.
+
+Required behavior:
+
+- same key + same normalized request returns the original successful result;
+- same key + different request returns the existing conflict semantics;
+- concurrent identical requests create only one Application.
+
+Do not create a second idempotency implementation.
+
+## Persistence
+
+Add canonical PostgreSQL Application persistence.
+
+Required:
+
+- native UUID ID;
+- Organization foreign key;
+- Project foreign key;
+- nullable description;
+- required criticality;
+- canonical status;
+- creator identity;
+- timestamps;
+- nullable `archived_at`;
+- version;
+- unique `(organization_id, project_id, slug)`.
+
+Repository operations must preserve Organization and Project ownership.
+
+Cross-Organization or cross-Project access must be impossible.
 
 ## HTTP
 
-Use the canonical Project archive endpoint defined by the reconciled API documentation.
+Expose:
+
+`POST /api/v1/organizations/{organization}/projects/{project}/applications`
 
 Require:
 
 - session authentication;
-- resolved TenantContext;
-- Project archive authorization;
-- `If-Match`.
+- resolved `TenantContext`;
+- `application.create`;
+- `Idempotency-Key`.
+
+Request body:
+
+- `name` — required;
+- `slug` — required;
+- `description` — optional;
+- `criticality` — required.
+
+Do not accept client-controlled:
+
+- `organization_id`;
+- `project_id`;
+- status;
+- version;
+- creator identity;
+- timestamps;
+- archived metadata.
+
+Success:
+
+`201 Created`
+
+Return the canonical Application representation using a dedicated API Resource/Presenter.
 
 Keep the controller thin.
+
+## Security
+
+- Tenant access alone does not authorize Application creation.
+- Parent Project lookup must be scoped to the resolved Organization.
+- Archived Projects must not accept new Applications.
+- Do not authorize through Role names.
+- Do not trust parent or tenant IDs from the payload.
+- Suspended Organizations remain blocked by existing tenant resolution.
 
 ## Tests
 
 Cover at minimum:
 
-- authorized archive succeeds;
-- unauthorized actor is rejected;
-- unauthenticated request is rejected;
-- cross-Organization Project returns tenant-safe not found;
-- active Project becomes archived;
-- `archived_at` is populated;
-- already archived Project is rejected;
-- missing or stale `If-Match` is rejected;
-- successful mutation returns quoted ETag;
-- `project.archived` Outbox record is written;
-- `project.archive` Audit record is written;
-- failed mutation writes neither Outbox nor Audit;
-- newly created Organization owner has the required archive permission without manual permission seeding.
+- authorized creation;
+- unauthorized actor;
+- unauthenticated request;
+- Project from another Organization is rejected;
+- missing Project is rejected;
+- archived Project cannot receive a new Application;
+- canonical fields and active initial status;
+- all four criticality values are accepted;
+- invalid criticality is rejected;
+- server-owned fields cannot be supplied;
+- slug uniqueness is scoped by Organization + Project;
+- same slug may exist in different Projects;
+- same idempotency key + same request replays the result;
+- same key + different request conflicts;
+- concurrent identical requests create only one Application;
+- `application.created` Outbox record;
+- `application.create` Audit record;
+- newly created Organization owner has `application.create` without manual permission seeding.
 
 ## Excluded
 
 Do not add:
 
-- Project update.
-- Project reactivation.
-- Project deletion/restoration.
-- Project settings.
-- Project criticality.
-- Application or Environment capabilities.
-- unrelated Milestone 4 functionality.
+- Application update.
+- Application archive.
+- Application listing/get endpoints.
+- criticality mutation.
+- Application settings.
+- runtime/framework metadata.
+- repository/source metadata.
+- Environment implementation.
+- unrelated Milestone 4 capabilities.
 
 ## Verification
 
@@ -101,13 +239,15 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 Return only:
 
 - permission used
-- lifecycle transition
-- tenant-isolation behavior
-- concurrency behavior
+- Application domain model
+- parent Project enforcement
+- criticality behavior
+- idempotency behavior
+- persistence/uniqueness behavior
+- owner bootstrap change
 - endpoint
 - event/audit behavior
-- files changed
 - tests
 - blockers
 
-Maximum 12 lines.
+Maximum 15 lines.

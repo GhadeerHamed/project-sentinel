@@ -56,6 +56,10 @@ organizations
 
 ---
 
+The `applications` table is the initial Application Registry persistence. Application settings, owners, tags, external references, and lifecycle-history tables are separate capabilities and are deferred beyond the Create Application slice.
+
+---
+
 ## Applications
 
 ### `applications`
@@ -72,7 +76,6 @@ Represents one operational Application monitored by Sentinel.
 | `description`            | TEXT        | Optional    |
 | `status`                 | VARCHAR     | Required    |
 | `criticality`            | VARCHAR     | Required    |
-| `application_type`       | VARCHAR     | Optional    |
 | `created_by_identity_id` | UUID        | Required    |
 | `created_at`             | TIMESTAMPTZ | Required    |
 | `updated_at`             | TIMESTAMPTZ | Required    |
@@ -82,7 +85,6 @@ Represents one operational Application monitored by Sentinel.
 Supported status values:
 
 * `active`
-* `suspended`
 * `archived`
 
 Supported criticality values:
@@ -92,23 +94,11 @@ Supported criticality values:
 * `medium`
 * `low`
 
-Possible Application Types include:
-
-* `web`
-* `api`
-* `worker`
-* `mobile`
-* `service`
-* `scheduled_job`
-* `integration`
-* `other`
-
 Constraints:
 
 ```text
 UNIQUE (organization_id, id)
 UNIQUE (organization_id, project_id, slug)
-UNIQUE (organization_id, project_id, name)
 ```
 
 Tenant-aware parent relationship:
@@ -117,6 +107,8 @@ Tenant-aware parent relationship:
 FOREIGN KEY (organization_id, project_id)
 REFERENCES projects (organization_id, id)
 ```
+
+`criticality` is required at creation and has no default. Application settings, classification, runtime/framework metadata, repository/source metadata, ownership records, tags, and external references are deferred beyond the first Application slice.
 
 ---
 
@@ -127,21 +119,12 @@ Active
 
 ↓
 
-Suspended
-
-↓
-
 Archived
 ```
 
-Allowed transitions include:
+Applications are created `active`. The only supported MVP transition is `active` → `archived`.
 
-* `active` → `suspended`
-* `suspended` → `active`
-* `active` → `archived`
-* `suspended` → `archived`
-
-An Archived Application should not return to Active without an explicit restoration process.
+Suspension, reactivation, provisioning, restricted, deletion, and restoration are deferred.
 
 Archiving must not delete:
 
@@ -603,24 +586,6 @@ Runtime Policies make the final authorization decision.
 
 ## Parent Lifecycle Effects
 
-### Project Suspension
-
-A suspended Project may restrict operations across its Applications.
-
-Applications remain stored with their own lifecycle states.
-
-### Application Suspension
-
-A suspended Application may restrict:
-
-* New Event ingestion.
-* Agent actions.
-* Plugin actions.
-* Workflow starts.
-* configuration changes.
-
-Existing evidence and authorized Incident response should remain available according to Policy.
-
 ### Application Archival
 
 Archiving an Application should prevent normal creation of new Environments and operational activity.
@@ -768,8 +733,8 @@ Archival removes records from normal active views but does not delete operationa
 Auditable operations include:
 
 * Application creation.
-* Application suspension.
 * Application archival.
+* future Application lifecycle transitions when introduced.
 * Environment creation.
 * Environment maintenance.
 * Environment suspension.
@@ -790,9 +755,9 @@ Domain lifecycle history remains separate from Audit Records.
 * Every Environment belongs to exactly one Application and Organization.
 * Application and Environment ownership cannot move between Organizations.
 * Parent and child Resources must share the same Organization.
-* Application names and slugs are unique within their Project.
+* Application slugs are unique within their Project; names are not unique.
 * Environment names and slugs are unique within their Application.
-* Every Active Application should have an accountable owner.
+* Application ownership is a deferred separate capability and is not required by Create Application.
 * Production Environments may require stronger controls.
 * Lower-level configuration cannot weaken mandatory higher-level restrictions.
 * Tags do not grant authorization.

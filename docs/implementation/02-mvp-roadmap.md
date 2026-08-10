@@ -88,9 +88,11 @@ Include:
 * Projects.
 * Applications.
 * Environments.
-* lifecycle status.
-* operational criticality.
+* active-to-archived Registry lifecycle.
+* required Application operational criticality.
 * tenant-scoped listing and retrieval.
+
+Project and Application settings, Application classification and metadata, ownership records, and advanced lifecycle states are deferred.
 
 This hierarchy provides scope for telemetry, Alerts, and Incidents.
 
@@ -374,7 +376,7 @@ Deliver:
 * Projects.
 * Applications.
 * Environments.
-* criticality and lifecycle.
+* required Application criticality and active-to-archived lifecycle.
 * management APIs and UI.
 
 Success:

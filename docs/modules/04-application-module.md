@@ -67,8 +67,9 @@ project_id
 name
 slug
 description
+criticality
 status
-settings
+created_by_identity_id
 created_at
 updated_at
 archived_at
@@ -77,26 +78,27 @@ version
 
 The primary identifier uses UUIDv7.
 
-The slug is unique within its Project.
+The slug is unique within its Project. Application names are not unique.
+
+Application settings, classification, runtime/framework metadata, repository/source metadata, ownership records, tags, and external references are separate capabilities and deferred beyond the first Application slice.
 
 ---
 
-## Lifecycle
+## MVP Lifecycle
 
-Suggested states:
+Applications are created with the following status:
 
 ```text
 active
-archived
 ```
 
-Supported transition:
+The supported MVP transition is:
 
 ```text
 active → archived
 ```
 
-Restoration may be introduced later through an explicit recovery command.
+Suspension, reactivation, provisioning, restricted, deletion, and restoration states are deferred.
 
 ---
 
@@ -120,7 +122,7 @@ An Archived Application:
 
 * Cannot receive new Environments.
 * cannot accept normal configuration changes.
-* should reject new telemetry unless an explicit migration policy allows it.
+* cannot receive normal new operational activity.
 * remains available for authorized historical access.
 * retains related operational history.
 
@@ -148,6 +150,20 @@ Commands require:
 * authorization.
 * optimistic concurrency where applicable.
 
+## Create Application
+
+The first Application slice creates an active Application through `CreateApplication`.
+
+It requires:
+
+* an authenticated active Organization Membership and resolved Tenant Context;
+* the `application.create` permission;
+* an active Project belonging to the resolved Organization;
+* `name`, `slug`, required `criticality`, and an optional `description`;
+* an `Idempotency-Key` scoped by Organization, acting identity, operation, key, and normalized request hash.
+
+Criticality values are `critical`, `high`, `medium`, and `low`; no default is applied. The server owns the Organization reference, Project ownership validation, UUIDv7 identifier, active status, creator identity, timestamps, version `1`, and `archived_at = null`. Creation does not use an expected version. The operation must atomically publish `application.created`, record the Outbox message, and record Audit action `application.create`.
+
 ---
 
 ## Queries
@@ -162,7 +178,7 @@ GetApplicationSettings
 GetApplicationStatus
 ```
 
-Queries must remain Organization- and Project-scoped.
+Queries must remain Organization-scoped and enforce the Application's persisted Project ownership. Project-nested operations must enforce Organization, Project, and Application ownership together.
 
 ---
 
@@ -218,7 +234,6 @@ Application creation requires:
 * active Project.
 * matching Organization ownership.
 * authorized identity.
-* available plan capacity.
 
 An Application cannot move between Projects or Organizations through a normal update.
 
@@ -269,6 +284,8 @@ Application settings may define defaults such as:
 Environment-level configuration may override approved defaults.
 
 Secrets must not be stored in Application settings.
+
+Application settings are separate from Application creation and deferred beyond the first Application slice.
 
 ---
 
@@ -403,6 +420,7 @@ Tests must cover:
 * inactive Project rejection.
 * unique slug within a Project.
 * identical slugs in different Projects.
+* required criticality validation.
 * cross-tenant access rejection.
 * settings updates.
 * optimistic concurrency.
@@ -436,7 +454,9 @@ The following are prohibited:
 * Application is an operational Resource scope, not a tenant boundary.
 * Application identifiers use UUIDv7.
 * slugs are unique within a Project.
-* Applications cannot move between Organizations.
+* Application names are not unique.
+* Application criticality is required at creation and uses `critical`, `high`, `medium`, or `low`.
+* Applications cannot move between Projects or Organizations through normal operations.
 * archived Applications retain history but reject normal writes.
 * Environments are owned by the Environment module.
 * operational modules reference Applications without owning them.

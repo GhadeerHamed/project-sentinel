@@ -92,6 +92,8 @@ A Project may contain zero or more Applications.
 
 Applications cannot exist independently of a Project.
 
+Applications also persist the Organization reference and it must match the owning Project's Organization.
+
 Ownership is immutable unless an explicit migration process is performed.
 
 ---
@@ -126,7 +128,7 @@ Identity includes:
 - application identifier
 - owning project
 - application name
-- application key
+- application slug
 - operational status
 - creation timestamp
 
@@ -136,22 +138,22 @@ Business names may evolve without affecting operational history.
 
 ---
 
-# Application Key
+# Application Slug
 
-Each Application has a human-readable key.
+Each Application has a human-readable slug.
 
 Examples include:
 
-- PAYMENTS
-- AUTH
-- CUSTOMER
-- SEARCH
-- INVENTORY
-- PLATFORM
+- payments
+- auth
+- customer
+- search
+- inventory
+- platform
 
-Keys simplify operational communication.
+Slugs simplify operational communication and routing.
 
-Keys must remain unique within a Project.
+Slugs must remain unique within a Project. Application names are not unique.
 
 ---
 
@@ -231,19 +233,20 @@ Classification improves governance and reporting.
 
 It does not alter application identity.
 
+Classification is deferred beyond the MVP Registry creation contract.
+
 ---
 
 # Criticality
 
-Applications may define business criticality.
+Applications define required operational criticality at creation. The canonical values are:
 
-Example classifications include:
+- critical
+- high
+- medium
+- low
 
-- Mission Critical
-- Business Critical
-- Important
-- Standard
-- Development
+No default is applied. Criticality mutation is a separate capability and is outside the Create Application slice.
 
 Criticality influences downstream operational behavior such as:
 
@@ -256,6 +259,14 @@ Criticality influences downstream operational behavior such as:
 Criticality is descriptive rather than prescriptive.
 
 Dependent domains determine how criticality is consumed.
+
+---
+
+# MVP Creation Contract
+
+Creating an Application requires an active Organization, active Project in that Organization, resolved Tenant Context, active Membership, and `application.create` permission. The caller supplies `name`, `slug`, required `criticality`, and optional `description`; the server owns identity, ownership, active status, timestamps, archival metadata, and version `1`.
+
+Creation uses an Organization- and identity-scoped idempotency key with normalized request matching. It atomically records `application.created`, an Outbox message, and Audit action `application.create`.
 
 ---
 
@@ -274,6 +285,8 @@ Ownership may include:
 Ownership establishes accountability throughout the platform.
 
 Authorization is managed separately.
+
+Ownership records are deferred beyond the MVP Registry creation contract.
 
 ---
 
@@ -352,28 +365,22 @@ The Application domain enforces the following rules:
 
 - Every Application belongs to exactly one Project.
 - Applications possess immutable identifiers.
-- Application keys are unique within a Project.
+- Application slugs are unique within a Project; names are not unique.
 - Applications represent logical business systems.
 - Applications remain independent of infrastructure.
 - Operational history is preserved throughout the lifecycle.
 - Cross-project ownership is prohibited.
-- Application deletion follows lifecycle policies.
+- Application deletion is deferred beyond the MVP lifecycle.
 
 ---
 
 # Domain Events
 
-Representative events include:
+The MVP Registry event is:
 
-- ApplicationCreated
-- ApplicationRenamed
-- ApplicationActivated
-- ApplicationArchived
-- ApplicationDeleted
-- ApplicationClassificationChanged
-- ApplicationCriticalityChanged
-- ApplicationOwnershipUpdated
-- ApplicationConfigurationUpdated
+- application.created
+
+Application archival, metadata, settings, ownership, classification, and criticality-change events are introduced only with their corresponding later capabilities.
 
 These events enable dependent bounded contexts to react without introducing direct coupling.
 
@@ -429,37 +436,16 @@ The Application lifecycle must:
 
 Every Application exists in exactly one lifecycle state.
 
-Supported states include:
+The MVP states are:
 
-- Provisioning
 - Active
-- Restricted
-- Suspended
 - Archived
-- Pending Deletion
-- Deleted
 
 Lifecycle state reflects business availability rather than runtime health.
 
 ---
 
-## Provisioning
-
-Provisioning begins immediately after an Application is created.
-
-During provisioning the platform establishes the Application as a valid operational entity.
-
-Typical activities include:
-
-- assigning the application identifier
-- validating project ownership
-- creating default configuration
-- applying inherited policies
-- initializing audit history
-- establishing operational relationships
-- publishing lifecycle events
-
-Provisioning must complete successfully before the Application becomes operational.
+Provisioning is deferred. Creation assigns the Application identifier, validates Project ownership, records Audit and Outbox effects, and creates the Application directly as Active.
 
 ---
 
@@ -482,37 +468,7 @@ This is the normal operational state.
 
 ---
 
-## Restricted
-
-Restricted Applications remain operational but selected capabilities are intentionally limited.
-
-Restrictions may result from:
-
-- governance decisions
-- compliance requirements
-- licensing policies
-- security investigations
-- operational reviews
-
-Restrictions should target only affected capabilities whenever possible.
-
----
-
-## Suspended
-
-Suspended Applications temporarily stop participating in operational processing.
-
-Typical effects include:
-
-- telemetry ingestion paused
-- automation suspended
-- scheduled processing paused
-- AI execution suspended
-- outbound notifications paused
-
-Historical information remains preserved.
-
-Suspension must not modify historical operational records.
+Restricted and suspended states are deferred beyond the MVP lifecycle.
 
 ---
 
@@ -535,52 +491,15 @@ Archiving is appropriate when a business service has been permanently retired bu
 
 ---
 
-## Pending Deletion
-
-Pending deletion protects against accidental removal.
-
-During this phase:
-
-- destructive operations are blocked
-- dependency validation occurs
-- retention policies are evaluated
-- restoration remains possible
-- administrators receive notifications
-
-Pending deletion duration is governed by organizational policy.
-
----
-
-## Deleted
-
-Deletion permanently removes the Application according to organizational retention policies.
-
-Deletion must:
-
-- comply with legal requirements
-- respect compliance obligations
-- preserve mandatory audit history
-- record immutable deletion evidence
-
-Deletion is irreversible once completed.
+Pending deletion, deletion, and restoration are deferred beyond the MVP lifecycle.
 
 ---
 
 # State Transition Rules
 
-Lifecycle transitions follow explicit business rules.
+The only supported MVP transition is:
 
-Examples include:
-
-- Provisioning → Active
-- Active → Restricted
-- Restricted → Active
-- Active → Suspended
-- Suspended → Active
 - Active → Archived
-- Archived → Active (when restoration is permitted)
-- Archived → Pending Deletion
-- Pending Deletion → Deleted
 
 Invalid transitions must be rejected.
 
@@ -590,7 +509,7 @@ Invalid transitions must be rejected.
 
 Applications own operational resources.
 
-Before destructive lifecycle transitions the platform validates dependent resources.
+Before future destructive lifecycle transitions the platform will validate dependent resources.
 
 Examples include:
 
@@ -647,13 +566,7 @@ This distinction preserves a stable business model.
 
 Lifecycle transitions should minimize operational disruption.
 
-Typical practices include:
-
-- graceful suspension
-- staged archival
-- dependency notifications
-- scheduled maintenance windows
-- administrator approval
+The MVP archival transition preserves historical records and does not delete dependent Resources.
 
 Operational continuity should always be preferred over abrupt interruption.
 
@@ -661,17 +574,7 @@ Operational continuity should always be preferred over abrupt interruption.
 
 # Restoration
 
-Archived and suspended Applications may be restored when organizational policy permits.
-
-Restoration must preserve:
-
-- application identifier
-- ownership
-- configuration history
-- operational history
-- audit records
-
-Restoration creates continuity rather than a new business entity.
+Restoration is deferred beyond the MVP lifecycle.
 
 ---
 
@@ -697,18 +600,7 @@ Historical truth remains immutable.
 
 # Administrative Notifications
 
-Significant lifecycle changes should notify appropriate stakeholders.
-
-Examples include:
-
-- activation
-- suspension
-- archival
-- restoration
-- deletion request
-- permanent deletion
-
-Notification routing follows project and organization policies.
+Archival notifications are introduced with the Archive Application capability. Other lifecycle notifications are deferred.
 
 ---
 
@@ -732,16 +624,7 @@ Lifecycle history provides complete traceability.
 
 # Domain Events
 
-Representative lifecycle events include:
-
-- ApplicationProvisioned
-- ApplicationActivated
-- ApplicationRestricted
-- ApplicationSuspended
-- ApplicationRestored
-- ApplicationArchived
-- ApplicationDeletionRequested
-- ApplicationDeleted
+The MVP lifecycle event is `ApplicationArchived`.
 
 Dependent bounded contexts subscribe to these events to maintain consistent operational behavior without direct dependencies.
 
@@ -756,13 +639,19 @@ The Application lifecycle follows these principles.
 - Runtime health is independent of lifecycle.
 - Identity is immutable.
 - Historical information is preserved.
-- Destructive actions require validation.
+- Archival preserves dependent historical data.
 - Lifecycle transitions are explicit.
 - Changes are fully auditable.
-- Restoration preserves continuity.
+- Advanced lifecycle states are deferred.
 - Business lifecycle remains independent of implementation technology.
 
 # Part 3 — Application Governance & Ownership
+
+---
+
+## MVP Boundary
+
+The governance, ownership, configuration, and topology capabilities below describe the complete platform. They are deferred beyond the MVP Registry and do not add fields or requirements to Create Application.
 
 ---
 

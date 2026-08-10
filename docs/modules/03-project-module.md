@@ -268,7 +268,6 @@ project.create
 project.read
 project.update
 project.archive
-project.application.create
 ```
 
 Authorization may also consider:
