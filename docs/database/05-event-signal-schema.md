@@ -51,54 +51,73 @@ event_sources
 
 ---
 
-# Event Sources
+# Event Sources and Credentials
 
 ## `event_sources`
 
-Represents a source that submits operational Events.
+Represents the authenticated source that submits operational Events. The first Event Ingestion slice supports only the `api_client` source type.
 
 | Column                   | Type        | Rules       |
 | ------------------------ | ----------- | ----------- |
 | `id`                     | UUID        | Primary key |
 | `organization_id`        | UUID        | Required    |
-| `application_id`         | UUID        | Optional    |
-| `environment_id`         | UUID        | Optional    |
-| `source_type`            | VARCHAR     | Required    |
+| `project_id`             | UUID        | Required    |
+| `application_id`         | UUID        | Required    |
+| `environment_id`         | UUID        | Required    |
+| `source_type`            | VARCHAR     | Required: `api_client` |
 | `name`                   | VARCHAR     | Required    |
-| `external_provider`      | VARCHAR     | Optional    |
-| `plugin_installation_id` | UUID        | Optional    |
-| `status`                 | VARCHAR     | Required    |
-| `configuration`          | JSONB       | Required    |
+| `status`                 | VARCHAR     | Required: `active` |
 | `created_at`             | TIMESTAMPTZ | Required    |
 | `updated_at`             | TIMESTAMPTZ | Required    |
 | `version`                | BIGINT      | Required    |
 
-Supported source types may include:
+`id` uses UUIDv7. The source's Organization and hierarchy scope must match every Event it accepts. Plugin, Agent, webhook, manual, platform, external-provider, and configuration fields are deferred.
+
+---
+
+## `event_source_credentials`
+
+Stores one active ingestion credential for an Event Source.
+
+| Column              | Type        | Rules       |
+| ------------------- | ----------- | ----------- |
+| `id`                | UUID        | Primary key |
+| `organization_id`   | UUID        | Required    |
+| `event_source_id`   | UUID        | Required    |
+| `secret_hash`       | VARCHAR     | Required    |
+| `status`            | VARCHAR     | Required    |
+| `created_at`        | TIMESTAMPTZ | Required    |
+| `revoked_at`        | TIMESTAMPTZ | Optional    |
+| `expires_at`        | TIMESTAMPTZ | Optional    |
+
+The presented credential is `esc_{credential_id}.{secret}` in the HTTP Bearer header. Only `secret_hash` is stored; plaintext secrets are never persisted or logged. Credential statuses are `active`, `revoked`, `expired`, or `disabled`; any non-active credential fails authentication immediately.
+
+Constraints:
+
+```text
+UNIQUE (organization_id, id)
+CREATE UNIQUE INDEX event_source_credentials_one_active_per_source
+ON event_source_credentials (organization_id, event_source_id)
+WHERE status = 'active'
+FOREIGN KEY (organization_id, event_source_id)
+REFERENCES event_sources (organization_id, id)
+```
+
+Credential issuance is required before ingestion. The MVP supports one active credential per Event Source; rotation and concurrent credentials are deferred.
+
+---
+
+## Deferred Event Source Types
+
+Future source types may include:
 
 * `sdk`
-* `api`
 * `plugin`
 * `webhook`
 * `agent`
 * `manual`
 * `internal`
 * `import`
-
-Supported status values:
-
-* `active`
-* `suspended`
-* `disabled`
-* `archived`
-
-Constraints:
-
-```text
-UNIQUE (organization_id, id)
-UNIQUE (organization_id, name)
-```
-
-Application and Environment references must belong to the same Organization.
 
 ---
 
@@ -113,12 +132,11 @@ Represents one received ingestion request.
 | `id`                  | UUID        | Primary key |
 | `organization_id`     | UUID        | Required    |
 | `event_source_id`     | UUID        | Required    |
-| `external_event_id`   | VARCHAR     | Optional    |
-| `idempotency_key`     | VARCHAR     | Optional    |
+| `operation`           | VARCHAR     | Required: `event.ingest` |
+| `idempotency_key`     | VARCHAR     | Required    |
 | `request_fingerprint` | VARCHAR     | Required    |
 | `status`              | VARCHAR     | Required    |
 | `received_at`         | TIMESTAMPTZ | Required    |
-| `processed_at`        | TIMESTAMPTZ | Optional    |
 | `event_id`            | UUID        | Optional    |
 | `rejection_code`      | VARCHAR     | Optional    |
 | `rejection_reason`    | TEXT        | Optional    |
@@ -126,8 +144,6 @@ Represents one received ingestion request.
 
 Supported status values:
 
-* `received`
-* `validated`
 * `accepted`
 * `duplicate`
 * `rejected`
@@ -139,23 +155,12 @@ Possible uniqueness rules:
 UNIQUE (
     organization_id,
     event_source_id,
-    external_event_id
-)
-```
-
-This constraint applies when `external_event_id` exists.
-
-Idempotency may also use:
-
-```text
-UNIQUE (
-    organization_id,
-    event_source_id,
+    operation,
     idempotency_key
 )
 ```
 
-The same idempotency key with a different request fingerprint must be rejected.
+The same idempotency key with a different normalized request fingerprint is rejected. A replay stores or returns the original Event reference. Source-event duplicate detection is enforced on the Event row and remains independent of this record.
 
 ---
 
@@ -169,57 +174,60 @@ Stores normalized immutable operational Events.
 | ------------------ | ----------- | ----------- |
 | `id`               | UUID        | Primary key |
 | `organization_id`  | UUID        | Required    |
-| `project_id`       | UUID        | Optional    |
-| `application_id`   | UUID        | Optional    |
-| `environment_id`   | UUID        | Optional    |
+| `project_id`       | UUID        | Required    |
+| `application_id`   | UUID        | Required    |
+| `environment_id`   | UUID        | Required    |
 | `event_source_id`  | UUID        | Required    |
+| `external_event_id` | VARCHAR    | Optional    |
 | `event_type`       | VARCHAR     | Required    |
 | `category`         | VARCHAR     | Required    |
 | `severity`         | VARCHAR     | Optional    |
-| `title`            | VARCHAR     | Required    |
-| `description`      | TEXT        | Optional    |
 | `occurred_at`      | TIMESTAMPTZ | Required    |
-| `recorded_at`      | TIMESTAMPTZ | Required    |
-| `processed_at`     | TIMESTAMPTZ | Optional    |
-| `source_reference` | VARCHAR     | Optional    |
+| `received_at`      | TIMESTAMPTZ | Required    |
 | `correlation_id`   | UUID        | Optional    |
 | `causation_id`     | UUID        | Optional    |
 | `trace_id`         | VARCHAR     | Optional    |
 | `payload`          | JSONB       | Required    |
+| `attributes`       | JSONB       | Required, default `{}` |
 | `schema_version`   | VARCHAR     | Required    |
-| `fingerprint`      | VARCHAR     | Optional    |
+| `normalized_event_hash` | VARCHAR  | Required, server-derived |
 | `created_at`       | TIMESTAMPTZ | Required    |
 
 Constraints:
 
 ```text
 UNIQUE (organization_id, id)
+CREATE UNIQUE INDEX events_source_external_event_id_unique
+ON events (organization_id, event_source_id, external_event_id)
+WHERE external_event_id IS NOT NULL
 ```
 
-Events do not require `updated_at` or optimistic concurrency because they are immutable.
+Event hierarchy references are validated as one active Organization → Project → Application → Environment chain before insertion. Tenant-aware foreign keys must enforce matching Organization ownership for the Event Source and each hierarchy reference. `normalized_event_hash` is computed from the normalized client envelope excluding `Idempotency-Key` and server-owned fields; it distinguishes matching and altered `external_event_id` submissions. Events do not require `updated_at`, status, or optimistic concurrency because they are immutable. `received_at` is the server acceptance timestamp; `created_at` is the persistence timestamp.
 
 ---
 
 ## Canonical Event Categories
 
-Event categories may include:
+The MVP categories are derived from this exact Event-type catalog; provider aliases are not normalized:
+
+```text
+application.error -> error
+application.health_failed -> availability
+application.health_recovered -> availability
+deployment.completed -> deployment
+custom.operational_event -> platform
+```
+
+The resulting categories are:
 
 * `availability`
-* `performance`
 * `error`
-* `security`
 * `deployment`
-* `configuration`
-* `dependency`
-* `capacity`
-* `business`
-* `administrative`
-* `integration`
 * `platform`
 
-Category values should remain broad and stable.
+Additional categories are deferred. Category values remain broad and stable.
 
-Provider-specific types remain in normalized attributes or source metadata.
+Provider-specific type mappings and a broader Event-type catalog are deferred.
 
 ---
 
@@ -266,13 +274,15 @@ The payload must not contain:
 
 Frequently queried fields should use dedicated columns rather than relying only on JSONB.
 
+The encoded `payload` plus optional `attributes` must not exceed 64 KiB. `payload` is a required JSON object; nested objects and arrays are permitted, and an empty object is valid. `attributes` is an optional flat JSON object with scalar values. There are no separate `metadata` or `tags` fields in the MVP.
+
 ---
 
-# Event Attributes
+# Deferred Event Attribute Projection
 
 ## `event_attributes`
 
-Stores normalized searchable Event attributes.
+The first slice preserves optional normalized attributes on `events.attributes` JSONB. A separate searchable attribute projection is deferred until attribute filtering or correlation requires it.
 
 | Column            | Type        | Rules    |
 | ----------------- | ----------- | -------- |
@@ -343,11 +353,13 @@ An Event should be accepted only when:
 
 * Organization context is valid.
 * Event Source is Active.
+* Event Source credential is active.
 * required fields are present.
 * timestamps are valid.
-* referenced Resources belong to the Organization.
-* payload size is within limits.
-* schema version is supported.
+* referenced Project, Application, and Environment form one active hierarchy in the Organization.
+* `payload` plus optional `attributes` are within the 64 KiB limit.
+* canonical envelope schema version is `1`.
+* Event type is in the MVP catalog.
 * sensitive data rules are satisfied.
 * duplicate checks pass.
 
@@ -381,16 +393,14 @@ corrects
 
 Duplicate protection may use:
 
-* External Event identifier.
-* idempotency key.
-* deterministic fingerprint.
-* source reference.
-* payload fingerprint.
-* configured time window.
+* required request idempotency.
+* optional source External Event identifier.
 
-A duplicate ingestion record should reference the existing Event.
+The idempotency scope is Organization, Event Source, operation, key, and normalized request fingerprint. A same-key/same-request retry returns the existing Event; changed input conflicts.
 
-Duplicate detection must not merge materially different Events.
+When supplied, `external_event_id` is independently unique within `(organization_id, event_source_id, external_event_id)`. A matching `normalized_event_hash` returns the existing Event and records a `duplicate` ingestion result. Changed input with that external identifier conflicts.
+
+Fingerprint and time-window semantic deduplication are deferred. Duplicate detection must not merge materially different Events.
 
 ---
 
@@ -640,8 +650,7 @@ Event acceptance should normally create within one transaction:
 
 1. Event ingestion result.
 2. Canonical Event.
-3. required Event attributes.
-4. Outbox message.
+3. `event.accepted` Outbox message.
 
 Signal creation should normally create within one transaction:
 
@@ -656,7 +665,7 @@ External provider calls must not occur inside these transactions.
 
 # Idempotency
 
-Event ingestion must support idempotency.
+Event ingestion requires idempotency.
 
 Signal creation may also use idempotency for:
 
@@ -702,8 +711,9 @@ The schema must prevent:
 
 * Events referencing another Organization’s Application.
 * Events referencing another Organization’s Environment.
+* Events referencing another Organization’s Project.
 * Signals using evidence from another Organization.
-* Event Sources using another Organization’s Plugin Installation.
+* Event Sources using another Organization’s Project, Application, or Environment.
 * processing records crossing Organization boundaries.
 
 Organization ownership must be validated before every insert and query.
@@ -716,12 +726,12 @@ The `events` table is expected to become one of Sentinel’s largest tables.
 
 Future partitioning may use:
 
-* `recorded_at`
+* `received_at`
 * `occurred_at`
 * region
 * Organization for selected dedicated tenants
 
-Initial partitioning should be introduced only when actual volume justifies it.
+Partitioning is deferred beyond the first Event ingestion slice and should be introduced only when actual volume justifies it.
 
 Application contracts must not depend on physical partitions.
 
@@ -751,7 +761,8 @@ event_ingestion_records (
 
 events (
     organization_id,
-    recorded_at
+    occurred_at,
+    id
 )
 
 events (
@@ -787,12 +798,6 @@ events (
 events (
     organization_id,
     correlation_id
-)
-
-events (
-    organization_id,
-    fingerprint,
-    occurred_at
 )
 
 signals (

@@ -76,6 +76,7 @@
 - [x] Get Environment vertical slice with `environment.read` authorization, tenant-scoped Project, Application, and Environment projection lookups, historical archived visibility, and authenticated nested HTTP endpoint.
 - [x] Archive Environment vertical slice with `environment.archive` authorization, canonical active-to-archived lifecycle, optimistic concurrency, Outbox, Audit, PostgreSQL persistence, owner-permission backfill, and authenticated nested HTTP endpoint.
 - [x] Milestone 4 — Project and Application Registry completed, including final reconciliation of Project and Application API/module contracts and Event Ingestion's current Environment assumptions.
+- [x] Event Ingestion contract reconciled around immutable canonical Events, active hierarchy validation, authenticated `api_client` Event Sources, schema version `1`, bounded JSON payloads, independent idempotency/deduplication, and transactional `event.accepted` publication.
 
 ## Milestone 3 Deferred
 
@@ -93,13 +94,22 @@
 
 **Milestone 5 — Event Ingestion**
 
+## Completed Milestone 5 Foundation
+
+- [x] Event Ingestion contract reconciliation: canonical immutable Event envelope, active hierarchy, `api_client` source credentials, schema/type/payload rules, distinct idempotency and source duplicate handling, `202 Accepted`, and transactional `event.accepted` publication.
+
 ## In Progress
 
-- [ ] Event Ingestion canonical contract review.
+- [ ] Event Source authentication foundation.
+
+## Remaining Milestone 5
+
+- [ ] Single-event ingestion vertical slice.
+- [ ] Additional Event Ingestion capabilities explicitly required by MVP.
 
 ## Next Recommended Task
 
-Reconcile the canonical Event model, source identity, hierarchy ownership, deduplication, idempotency, immutable persistence, ingestion timestamps, payload/schema rules, and `event.accepted` publication contract before implementing the first ingestion vertical slice.
+Implement the minimum secure `api_client` Event Source and bearer-credential foundation required for Event ingestion.
 
 ## Status Update Rules
 

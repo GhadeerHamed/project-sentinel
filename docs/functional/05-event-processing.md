@@ -891,9 +891,17 @@ Identity is independent of transport protocol.
 
 ---
 
+# MVP Event Source Boundary
+
+The first ingestion slice accepts only registered, active `api_client` Event Sources. Each source has a server-generated identifier, belongs to one active Organization → Project → Application → Environment hierarchy, and authenticates with one active opaque bearer credential. Source identity is derived from that credential and is never accepted from the Event payload.
+
+Credential issuance is a prerequisite to ingestion. Unmanaged sources, human/manual ingestion, Plugins, Agents, webhooks, source trust levels, source rotation, and additional source types are deferred.
+
+---
+
 # Source Registration
 
-Organizations may register known event producers.
+The MVP source-registration capability provisions an `api_client` Event Source for one active Organization → Project → Application → Environment scope and issues its one active bearer credential. Additional producer registration is deferred.
 
 Registration may include:
 
@@ -906,7 +914,7 @@ Registration may include:
 - trust level
 - lifecycle status
 
-Registration improves operational governance but should not unnecessarily prevent onboarding new producers.
+Registration improves operational governance but should not unnecessarily prevent onboarding new producers outside the MVP boundary.
 
 ---
 
@@ -986,7 +994,7 @@ Ownership resolution determines:
 - Application
 - Environment
 
-If ownership cannot be determined, the Event must enter an explicit unresolved processing path.
+For the MVP, ownership must resolve to one active hierarchy before acceptance; unresolved or archived ownership is rejected. A future unresolved processing path is deferred.
 
 Ownership must never be inferred silently.
 
@@ -1044,6 +1052,8 @@ Validation may include:
 
 Acceptance establishes responsibility for further processing.
 
+For the MVP, acceptance ends after authentication, active-hierarchy validation, normalization, duplicate and idempotency checks, immutable Event persistence, and transactional `event.accepted` Outbox publication. It does not derive Signals or imply downstream processing completion.
+
 ---
 
 # Event Rejection
@@ -1059,7 +1069,7 @@ Representative reasons include:
 - policy violation
 - licensing restriction
 
-Rejected Events should remain observable.
+Rejected ingestion requests should remain observable through ingestion records; they do not create authoritative Events.
 
 Rejection must generate operational evidence.
 
@@ -1067,7 +1077,9 @@ Rejection must generate operational evidence.
 
 # Duplicate Detection
 
-The ingestion boundary may identify duplicate submissions before full processing.
+The MVP distinguishes request idempotency from source duplicate detection. A required idempotency key replays the original accepted Event only for the same normalized request. An optional `external_event_id` independently identifies duplicates within one Event Source; a matching duplicate returns the original Event, while changed input conflicts.
+
+Future ingestion may identify semantic duplicates before full processing.
 
 Duplicate detection should consider:
 

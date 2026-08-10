@@ -16,8 +16,8 @@ The module owns:
 * Event ingestion request.
 * Event source reference.
 * Event normalization result.
-* Signal.
-* Event processing status.
+* future Signal derivation.
+* future Event processing records.
 * ingestion idempotency record.
 * Event and Signal history.
 
@@ -67,20 +67,23 @@ organization_id
 project_id
 application_id
 environment_id
-source_type
-source_id
+event_source_id
+external_event_id
 event_type
+category
 severity
 occurred_at
 received_at
 payload
 attributes
-fingerprint
-status
 schema_version
+correlation_id
+causation_id
+trace_id
+created_at
 ```
 
-The primary identifier uses UUIDv7.
+The primary identifier uses UUIDv7. Every accepted Event persists the validated Organization, Project, Application, and Environment identifiers as accepted-context references; they are not mutable snapshots.
 
 ---
 
@@ -110,7 +113,6 @@ Corrections should use:
 
 * A replacement Event.
 * a linked correction Event.
-* processing metadata.
 * an administrative annotation.
 
 Existing Event facts must not be silently rewritten.
@@ -135,21 +137,9 @@ A Signal must preserve references to its source evidence.
 
 ---
 
-## Event Status
+## Ingestion Status
 
-Suggested processing states:
-
-```text
-received
-validated
-accepted
-rejected
-processing
-processed
-failed
-```
-
-The authoritative Event fact exists only after successful validation and acceptance.
+The authoritative Event fact exists only after successful validation and acceptance. Request outcomes such as `accepted`, `duplicate`, `rejected`, and `failed` belong to the ingestion record. Later processing state belongs to derived processing records and must not mutate canonical Event data.
 
 ---
 
@@ -159,15 +149,9 @@ Primary commands include:
 
 ```text
 IngestEvent
-IngestEventBatch
-NormalizeEvent
-RejectEvent
-ReprocessEvent
-DeriveSignals
-AttachEventEvidence
 ```
 
-Administrative reprocessing must not change the original Event payload.
+The first slice implements only `IngestEvent`. Batch ingestion, reprocessing, Signal derivation, and evidence attachment are later Milestone 5 capabilities. Administrative reprocessing must not change the original Event payload.
 
 ---
 
@@ -185,16 +169,21 @@ GetSignal
 GetSignalEvidence
 ```
 
-Queries must preserve tenant, Application, Environment, and sensitivity scope.
+Queries must preserve tenant, Application, Environment, and sensitivity scope. Signal queries are deferred until Signal derivation is introduced.
 
 ---
 
 ## Published Events
 
-The module publishes:
+The first ingestion slice publishes only:
 
 ```text
 event.accepted
+```
+
+Later Event-processing capabilities may publish:
+
+```text
 event.rejected
 event.processing_failed
 signal.detected
@@ -242,15 +231,31 @@ Every ingestion request must establish:
 
 ```text
 organization_id
-source identity
+authenticated Event Source identity
 application_id
-environment_id when applicable
+environment_id
 idempotency key
 schema version
 received timestamp
 ```
 
-Client-supplied ownership identifiers must be validated against the authenticated source.
+The route Organization plus request Application and Environment must resolve to one active Organization → Project → Application → Environment hierarchy. The Project identifier is derived from that relationship and persisted with the Event. Suspended Organizations and archived Projects, Applications, or Environments reject ingestion.
+
+The source identity is derived exclusively from authentication. Client-supplied `source`, `source_id`, `source_type`, or source-system fields are not accepted.
+
+---
+
+## Event Source Authentication
+
+The first supported Event Source type is `api_client`. An Event Source has a server-generated UUIDv7 identifier, belongs to one Organization, is scoped to one active Organization → Project → Application → Environment hierarchy, and must be `active` to ingest. Its ingestion credential is an opaque bearer token in:
+
+```http
+Authorization: Bearer esc_{credential_id}.{secret}
+```
+
+The server resolves the credential to its Event Source and verifies that its Organization matches the route Organization. Credential secrets are shown only at issuance and stored only as a one-way hash; they must never be logged or persisted in plaintext. The first slice permits one active credential per Event Source. Revoking, disabling, expiring, or replacing that credential immediately prevents ingestion; rotation and overlapping credentials are deferred.
+
+Event Source attribution is distinct from a future human acting identity. Plugin, Agent, webhook, manual, and platform sources are deferred.
 
 ---
 
@@ -258,14 +263,9 @@ Client-supplied ownership identifiers must be validated against the authenticate
 
 Duplicate ingestion must not create duplicate Events.
 
-Idempotency may use:
+`Idempotency-Key` is required. Its scope is Organization, authenticated Event Source, operation `event.ingest`, key, and normalized request hash. A matching retry returns the original accepted Event; reuse with different normalized input returns a conflict. Concurrent matching requests create one Event.
 
-* Client idempotency key.
-* provider event identifier.
-* source identifier plus fingerprint.
-* database uniqueness constraints.
-
-The deduplication scope must include Organization and source.
+`external_event_id` is a separate optional producer identifier. When present, it is unique within `(organization_id, event_source_id, external_event_id)`. A matching source duplicate returns the original accepted Event, while the same external identifier with different normalized input is a conflict. Fingerprint-based semantic deduplication is deferred.
 
 ---
 
@@ -274,10 +274,9 @@ The deduplication scope must include Organization and source.
 Validation should verify:
 
 * Authenticated source.
-* active Organization.
-* active Application.
-* eligible Environment.
-* supported schema version.
+* active Event Source and credential.
+* active Organization, Project, Application, and Environment.
+* supported canonical envelope schema version.
 * required fields.
 * timestamp validity.
 * payload size.
@@ -288,7 +287,7 @@ Invalid Events must not enter authoritative processing.
 
 ---
 
-## Batch Ingestion
+## Deferred Batch Ingestion
 
 Batch ingestion should:
 
@@ -307,19 +306,29 @@ Partial acceptance must be explicit.
 
 Every Event must identify its origin.
 
-Possible source types include:
+The first slice persists `event_source_id` and optional `external_event_id`. The supported source type is:
 
 ```text
-sdk
 api_client
-plugin
-webhook
-service
-manual
-platform
 ```
 
-Source attribution must remain immutable after acceptance.
+Additional source types are deferred. Source attribution must remain immutable after acceptance.
+
+---
+
+## Event Types
+
+`event_type` must already be a lowercase dot-separated canonical name; the MVP does not translate provider aliases. The initial catalog and server-derived category are:
+
+```text
+application.error -> error
+application.health_failed -> availability
+application.health_recovered -> availability
+deployment.completed -> deployment
+custom.operational_event -> platform
+```
+
+Unknown types are rejected. Provider-specific mappings and a broader catalog are deferred.
 
 ---
 
@@ -330,14 +339,14 @@ The module distinguishes:
 ```text
 occurred_at
 received_at
-processed_at
+created_at
 ```
 
 `occurred_at` comes from the source when trusted.
 
-`received_at` is assigned by Sentinel.
+`received_at` and `created_at` are assigned by Sentinel and normalized to UTC. The MVP validates timestamp format and timezone but does not apply future- or age-skew rejection thresholds until Policy defines them.
 
-Events with excessive future or historical timestamps may be rejected, quarantined, or marked according to Policy.
+Later processing timestamps belong to processing records.
 
 ---
 
@@ -353,13 +362,14 @@ high
 medium
 low
 informational
+unknown
 ```
 
 Source severity does not automatically determine Alert or Incident severity.
 
 ---
 
-## Fingerprinting
+## Deferred Semantic Fingerprinting
 
 A fingerprint may group operationally equivalent Events.
 
@@ -377,6 +387,8 @@ Fingerprint rules must be versioned when changed.
 ---
 
 ## Signal Derivation
+
+Signal derivation is deferred beyond the first ingestion slice.
 
 Signal derivation may use:
 
@@ -414,7 +426,7 @@ The Event module does not decide whether an Alert should exist.
 
 ## Plugin Integration
 
-Plugins may produce Event ingestion requests through approved contracts.
+Plugin ingestion is deferred. When introduced, Plugins may produce Event ingestion requests through approved contracts.
 
 Plugin input must still pass:
 
@@ -431,7 +443,7 @@ Plugins must not write Event tables directly.
 
 ## Agent Integration
 
-Agents may read authorized Events and Signals as evidence.
+Agent ingestion and Agent Event access are deferred. When introduced, Agents may read authorized Events and Signals as evidence.
 
 Agents must not:
 
@@ -463,8 +475,7 @@ Event acceptance should atomically commit:
 
 * Event record.
 * ingestion idempotency result.
-* processing metadata.
-* Outbox Record.
+* `event.accepted` Outbox Record.
 
 Signal creation should atomically commit:
 
@@ -513,13 +524,9 @@ Typical permissions include:
 
 ```text
 event.ingest
-event.read
-event.reprocess
-event.export
-signal.read
 ```
 
-Ingestion identities may have write-only access without general Event read permission.
+The first slice grants its authenticated Event Source only `event.ingest`; Event read, reprocessing, export, and Signal permissions are later capabilities.
 
 Administrative reprocessing requires elevated authorization and Audit.
 
@@ -546,17 +553,12 @@ Routine high-volume ingestion does not require one administrative Audit Record p
 Tests must cover:
 
 * Canonical normalization.
-* idempotent ingestion.
-* cross-tenant rejection.
-* inactive parent rejection.
-* batch partial acceptance.
-* timestamp validation.
+* authenticated active Event Source validation.
+* idempotent ingestion and source-level duplicate handling.
+* cross-tenant and inactive-parent rejection.
+* timestamp and payload validation.
 * immutable Event behavior.
-* fingerprint Versioning.
-* Signal evidence linkage.
-* duplicate event delivery.
-* event publication.
-* retention restrictions.
+* transactional `event.accepted` publication.
 
 ---
 
@@ -580,13 +582,12 @@ The following are prohibited:
 ## Business Rules
 
 * Events are immutable operational facts.
-* every Event belongs to one Organization and Application.
-* Environment ownership is validated when present.
+* every accepted Event belongs to one validated Organization, Project, Application, and Environment.
 * all external input is normalized into the canonical Event model.
 * ingestion is idempotent.
+* source-level duplicate detection is separate from request idempotency.
 * provider-specific schemas remain outside the domain contract.
-* Signals preserve source evidence.
-* the Event module does not own Alerts or Incidents.
+* Signal derivation, Alerts, and Incidents are outside the first ingestion slice.
 * accepted state and Outbox publication eligibility are committed atomically.
 * retention must preserve required operational evidence.
 
