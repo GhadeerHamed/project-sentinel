@@ -837,6 +837,14 @@ Secret values should not be retrievable after creation where one-time disclosure
 
 ---
 
+## MVP Event Source Issuance
+
+Issuing an Event Source requires the effective Organization permission `event_source.create`. The caller must be a session-authenticated Human User with an active Membership in the resolved Tenant Context; Membership alone does not grant issuance. Authorization evaluates effective permissions, not the `organization_owner` Role name.
+
+The built-in `organization_owner` Role receives `event_source.create` through the same Core-permission provisioning and backfill path as other built-in permissions. The issued `api_client` is a separately authenticated non-human identity with only `event.ingest` for its own active Organization → Project → Application → Environment scope; it does not inherit the issuing User's permissions.
+
+---
+
 ## Service Identities
 
 Service Identities represent background processes and workloads.

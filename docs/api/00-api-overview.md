@@ -107,6 +107,7 @@ organizations
 └── projects
     └── applications
         └── environments
+            └── event-sources
 ```
 
 Operational Resources remain Organization-scoped:

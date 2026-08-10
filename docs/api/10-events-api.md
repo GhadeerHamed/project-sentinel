@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines the API for ingesting and reading canonical Events.
+This document defines the API for issuing MVP Event Sources and ingesting and reading canonical Events.
 
 Events are immutable operational observations submitted by authenticated `api_client` Event Sources. Plugin, Agent, SDK, webhook, and other producer integrations are deferred.
 
@@ -38,11 +38,71 @@ Events are append-only and cannot be updated or deleted through the API. The `20
 
 | Method | Endpoint                                             | Purpose                |
 | ------ | ---------------------------------------------------- | ---------------------- |
+| `POST` | `/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/event-sources` | Issue an Event Source |
 | `POST` | `/organizations/{organization}/events`               | Ingest one Event       |
 | `GET`  | `/organizations/{organization}/events`               | List Events            |
 | `GET`  | `/organizations/{organization}/events/{event}`       | Read one Event         |
 
 Batch ingestion is a later Milestone 5 capability and has no current API contract.
+
+---
+
+## Issue Event Source
+
+```http
+POST /api/v1/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/event-sources
+Idempotency-Key: {key}
+```
+
+The caller is a session-authenticated Human User with an active Organization Membership, resolved Tenant Context, and effective `event_source.create` permission. Authorization is permission-based, not Role-name-based; the built-in `organization_owner` Role receives that Core permission. The route parents must form one active Organization → Project → Application → Environment hierarchy. Invalid or cross-Organization parent identifiers return the tenant-safe `404` response.
+
+Request:
+
+```json
+{
+  "name": "checkout-api-production"
+}
+```
+
+`name` is required and human-readable. The server owns the Event Source UUIDv7 identifier, Organization, Project, Application, and Environment ownership, `api_client` source type, active status, timestamps, version, credential identifier, and credential secret. The request must reject all other write fields and does not use `If-Match`.
+
+Response:
+
+```http
+201 Created
+```
+
+```json
+{
+  "data": {
+    "id": "0198f3b5-f38b-777f-a68c-68e0cfe06e87",
+    "type": "event_source",
+    "attributes": {
+      "project_id": "0198f3b5-e2f0-7831-9a33-fb486fa32684",
+      "application_id": "0198f3b5-e313-7d70-8778-72c427f32c01",
+      "environment_id": "0198f3b5-f5dc-7f37-884d-83223d29b991",
+      "source_type": "api_client",
+      "name": "checkout-api-production",
+      "status": "active",
+      "created_at": "2026-08-01T16:30:00Z",
+      "updated_at": "2026-08-01T16:30:00Z",
+      "version": 1
+    }
+  },
+  "meta": {
+    "request_id": "0198f3b5-f634-7a8b-81c8-4dfb7e951c5f",
+    "issued_credential": {
+      "id": "0198f3b5-f4d9-708f-bbc3-0f7a9e7f5f21",
+      "bearer_token": "esc_0198f3b5-f4d9-708f-bbc3-0f7a9e7f5f21.2b7cc44b11f5c86c8b5b05c564eb683d61b43a6ca5ed24c4334f9d6a91c10ef2",
+      "shown_once": true
+    }
+  }
+}
+```
+
+`issued_credential` is not part of the reusable Event Source resource and is present only in the initial successful response. Its bearer token must be copied immediately; it cannot later be retrieved. The server stores only its hash and never includes the secret in Logs, Audit records, domain events, or idempotency records.
+
+Idempotency is required and scoped by Organization, acting Human identity, operation `event_source.create`, key, and normalized request hash. A matching retry returns the original public Event Source but omits `issued_credential`; reuse with changed input returns `409 Conflict` and `idempotency.key_conflict`. Creation atomically persists the Event Source, its one credential, the idempotency result, Audit action `event_source.create`, and companion Audit action `event_source.credential.issue`; neither Audit action contains the secret. No Event Source list, get, update, credential retrieval, rotation, revocation, or deletion route is an MVP endpoint.
 
 ---
 

@@ -108,6 +108,16 @@ API Client credentials must not inherit unrestricted permissions from the User w
 
 ---
 
+## MVP Event Source Credentials
+
+An MVP Event Source is the first supported `api_client` identity for Event ingestion. A session-authenticated Human User issues it through the Event Source API; the bearer credential authenticates only that non-human source and never the issuing Human User.
+
+The credential is `esc_{credential_id}.{secret}`. Its public UUIDv7 credential identifier supports indexed lookup, while only a one-way hash of the random secret is persisted. The plaintext bearer credential is returned in the initial issuance response only; it cannot be retrieved later, is never logged, and does not appear in Audit metadata. An active credential resolves only within its Organization and to its active Event Source; it is scoped to that source's Project, Application, and Environment.
+
+One active credential is permitted per Event Source. Rotation, replacement, retrieval, and additional Event Source credential types are deferred.
+
+---
+
 ## Personal Access Tokens
 
 Personal Access Tokens may be supported for approved developer workflows.

@@ -148,10 +148,11 @@ The authoritative Event fact exists only after successful validation and accepta
 Primary commands include:
 
 ```text
+RegisterEventSource
 IngestEvent
 ```
 
-The first slice implements only `IngestEvent`. Batch ingestion, reprocessing, Signal derivation, and evidence attachment are later Milestone 5 capabilities. Administrative reprocessing must not change the original Event payload.
+The MVP sequence begins with `RegisterEventSource`, then `IngestEvent`. Batch ingestion, reprocessing, Signal derivation, and evidence attachment are later Milestone 5 capabilities. Administrative reprocessing must not change the original Event payload.
 
 ---
 
@@ -256,6 +257,26 @@ Authorization: Bearer esc_{credential_id}.{secret}
 The server resolves the credential to its Event Source and verifies that its Organization matches the route Organization. Credential secrets are shown only at issuance and stored only as a one-way hash; they must never be logged or persisted in plaintext. The first slice permits one active credential per Event Source. Revoking, disabling, expiring, or replacing that credential immediately prevents ingestion; rotation and overlapping credentials are deferred.
 
 Event Source attribution is distinct from a future human acting identity. Plugin, Agent, webhook, manual, and platform sources are deferred.
+
+---
+
+## Event Source Issuance
+
+The only MVP issuance operation is `event_source.create`. A session-authenticated Human User with an active Membership, resolved Tenant Context, and effective Organization permission `event_source.create` may create an Event Source; the built-in `organization_owner` Role receives that Core permission. Membership or Role name alone does not authorize the operation.
+
+The source persists `organization_id`, `project_id`, `application_id`, and `environment_id`. The server validates one active Organization → Project → Application → Environment hierarchy from the route and assigns the UUIDv7 Event Source ID, `api_client` source type, active status, timestamps, version, and credential identifiers. The request accepts only the required human-readable `name`; all ownership, lifecycle, identifier, credential, and timestamp fields are server-owned.
+
+Issuance requires an `Idempotency-Key`, scoped by Organization, acting Human identity, operation `event_source.create`, key, and normalized request hash. The idempotency record and source, credential, and Audit records commit atomically. A matching retry returns the original public Event Source result but never repeats the one-time bearer credential; different normalized input conflicts. This endpoint-specific rule preserves no-plaintext persistence while preventing duplicate state changes.
+
+Successful issuance records primary Audit action `event_source.create` for the Event Source and companion credential-issuance action `event_source.credential.issue` for its public credential identifier. Neither Audit metadata, Logs, nor idempotency records may include the credential secret. Event Source creation does not yet publish an integration event.
+
+The HTTP route is:
+
+```text
+POST /api/v1/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/event-sources
+```
+
+Invalid or cross-Organization parent ownership is tenant-safely unavailable (`404`); an archived parent is rejected. Event Source list, get, update, credential retrieval, rotation, revocation, and deletion endpoints are deferred.
 
 ---
 

@@ -97,19 +97,20 @@
 ## Completed Milestone 5 Foundation
 
 - [x] Event Ingestion contract reconciliation: canonical immutable Event envelope, active hierarchy, `api_client` source credentials, schema/type/payload rules, distinct idempotency and source duplicate handling, `202 Accepted`, and transactional `event.accepted` publication.
+- [x] Event Source issuance contract reconciliation: `event_source.create` authorization, nested active-hierarchy route, server-owned fields, one-time credential response, Audit actions, and idempotency without secret replay.
 
 ## In Progress
 
-- [ ] Event Source authentication foundation — domain, persistence, credential verification, and bearer middleware are complete; the issuance HTTP route and human authorization permission are undocumented.
+- [ ] Event Source issuance HTTP vertical slice.
 
 ## Remaining Milestone 5
 
 - [ ] Single-event ingestion vertical slice.
-- [ ] Additional Event Ingestion capabilities explicitly required by MVP.
+- [ ] Remaining Event Ingestion capabilities explicitly required by MVP.
 
 ## Next Recommended Task
 
-Define the Event Source issuance HTTP route and human authorization permission, then expose the completed registration foundation through that contract.
+Implement the Event Source issuance HTTP vertical slice: `event_source.create` authorization and owner-permission provisioning/backfill, nested route, idempotency, one-time credential response, Audit, and focused tests.
 
 ## Status Update Rules
 

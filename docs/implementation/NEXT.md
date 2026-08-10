@@ -1,151 +1,206 @@
 # Current Task
 
-Implement the Event Source authentication foundation required for Event ingestion.
+Define and reconcile the Event Source issuance HTTP contract.
 
 ## Required
 
-Follow the reconciled Event module, API, database, and security documentation.
+This is a documentation and architecture task.
 
-Implement only the minimum foundation required to authenticate an `api_client` Event Source.
+Do not modify application code, migrations, or tests.
 
-## Event Source
+Review documentation directly relevant to:
 
-Add the framework-independent Event Source domain model required by the canonical contract.
+- Event Sources;
+- Event ingestion;
+- Identity/Authorization;
+- API conventions;
+- Application/Environment ownership;
+- API credential/security handling.
 
-Use only fields defined by the reconciled documentation.
+The Event Source authentication foundation is already implemented and must not be redesigned unless documentation proves a conflict.
 
-Required behavior:
+## Existing Foundation
 
-- source type is `api_client`;
-- source belongs to the canonical Organization/Application/Environment hierarchy defined by the Event contract;
-- source identity is server-owned;
-- source must be active to authenticate;
-- source ownership must be tenant-safe;
-- source identity must never come from an Event ingestion payload.
+Preserve:
 
-Do not add Plugin, Agent, webhook, manual, or internal-platform source types.
+- Event Source type: `api_client`;
+- UUIDv7 Event Source ID;
+- active/inactive lifecycle;
+- one active credential per Event Source;
+- bearer credentials with public credential UUID + secret;
+- indexed credential lookup;
+- only secret hash persisted;
+- plaintext credential returned only at issuance;
+- source hierarchy validation;
+- authenticated `EventSourceIdentity`.
 
-## Credential
+## Resolve Authorization
 
-The MVP supports one bearer credential per Event Source.
-
-Requirements:
-
-- generate the secret server-side using cryptographically secure randomness;
-- return the plaintext secret only at issuance time;
-- never persist the plaintext secret;
-- persist only the canonical secure hash/lookup representation defined by the security documentation;
-- credential authentication must resolve the Event Source;
-- revoked/inactive credentials or sources must fail authentication;
-- credential must not authenticate a source from another Organization;
-- use constant-time-safe credential verification where applicable.
-
-Do not log the bearer secret.
-
-Do not expose it through Audit, Outbox, exceptions, or API resources.
-
-## Issuance
-
-Implement the smallest credential issuance capability required by the canonical documentation.
-
-- Use the documented route and authorization permission.
-- Do not invent a route or permission if the canonical docs already define them.
-- If the exact issuance HTTP contract is genuinely absent, implement the framework-independent issuance/application foundation and report the missing HTTP contract as a blocker rather than inventing one.
-- Issuance must be tenant-scoped.
-- Audit source/credential issuance without recording the secret.
-
-The response may return the plaintext credential exactly once when canonically required.
-
-## Authentication Adapter
-
-Add a Laravel authentication adapter/middleware for Event Source bearer credentials.
-
-Conceptual flow:
-
-Bearer credential
-→ credential lookup/verification
-→ active Event Source
-→ source hierarchy ownership
-→ authenticated EventSourceIdentity
-
-Keep this separate from:
-
-- human session authentication;
-- `TenantContext`;
-- Membership authorization.
-
-The Event ingestion endpoint will later consume the authenticated Event Source identity.
-
-Do not reuse human `IdentityReference` semantics unless the canonical identity contracts explicitly support non-human Event Sources.
-
-## Persistence
-
-Add only the Event Source and credential persistence required by this task.
+Define the human permission required to issue an Event Source.
 
 Requirements:
 
-- UUIDv7 identifiers;
-- Organization/parent ownership according to the reconciled contract;
-- source type;
-- source status;
-- credential hash/lookup data;
-- issuance/revocation timestamps where canonical;
-- appropriate tenant and credential lookup indexes;
-- no plaintext credential column.
+- use one canonical permission code;
+- authorization is based on effective Organization permissions;
+- do not authorize by Role name;
+- built-in `organization_owner` must receive the permission;
+- tenant membership alone must not authorize issuance.
 
-Preserve tenant isolation in every lookup.
+Determine whether canonical naming should be:
+
+- `event_source.create`;
+- `event_source.manage`;
+- or another already-documented permission.
+
+Do not create multiple permissions unless required.
+
+## Resolve Resource Ownership
+
+The canonical hierarchy is:
+
+Organization
+→ Project
+→ Application
+→ Environment
+→ Event Source
+
+Confirm exactly which hierarchy identifiers Event Source persists.
+
+The existing implementation must remain compatible with:
+
+- Organization ownership;
+- Project → Application → Environment validation;
+- active hierarchy required at issuance.
+
+Do not permit client-controlled Organization ownership.
+
+## Resolve Issuance Route
+
+Define exactly one MVP HTTP route for Event Source issuance.
+
+Prefer consistency with the Registry hierarchy.
+
+Determine whether the canonical route is nested under:
+
+Organization → Project → Application → Environment
+
+The route must make hierarchy ownership explicit and tenant-safe.
+
+Do not add Event Source list/get/update/delete endpoints unless MVP documentation explicitly requires them.
+
+## Request Contract
+
+Define the minimum request body.
+
+Only include fields genuinely required to create an `api_client` Event Source.
+
+Determine whether a human-readable source name is required.
+
+Do not allow the request to control:
+
+- Event Source ID;
+- Organization ID;
+- hierarchy ownership outside route parameters;
+- source type if only `api_client` is supported;
+- status;
+- credential ID;
+- credential secret;
+- timestamps.
+
+## Response Contract
+
+The successful issuance response must:
+
+- return the Event Source public representation;
+- return the plaintext bearer credential exactly once;
+- clearly distinguish the credential from normal reusable resource fields;
+- never imply that the plaintext credential can later be retrieved.
+
+Determine canonical success status:
+
+`201 Created`
+
+unless existing API conventions explicitly require otherwise.
 
 ## Security
 
-Cover at minimum:
+Document:
 
-- valid active credential authenticates;
-- unknown credential fails;
-- malformed bearer credential fails;
-- revoked credential fails;
-- inactive source fails;
-- cross-Organization source use fails;
-- stored credential is not plaintext;
-- plaintext secret appears only in the issuance response;
-- secret does not appear in Audit or logs.
+- session-authenticated human issuance;
+- TenantContext requirement;
+- effective permission authorization;
+- active Project/Application/Environment requirement;
+- tenant-safe 404 for invalid hierarchy;
+- secret returned exactly once;
+- secret excluded from Audit and logs;
+- no plaintext persistence;
+- no credential retrieval endpoint.
 
-Do not use the normal browser session authentication for Event ingestion credentials.
+## Audit
 
-## Excluded
+Define the canonical Audit action for successful issuance.
 
-Do not add:
+Prefer one of:
 
-- Event ingestion endpoint;
-- Event persistence;
-- `event.accepted`;
-- batch ingestion;
-- credential rotation beyond the canonical MVP requirement;
-- multiple credentials per source;
-- Plugins;
-- Agents;
-- Signals;
-- Alerts;
-- downstream processing.
+- `event_source.create`;
+- `event_source.issue`;
+
+Use the name consistent with the final capability/permission terminology.
+
+The secret must never appear in Audit metadata.
+
+## Idempotency
+
+Determine whether Event Source issuance requires `Idempotency-Key`.
+
+Apply the existing platform rule for creation operations consistently.
+
+If required, define scope using:
+
+- Organization;
+- acting human identity;
+- operation;
+- key;
+- normalized request hash.
+
+Do not invent a second idempotency mechanism.
 
 ## Verification
 
-Run targeted tests and:
+After editing, verify that directly relevant docs agree on:
 
-`docker compose exec app composer quality`
+- permission;
+- route;
+- hierarchy ownership;
+- request fields;
+- response;
+- one-time credential behavior;
+- Audit action;
+- idempotency requirement.
 
-Update `STATUS.md`; do not modify `NEXT.md`.
+## Implementation Sequencing
+
+If the contract is fully resolved:
+
+1. Event Source issuance HTTP vertical slice.
+2. Single-event ingestion vertical slice.
+
+Do not start Event ingestion yet.
 
 ## Reporting
 
 Return only:
 
-- Event Source model
-- credential format/storage approach
-- issuance contract
-- authentication flow
-- tenant-isolation behavior
-- files changed
-- tests
+- documents changed
+- permission decision
+- route decision
+- ownership decision
+- request contract
+- response contract
+- Audit decision
+- idempotency decision
+- remaining conflicts
+- recommended implementation task
 - blockers
 
 Maximum 15 lines.

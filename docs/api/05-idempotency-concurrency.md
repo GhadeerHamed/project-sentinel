@@ -54,6 +54,8 @@ When the same key is received:
 * Processing still active: return the current operation state.
 * Record expired: process according to the endpoint contract.
 
+When a creation response contains a one-time credential that is deliberately not retained, a matching retry returns the original persistent Resource result but omits that secret field. The Event Source issuance endpoint is the MVP instance of this rule; idempotency records must never retain the credential merely to replay it.
+
 Example conflict:
 
 ```json
@@ -313,7 +315,7 @@ External APIs must not expose database locking concepts.
 ## Business Rules
 
 * Retryable commands use idempotency protection.
-* The same key and request return the original result.
+* The same key and request return the original result, except that one-time secret fields explicitly excluded from idempotency storage are omitted on retry.
 * The same key with different content returns a conflict.
 * Protected mutable Resources use expected-Version checks.
 * Version conflicts never use silent last-write-wins behavior.

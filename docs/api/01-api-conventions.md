@@ -353,7 +353,7 @@ Retryable create and command endpoints should accept:
 Idempotency-Key: {client_generated_key}
 ```
 
-The same key with the same request returns the original result.
+The same key with the same request returns the original result. An endpoint that returns a one-time credential must document the credential-field exception: it returns the original persistent Resource result without re-disclosing a secret that is not stored for replay.
 
 The same key with a different request returns a conflict.
 

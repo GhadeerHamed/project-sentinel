@@ -66,12 +66,24 @@ Represents the authenticated source that submits operational Events. The first E
 | `environment_id`         | UUID        | Required    |
 | `source_type`            | VARCHAR     | Required: `api_client` |
 | `name`                   | VARCHAR     | Required    |
-| `status`                 | VARCHAR     | Required: `active` |
+| `status`                 | VARCHAR     | Required: `active` or `inactive` |
 | `created_at`             | TIMESTAMPTZ | Required    |
 | `updated_at`             | TIMESTAMPTZ | Required    |
 | `version`                | BIGINT      | Required    |
 
-`id` uses UUIDv7. The source's Organization and hierarchy scope must match every Event it accepts. Plugin, Agent, webhook, manual, platform, external-provider, and configuration fields are deferred.
+`id` uses UUIDv7. The source's Organization and hierarchy scope must match every Event it accepts. At issuance, the server derives all four ownership identifiers from the nested route after validating an active Organization → Project → Application → Environment chain; clients provide only the required `name`. Plugin, Agent, webhook, manual, platform, external-provider, and configuration fields are deferred.
+
+Constraints:
+
+```text
+UNIQUE (organization_id, id)
+FOREIGN KEY (organization_id, project_id, application_id)
+REFERENCES applications (organization_id, project_id, id)
+FOREIGN KEY (organization_id, application_id, environment_id)
+REFERENCES environments (organization_id, application_id, id)
+INDEX (organization_id, status)
+INDEX (organization_id, application_id, environment_id)
+```
 
 ---
 
@@ -95,7 +107,9 @@ The presented credential is `esc_{credential_id}.{secret}` in the HTTP Bearer he
 Constraints:
 
 ```text
+PRIMARY KEY (id)
 UNIQUE (organization_id, id)
+INDEX (organization_id, event_source_id, status)
 CREATE UNIQUE INDEX event_source_credentials_one_active_per_source
 ON event_source_credentials (organization_id, event_source_id)
 WHERE status = 'active'
@@ -103,7 +117,7 @@ FOREIGN KEY (organization_id, event_source_id)
 REFERENCES event_sources (organization_id, id)
 ```
 
-Credential issuance is required before ingestion. The MVP supports one active credential per Event Source; rotation and concurrent credentials are deferred.
+Credential issuance is required before ingestion. The public `credential_id` after `esc_` is the indexed lookup identifier; the secret is verified only against `secret_hash`. The MVP supports one active credential per Event Source; rotation and concurrent credentials are deferred. The credential secret is not copied into the idempotency record used by Event Source issuance, so an idempotent retry returns the created public Event Source without re-disclosing that secret.
 
 ---
 
@@ -747,6 +761,12 @@ event_sources (
     status
 )
 
+event_source_credentials (
+    organization_id,
+    event_source_id,
+    status
+)
+
 event_ingestion_records (
     organization_id,
     event_source_id,
@@ -896,7 +916,7 @@ References required by retained Incidents may require archival rather than delet
 Auditable operations include:
 
 * Event Source creation.
-* Event Source suspension.
+* Event Source credential issuance.
 * manual Event creation.
 * Event correction.
 * Event replay request.

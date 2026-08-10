@@ -901,26 +901,19 @@ Credential issuance is a prerequisite to ingestion. Unmanaged sources, human/man
 
 # Source Registration
 
-The MVP source-registration capability provisions an `api_client` Event Source for one active Organization → Project → Application → Environment scope and issues its one active bearer credential. Additional producer registration is deferred.
+The MVP source-registration capability provisions an active `api_client` Event Source for one active Organization → Project → Application → Environment scope and issues its one active bearer credential. The only creation route is nested at `/api/v1/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/event-sources`.
 
-Registration may include:
+It requires a session-authenticated Human User, resolved Tenant Context, an active Membership, and effective `event_source.create` permission; Membership and the `organization_owner` Role name alone do not grant access. The built-in `organization_owner` Role receives that Core permission. The request accepts only a required human-readable `name`; the server owns the Event Source ID, Organization and hierarchy identifiers, `api_client` type, active status, timestamps, version, credential ID, and secret.
 
-- producer identifier
-- producer category
-- owning Application
-- owning Environment
-- operational owner
-- expected event categories
-- trust level
-- lifecycle status
+The server returns the opaque `esc_{credential_id}.{secret}` bearer credential exactly once with the `201 Created` public Event Source representation. It stores only the credential's one-way secret hash and never logs, audits, or later retrieves the plaintext secret. One active credential is permitted per Event Source.
 
-Registration improves operational governance but should not unnecessarily prevent onboarding new producers outside the MVP boundary.
+Creation requires `Idempotency-Key`, scoped by Organization, acting Human identity, operation `event_source.create`, key, and normalized request hash. A matching retry returns the created Event Source but not the one-time credential; changed input conflicts. Source creation and credential issuance are Audited as `event_source.create` and `event_source.credential.issue` without secret metadata. Additional producer registration, source categories, trust levels, operational owners, credential retrieval, rotation, and management endpoints are deferred.
 
 ---
 
 # Managed and Unmanaged Sources
 
-The platform distinguishes between managed and unmanaged sources.
+The MVP accepts only managed, registered Event Sources. Unmanaged-source handling is a future capability.
 
 Managed sources:
 
@@ -929,7 +922,7 @@ Managed sources:
 - participate in governance
 - support lifecycle management
 
-Unmanaged sources:
+Future unmanaged sources may:
 
 - may be accepted temporarily
 - require additional validation
@@ -942,7 +935,7 @@ Organizations determine acceptable ingestion policies.
 
 # Source Categories
 
-Sources may be classified according to operational purpose.
+Source categories are deferred from the MVP and may later classify sources according to operational purpose.
 
 Examples include:
 
@@ -967,7 +960,7 @@ Categories do not alter processing behavior.
 
 # Source Trust Levels
 
-Organizations may assign trust classifications to event producers.
+Source trust levels are deferred from the MVP. Organizations may later assign trust classifications to event producers.
 
 Representative trust levels include:
 
