@@ -101,10 +101,11 @@
 - [x] Event Source issuance HTTP vertical slice with `event_source.create` authorization, owner-permission bootstrap/backfill, nested session-authenticated route, active hierarchy validation, idempotent one-time credential issuance, Audit, and focused coverage.
 - [x] Single Event ingestion vertical slice with Event Source bearer authentication, active hierarchy validation, immutable canonical Event persistence, independent idempotency and source-duplicate safety, transactional `event.accepted` Outbox publication, and focused coverage.
 - [x] Remaining Milestone 5 contract reconciliation: credential-only revocation, source-derived ingestion hierarchy, bearer-only authentication, Event reads, atomic bounded batches, and Outbox publisher boundary.
+- [x] Event Source credential revocation vertical slice with effective-permission authorization, tenant-safe hierarchy validation, atomic `active` → `revoked` persistence, secret-free Audit, and immediate bearer invalidation.
 
 ## In Progress
 
-- [ ] Event Source credential revocation vertical slice.
+- [ ] List Events vertical slice.
 
 ## Remaining Milestone 5
 
@@ -115,7 +116,7 @@
 
 ## Next Recommended Task
 
-Implement human-authorized Event Source credential revocation with tenant-safe hierarchy validation, canonical `active` → `revoked` lifecycle, immediate authentication invalidation, and secret-free Audit.
+Implement List Events with human `event.read` authorization, tenant-scoped projection filters, cursor pagination, and archived-parent historical visibility.
 
 ## Status Update Rules
 

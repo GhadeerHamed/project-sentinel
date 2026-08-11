@@ -92,6 +92,42 @@ final class CreateEventSourceEndpointTest extends TestCase
     }
 
     #[Test]
+    public function an_authorized_human_revokes_a_credential_without_exposing_its_secret_or_creating_an_outbox_record(): void
+    {
+        $user = $this->user();
+        $organizationId = $this->organization($user->identity_id);
+        $projectId = $this->project($organizationId, $user->identity_id);
+        $applicationId = $this->application($organizationId, $projectId, $user->identity_id);
+        $environmentId = $this->environment($organizationId, $applicationId, $user->identity_id);
+        $this->membership($organizationId, $user->identity_id);
+        $this->grantEventSourceCreate($organizationId, $user->identity_id, 'event-source-issuer');
+        $this->grantEventSourceRevoke($organizationId, $user->identity_id, 'event-source-revoker');
+        $issued = $this->postIssue($user, $organizationId, $projectId, $applicationId, $environmentId, ['name' => 'Revocable Source'], 'issue-revocable-source')->assertCreated();
+        $sourceId = $issued->json('data.id');
+        $credentialId = $issued->json('meta.issued_credential.id');
+        $bearer = $issued->json('meta.issued_credential.bearer_token');
+        self::assertIsString($sourceId);
+        self::assertIsString($credentialId);
+        self::assertIsString($bearer);
+
+        $this->app->forgetScopedInstances();
+        $this->actingAs($user)->withSession(['_token' => 'csrf-token'])->withHeader('X-CSRF-TOKEN', 'csrf-token')
+            ->postJson('/api/v1/organizations/'.$organizationId.'/projects/'.$projectId.'/applications/'.$applicationId.'/environments/'.$environmentId.'/event-sources/'.$sourceId.'/credentials/'.$credentialId.'/revoke')
+            ->assertOk()->assertJsonPath('data.attributes.status', 'revoked');
+
+        $this->assertDatabaseHas('event_source_credentials', ['id' => $credentialId, 'status' => 'revoked']);
+        self::assertNotNull(DB::table('event_source_credentials')->where('id', $credentialId)->value('revoked_at'));
+        $audit = json_encode(DB::table('audit_records')->where('action', 'event_source.credential.revoke')->get(), JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString($bearer, $audit);
+        self::assertStringNotContainsString(substr($bearer, strrpos($bearer, '.') + 1), $audit);
+        $this->assertDatabaseCount('outbox_messages', 0);
+
+        $this->app->forgetScopedInstances();
+        $this->app['auth']->forgetGuards();
+        $this->withHeader('Authorization', 'Bearer '.$bearer)->postJson('/api/v1/organizations/'.$organizationId.'/events', [])->assertUnauthorized();
+    }
+
+    #[Test]
     public function an_active_member_without_event_source_create_permission_cannot_issue_a_source(): void
     {
         $user = $this->user();
@@ -353,6 +389,17 @@ final class CreateEventSourceEndpointTest extends TestCase
         self::assertIsString($permissionId);
         $resolvedRoleKey = $roleKey === 'organization_owner' ? $roleKey : $roleKey.'-'.$roleId;
         DB::table('organization_roles')->insert(['id' => $roleId, 'organization_id' => $organizationId, 'role_key' => $resolvedRoleKey, 'created_at' => $now, 'updated_at' => $now]);
+        DB::table('role_assignments')->insert(['id' => $this->uuid(), 'organization_id' => $organizationId, 'identity_id' => $identityId, 'role_id' => $roleId, 'assigned_by_identity_id' => $identityId, 'assigned_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
+        DB::table('role_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId, 'granted_at' => $now, 'granted_by_identity_id' => $identityId]);
+    }
+
+    private function grantEventSourceRevoke(string $organizationId, string $identityId, string $roleKey): void
+    {
+        $roleId = $this->uuid();
+        $now = now();
+        $permissionId = DB::table('permissions')->where('code', 'event_source.credential.revoke')->value('id');
+        self::assertIsString($permissionId);
+        DB::table('organization_roles')->insert(['id' => $roleId, 'organization_id' => $organizationId, 'role_key' => $roleKey.'-'.$roleId, 'created_at' => $now, 'updated_at' => $now]);
         DB::table('role_assignments')->insert(['id' => $this->uuid(), 'organization_id' => $organizationId, 'identity_id' => $identityId, 'role_id' => $roleId, 'assigned_by_identity_id' => $identityId, 'assigned_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
         DB::table('role_permissions')->insert(['role_id' => $roleId, 'permission_id' => $permissionId, 'granted_at' => $now, 'granted_by_identity_id' => $identityId]);
     }

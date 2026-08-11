@@ -121,4 +121,22 @@ final readonly class EventSourceCredential
     {
         return password_verify($secret, $this->secretHash);
     }
+
+    public function revoke(DateTimeImmutable $at): self
+    {
+        if ($this->status !== EventSourceCredentialStatus::ACTIVE) {
+            throw InvalidEventSourceCredential::forField('status');
+        }
+
+        return new self(
+            id: $this->id,
+            organizationId: $this->organizationId,
+            eventSourceId: $this->eventSourceId,
+            secretHash: $this->secretHash,
+            status: EventSourceCredentialStatus::REVOKED,
+            createdAt: $this->createdAt,
+            revokedAt: $at,
+            expiresAt: $this->expiresAt,
+        );
+    }
 }

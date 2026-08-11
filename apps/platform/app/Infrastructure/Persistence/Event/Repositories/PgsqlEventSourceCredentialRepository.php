@@ -9,6 +9,7 @@ use App\Infrastructure\Persistence\Event\Records\EventSourceCredentialRecord;
 use Sentinel\Event\Domain\Entity\EventSourceCredential;
 use Sentinel\Event\Domain\Repository\EventSourceCredentialRepository;
 use Sentinel\Event\Domain\ValueObject\EventSourceCredentialId;
+use Sentinel\Event\Domain\ValueObject\EventSourceId;
 use Sentinel\Shared\Domain\Organization\OrganizationId;
 
 final class PgsqlEventSourceCredentialRepository implements EventSourceCredentialRepository
@@ -26,5 +27,15 @@ final class PgsqlEventSourceCredentialRepository implements EventSourceCredentia
     public function save(EventSourceCredential $credential): void
     {
         EventSourceCredentialRecord::query()->create(EventSourceCredentialMapper::toPersistence($credential));
+    }
+
+    public function revoke(EventSourceCredentialId $credentialId, EventSourceId $eventSourceId, OrganizationId $organizationId, \DateTimeImmutable $revokedAt): bool
+    {
+        return EventSourceCredentialRecord::query()
+            ->where('id', $credentialId->value())
+            ->where('event_source_id', $eventSourceId->value())
+            ->where('organization_id', $organizationId->value())
+            ->where('status', 'active')
+            ->update(['status' => 'revoked', 'revoked_at' => $revokedAt]) === 1;
     }
 }
