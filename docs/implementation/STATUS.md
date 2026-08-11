@@ -107,16 +107,15 @@
 
 ## In Progress
 
-- [ ] Bounded batch Event ingestion.
+- [ ] Bounded batch Event ingestion vertical slice.
 
 ## Remaining Milestone 5
 
-- [ ] Bounded batch Event ingestion.
 - [ ] Milestone 5 final completion review.
 
 ## Next Recommended Task
 
-Implement bounded batch Event ingestion with all-or-nothing validation, atomic persistence and Outbox publication, source-scoped idempotency/deduplication, and bearer-only authentication.
+Implement bounded atomic batch Event ingestion for 1–100 Events using Event Source bearer authentication, shared canonical normalization, batch-level idempotency, per-Event source duplicate protection, immutable persistence, and transactional `event.accepted` Outbox publication.
 
 ## Status Update Rules
 
