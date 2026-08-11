@@ -1,152 +1,274 @@
 # Current Task
 
-Implement Batch Event Ingestion — Part 1: application/domain core and shared normalization.
+Implement Batch Event Ingestion — Part 2B1: transactional batch handler.
 
 ## Goal
 
-Build the framework-independent batch ingestion core without HTTP or PostgreSQL batch orchestration yet.
+Implement the application/infrastructure batch execution path.
 
-The existing single-event ingestion behavior must remain unchanged.
+Do not add the HTTP endpoint yet.
 
-## Required
+Concurrency stress/hardening is explicitly deferred to Part 2B2.
 
-Reuse the canonical single-event ingestion rules for each batch item:
+## Existing Foundations
 
-- Event Source-derived hierarchy;
-- schema version `1`;
-- canonical event type → category mapping;
-- severity validation;
-- `occurred_at`;
-- JSON-object payload;
-- normalized flat scalar attributes;
-- 64 KiB per-Event limit;
-- optional `external_event_id`;
-- optional correlation/causation/trace identifiers;
-- immutable Event construction.
+Reuse:
 
-## Batch Contract
+- `IngestEventBatchCommand`
+- `IngestEventBatchItem`
+- canonical `EventEnvelope` normalization
+- existing single-Event persistence
+- existing external-ID duplicate semantics
+- existing hierarchy validation
+- shared idempotency infrastructure
+- shared idempotency `resultPayload`
+- TransactionManager
+- Outbox persistence
+- UUIDv7 generator
+- Clock
 
-Support:
+Do not create parallel implementations of these mechanisms.
 
-- minimum 1 item;
-- maximum 100 items.
+## Batch Idempotency
 
-Reject:
-
-- zero items;
-- more than 100 items.
-
-Preserve input order.
-
-## Shared Normalization
-
-Extract/reuse only the smallest shared mechanism needed so single and batch ingestion cannot drift.
-
-Good candidates:
-
-- Event input normalization;
-- schema validation;
-- event type/category resolution;
-- payload/attributes size validation;
-- canonical Event construction input.
-
-Do not:
-
-- create an abstract base handler;
-- redesign single-event ingestion;
-- duplicate all validation logic inside the batch handler.
-
-## Application Layer
-
-Add the minimum framework-independent batch types required for the future persistence slice, such as:
-
-- batch command;
-- batch item input;
-- normalized item/result types where useful.
-
-Do not implement HTTP-specific request classes.
-
-Do not implement the final PostgreSQL batch transaction yet.
-
-## Duplicate Prevalidation
-
-Within a single batch request:
-
-- detect repeated `external_event_id` values;
-- equivalent normalized Events may resolve to one logical Event later;
-- conflicting reuse of the same external ID must be rejected.
-
-Build the comparison logic needed for this deterministically.
-
-Do not query PostgreSQL for existing external IDs in this task.
-
-## Idempotency
-
-Define/use the normalized complete-batch representation required for the later:
+Operation:
 
 `event.ingest.batch`
 
-idempotency hash.
+Scope by:
 
-Do not implement new persistence or transactional idempotency orchestration yet.
+- Organization
+- authenticated Event Source
+- operation
+- Idempotency-Key
+- deterministic normalized batch hash
 
-## Excluded
+On first execution:
 
-Do not add or modify:
+- process the logical batch;
+- persist the ordered logical Event IDs in idempotency `resultPayload`.
 
-- batch HTTP route/controller;
-- database schema;
-- PostgreSQL batch persistence;
-- Outbox batch writes;
-- transactional batch orchestration;
-- concurrency handling;
-- Event read APIs;
-- Signals or Alerts.
+Use this shape:
 
-## Tests
+```text
+{
+  event_ids: [
+    "<uuid>",
+    "<uuid>"
+  ]
+}
+```
+The array:
+
+preserves input order;
+may contain repeated Event IDs;
+contains no Event-specific data other than IDs;
+contains no secrets.
+Replay
+
+For same key + same request hash:
+
+do not create Events;
+do not create Outbox records;
+obtain the stored ordered event_ids;
+load the referenced Events tenant-safely;
+reconstruct the same logical batch result.
+
+If a referenced Event cannot be resolved consistently, fail explicitly rather than silently producing a different replay result.
+
+Same key + different request hash remains a conflict.
+
+Hierarchy
+
+Validate the authenticated Event Source hierarchy using the existing single-ingestion rules:
+
+Organization
+→ Project
+→ Application
+→ Environment
+
+All must be active for new ingestion.
+
+Do not derive hierarchy from batch items.
+
+External-ID Resolution
+
+For each logical batch item with external_event_id:
+
+No existing Event
+
+Create a new Event.
+
+Existing equivalent Event
+
+Reuse the existing Event ID.
+
+Do not create:
+
+another Event;
+another event.accepted.
+Existing conflicting Event
+
+Fail the entire batch with:
+
+event.external_id_conflict
+
+Reuse the canonical normalized-event comparison.
+
+Do not implement a new duplicate algorithm.
+
+In-Request Duplicates
+
+Use the Part 1 normalized duplicate behavior.
+
+Equivalent repeated external IDs must map to the same logical Event ID.
+
+Conflicting repeated external IDs must reject the batch.
+
+Preserve one result entry per original input item.
+
+Example:
+
+input:  A, B, A
+result: E1, E2, E1
+Persistence
+
+For every newly accepted Event:
+
+generate UUIDv7;
+persist immutable canonical Event data;
+persist source-derived hierarchy;
+use server-owned timestamps;
+preserve existing normalized duplicate hash behavior.
+
+Do not add a batch table.
+
+Outbox
+
+For each newly persisted Event, create exactly one:
+
+event.accepted
+
+Outbox record.
+
+Do not create an Outbox record when resolving an equivalent existing Event.
+
+Do not emit:
+
+event.ingested
+
+Atomicity
+
+One transaction must cover:
+
+idempotency acquisition;
+hierarchy validation where required;
+duplicate resolution;
+all new Event writes;
+all new event.accepted Outbox writes;
+idempotency completion with ordered event_ids.
+
+If any step fails:
+
+no new Event remains;
+no new Outbox record remains;
+idempotency must not become completed.
+Application Result
+
+Return a transport-independent batch result containing one canonical logical Event result per original input item, preserving input order.
+
+Equivalent duplicates may therefore appear multiple times with the same Sentinel Event ID.
+
+The result must contain enough data for the later HTTP layer to render the documented response.
+
+Do not include:
+
+idempotency internals;
+normalized duplicate hashes;
+Outbox data;
+credential data.
+Reuse
+
+Extract a shared single/batch ingestion service only if genuinely necessary to preserve behavior.
+
+Do not:
+
+create base handlers;
+redesign single ingestion;
+duplicate the Event construction algorithm.
+
+Single-event behavior must remain unchanged.
+
+Tests
 
 Cover at minimum:
 
-- one-item batch accepted by core;
-- multi-item batch;
-- exactly 100 items;
-- zero items rejected;
-- 101 items rejected;
-- canonical normalization matches single-event rules;
-- invalid schema rejected;
-- invalid Event type rejected;
-- invalid payload rejected;
-- oversized Event rejected;
-- input order preserved;
-- equivalent duplicate external IDs identified consistently;
-- conflicting duplicate external IDs rejected;
-- deterministic normalized batch representation/hash input;
-- existing single-event tests remain passing.
+one-item transactional batch;
+multi-item batch;
+100-item batch;
+all-new Events persisted;
+input result order preserved;
+equivalent in-request duplicate maps to the same Event ID;
+equivalent existing external ID reuses existing Event;
+conflicting existing external ID rolls back entire batch;
+exactly one event.accepted per newly created Event;
+no Outbox for reused Event;
+batch idempotency completion stores ordered event_ids;
+idempotency replay reconstructs the same ordered result;
+replay creates no new Events or Outbox records;
+idempotency hash mismatch conflicts;
+Event persistence failure rolls back the batch;
+Outbox persistence failure rolls back the batch;
+idempotency completion failure rolls back Events and Outbox;
+existing single-event ingestion tests remain green.
+Deferred to Part 2B2
 
-## Verification
+Do not implement broad concurrency hardening in this task.
 
-Run focused tests.
+Part 2B2 will explicitly verify:
 
-Run:
+concurrent identical batch requests;
+concurrent external-ID collisions;
+database race handling;
+deterministic winner/replay semantics.
 
-`docker compose exec app composer quality`
+Basic transaction correctness is still required.
 
-Update `STATUS.md` only to indicate Batch Event Ingestion remains in progress.
+Excluded
 
-Do not modify `NEXT.md`.
+Do not add:
 
-## Reporting
+HTTP request/controller/route/resource;
+partial success;
+async batch jobs;
+streaming;
+schema changes;
+Signals;
+Alerts;
+Outbox dispatcher.
+Verification
+
+Run focused batch tests and:
+
+docker compose exec app composer quality
+
+Update STATUS.md; do not modify NEXT.md.
+
+Reporting
 
 Return only:
 
-- batch application types added
-- shared normalization extracted/reused
-- batch bounds behavior
-- in-request duplicate behavior
-- normalized batch/idempotency representation
-- single-event regression status
-- files changed
-- tests
-- blockers
+handler implemented
+idempotency result-payload behavior
+replay behavior
+duplicate resolution
+persistence behavior
+Outbox behavior
+rollback behavior
+result ordering
+single-event regression status
+files changed
+tests
+blockers
 
-Maximum 12 lines.
+Maximum 15 lines.

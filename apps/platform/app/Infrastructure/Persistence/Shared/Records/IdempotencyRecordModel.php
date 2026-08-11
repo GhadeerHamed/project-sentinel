@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $status
  * @property int|null $response_status
  * @property string|null $response_reference
+ * @property array<string, mixed>|null $result_payload
  * @property \DateTimeImmutable $created_at
  * @property \DateTimeImmutable|null $completed_at
  */
@@ -39,6 +40,7 @@ final class IdempotencyRecordModel extends Model
         'status',
         'response_status',
         'response_reference',
+        'result_payload',
         'created_at',
         'completed_at',
         'expires_at',
@@ -48,6 +50,7 @@ final class IdempotencyRecordModel extends Model
     {
         return [
             'response_status' => 'integer',
+            'result_payload' => 'array',
             'created_at' => 'immutable_datetime',
             'completed_at' => 'immutable_datetime',
             'expires_at' => 'immutable_datetime',

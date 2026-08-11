@@ -51,7 +51,8 @@ final class PgsqlIdempotencyRepository implements IdempotencyRepository
             ->update([
                 'status' => 'completed',
                 'response_status' => $response->status(),
-                'response_reference' => $response->resourceReference()->value(),
+                'response_reference' => $response->resourceReferenceOrNull()?->value(),
+                'result_payload' => $response->resultPayload(),
                 'completed_at' => $completedAt,
             ]);
 
@@ -72,6 +73,7 @@ final class PgsqlIdempotencyRepository implements IdempotencyRepository
             status: $record->status,
             responseStatus: $record->response_status,
             responseReference: $record->response_reference,
+            resultPayload: $record->result_payload,
             createdAt: $record->created_at,
             completedAt: $record->completed_at,
         );

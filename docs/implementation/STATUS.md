@@ -107,15 +107,17 @@
 
 ## In Progress
 
-- [ ] Bounded batch Event ingestion vertical slice.
+- [ ] Batch Event Ingestion — Part 2B1: transactional batch handler.
 
 ## Remaining Milestone 5
 
+- [ ] Batch Event Ingestion — Part 2B2: concurrency hardening.
+- [ ] Batch Event Ingestion — Part 3: HTTP endpoint and integration verification.
 - [ ] Milestone 5 final completion review.
 
 ## Next Recommended Task
 
-Implement bounded atomic batch Event ingestion for 1–100 Events using Event Source bearer authentication, shared canonical normalization, batch-level idempotency, per-Event source duplicate protection, immutable persistence, and transactional `event.accepted` Outbox publication.
+Implement the non-HTTP transactional batch ingestion handler using shared normalization, batch idempotency replay payloads, external-ID duplicate resolution, immutable Event persistence, and transactional `event.accepted` Outbox writes.
 
 ## Status Update Rules
 

@@ -27,6 +27,7 @@ final readonly class IdempotencyRecord
         );
     }
 
+    /** @param array<string, mixed>|null $resultPayload */
     public static function fromValues(
         string $id,
         string $organizationId,
@@ -37,6 +38,7 @@ final readonly class IdempotencyRecord
         string $status,
         ?int $responseStatus,
         ?string $responseReference,
+        ?array $resultPayload,
         DateTimeImmutable $createdAt,
         ?DateTimeImmutable $completedAt,
     ): self {
@@ -48,9 +50,9 @@ final readonly class IdempotencyRecord
             $requestHash,
         );
         $idempotencyStatus = IdempotencyStatus::from($status);
-        $response = ($responseStatus === null || $responseReference === null)
+        $response = $responseStatus === null
             ? null
-            : IdempotencyResponse::fromValues($responseStatus, $responseReference);
+            : ($responseReference === null ? IdempotencyResponse::fromResultPayload($responseStatus, $resultPayload ?? []) : IdempotencyResponse::fromValues($responseStatus, $responseReference, $resultPayload));
 
         if (($idempotencyStatus === IdempotencyStatus::COMPLETED) !== ($response !== null && $completedAt !== null)) {
             throw InvalidIdempotencyRequest::forField('status');

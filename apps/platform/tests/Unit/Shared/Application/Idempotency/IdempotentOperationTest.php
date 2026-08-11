@@ -24,6 +24,22 @@ use Sentinel\Shared\Domain\Transaction\TransactionManager;
 final class IdempotentOperationTest extends TestCase
 {
     #[Test]
+    public function it_replays_an_opaque_ordered_result_payload(): void
+    {
+        $records = new InMemoryIdempotencyRepository;
+        $operation = $this->operation($records);
+        $request = $this->request(['batch' => 'ordered-events']);
+        $payload = ['event_ids' => ['0198f3b6-48ae-7a45-9192-6f8029df5f30', '0198f3b6-48ae-7a45-9192-6f8029df5f30']];
+
+        $first = $operation->execute($request, static fn (DateTimeImmutable $at): IdempotencyResponse => IdempotencyResponse::fromResultPayload(202, $payload));
+        $second = $operation->execute($request, static fn (DateTimeImmutable $at): IdempotencyResponse => self::fail('A replay must not execute.'));
+
+        self::assertFalse($first->wasReplayed());
+        self::assertTrue($second->wasReplayed());
+        self::assertSame($payload, $second->response()->resultPayload());
+    }
+
+    #[Test]
     public function it_replays_a_completed_request_without_executing_its_business_operation_again(): void
     {
         $records = new InMemoryIdempotencyRepository;
@@ -122,7 +138,8 @@ final class InMemoryIdempotencyRepository implements IdempotencyRepository
                     requestHash: $request->requestHash(),
                     status: 'completed',
                     responseStatus: $response->status(),
-                    responseReference: $response->resourceReference()->value(),
+                    responseReference: $response->resourceReferenceOrNull()?->value(),
+                    resultPayload: $response->resultPayload(),
                     createdAt: $completedAt,
                     completedAt: $completedAt,
                 );
