@@ -1,164 +1,157 @@
 # Current Task
 
-Implement Batch Event Ingestion — Part 2B2A: deterministic PostgreSQL concurrency test harness.
+Implement Batch Event Ingestion — Part 2B2B1: committed fixture and identical-idempotency race verification.
 
 ## Goal
 
-Create the smallest reusable testing foundation needed to run two or more truly independent Laravel application processes concurrently against the PostgreSQL test database.
+Use the existing multi-process concurrency harness and `ingest_event_batch` worker instruction to verify one race only:
 
-Do not add the actual batch-ingestion race scenarios yet.
+two concurrent identical batch requests using the same idempotency key.
 
-## Problem
+Do not implement the external-ID race scenarios yet.
 
-The previous concurrency harness is quarantined because forked PDO connections do not reliably model independent application requests or lock synchronization.
+## Existing Infrastructure
 
-The new harness must not share an inherited PDO connection between workers.
+Reuse:
 
-Each worker must:
+- `ConcurrentLaravelWorker`;
+- independently booted Laravel workers;
+- deterministic ready/release synchronization;
+- suite-safe DB disconnect/purge behavior;
+- `ingest_event_batch` worker instruction;
+- production `IngestEventBatchHandler`.
 
-- run in its own PHP process;
-- bootstrap Laravel independently;
-- create its own database connections;
-- execute application code against the same prepared test fixture.
+Do not redesign any of these.
 
-## Scope
+## Committed Fixture
 
-Implement testing infrastructure only.
+Create the smallest reusable test fixture containing an active:
 
-Do not modify production Event ingestion behavior unless required solely to expose an existing application entry point to the test worker.
+Organization
+→ Project
+→ Application
+→ Environment
+→ Event Source
 
-Prefer zero production-code changes.
+The fixture must satisfy all production handler requirements.
 
-## Worker Process
+Requirements:
 
-Provide a test-only mechanism capable of launching an independent PHP/Laravel worker.
+- persist real PostgreSQL rows;
+- commit them before workers launch;
+- provide safe IDs required by worker instructions;
+- do not require bearer credentials because the worker invokes the application handler directly;
+- avoid human/session setup not required by batch ingestion.
 
-The worker must be able to:
+Prefer a reusable test helper if it will also serve Part 2B2B2.
 
-1. boot the application;
-2. receive a small serialized test instruction;
-3. resolve required services from the container;
-4. wait at a deterministic synchronization barrier;
-5. execute the requested application operation;
-6. return a structured success/error result to the parent test process.
+Do not add production fixture code.
 
-Do not invoke HTTP unless required by the later race test.
+## Race
 
-Application-handler execution is sufficient.
+Launch two workers with:
 
-## Process Isolation
+- same Organization;
+- same Event Source;
+- same ordered batch;
+- same `Idempotency-Key`;
+- same normalized batch content.
 
-Workers must not use:
+Both workers must reach the existing deterministic barrier before execution begins.
 
-- `pcntl_fork()` with inherited Laravel/PDO state;
-- inherited PDO connections;
-- shared in-process transactions.
+Release them together.
 
-Use separate OS-level PHP processes.
+## Expected Result
 
-The implementation may use the project's existing process facilities or Symfony Process if already available through Laravel dependencies.
+Verify both workers succeed.
 
-Do not add a heavyweight dependency solely for this harness.
+Both must return exactly the same ordered Event IDs.
 
-## Deterministic Barrier
+For a batch of N unique new logical Events, verify:
 
-Provide a deterministic coordination mechanism so multiple workers can reach a known execution point before proceeding.
+- exactly N physical Event rows exist;
+- not 2N;
+- exactly N `event.accepted` Outbox rows exist;
+- exactly one completed `event.ingest.batch` idempotency operation exists;
+- stored `result_payload.event_ids` matches the returned ordered Event IDs.
 
-Suitable approaches include test-only:
+No duplicate Event or Outbox rows may exist.
 
-- PostgreSQL advisory locks;
-- a small database-backed barrier;
-- another deterministic PostgreSQL coordination primitive.
+## Replay Payload
 
-Do not use arbitrary:
+Verify the persisted idempotency result:
 
-- `sleep()`;
-- timing assumptions;
-- polling loops without a deterministic synchronization condition.
+- contains the complete ordered `event_ids`;
+- contains no partial state;
+- preserves the exact batch ordering.
 
-The barrier must work across independent database connections/processes.
+Do not expose internal idempotency fields through worker results.
 
-## Fixture Model
+## Worker Safety
 
-The parent test process must be able to:
-
-1. create a realistic Organization → Project → Application → Environment → Event Source fixture;
-2. commit that fixture;
-3. launch workers against the committed fixture.
-
-Workers must not depend on uncommitted parent-test transaction state.
-
-Account for the existing Laravel database-test strategy.
-
-If transactional test traits prevent child-process visibility, use the smallest dedicated integration-test setup that commits fixture data safely and cleans it afterward.
-
-## Structured Worker Result
-
-The parent must receive a deterministic structured result containing at minimum:
+Worker outputs must contain only safe structured values:
 
 - success/failure;
-- result identifiers where applicable;
-- canonical application error code where applicable;
-- safe diagnostic information.
+- ordered Event IDs;
+- canonical error category if failure occurs.
 
-Do not serialize:
+No SQL errors, credentials, hashes, or stack traces.
 
-- bearer secrets;
-- credential hashes;
-- Authorization headers;
-- full exception traces containing secrets.
+## Production Changes
 
-## Proof Test
+Expected:
 
-Add one small proof-of-harness integration test.
+none.
 
-The proof must demonstrate that:
+If this race exposes a real production defect:
 
-- two independent PHP processes boot successfully;
-- both connect independently to PostgreSQL;
-- both observe the same committed fixture/state;
-- both reach the deterministic barrier;
-- both proceed after release;
-- both return structured results;
-- the test does not rely on sleeps.
+1. preserve the failing test;
+2. make the smallest correction;
+3. rerun the race;
+4. report the correction.
 
-The proof does not need to exercise Event ingestion races yet.
+Do not broaden scope.
 
-## Reusability
+## Tests
 
-Keep the harness generic enough for later concurrency verification involving:
+Add deterministic PostgreSQL integration coverage for:
 
-- idempotency;
-- optimistic concurrency;
-- unique-resource races.
+- committed hierarchy visible to both workers;
+- simultaneous identical batch execution;
+- both workers returning the same IDs;
+- one physical Event set;
+- one Outbox record per logical new Event;
+- one completed batch idempotency record;
+- correct ordered `result_payload`.
 
-Do not make the generic harness depend on Event-specific domain classes.
-
-Event-specific worker commands/adapters may be added later in Part 2B2B.
+Also confirm the existing concurrency harness proof remains green.
 
 ## Excluded
 
-Do not add:
+Do not implement:
 
-- batch race scenarios;
-- HTTP batch tests;
-- production locks;
-- Redis locks;
-- schema changes to production tables;
-- Event/Outbox behavior changes;
+- equivalent external-ID race;
+- conflicting external-ID race;
+- losing multi-item rollback race;
+- HTTP changes;
+- production concurrency infrastructure;
+- Redis/global locks;
 - Outbox dispatcher;
 - Signals;
 - Alerts.
 
 ## Verification
 
-Run the focused concurrency-harness test.
+Run focused concurrency tests.
 
 Then run:
 
 `docker compose exec app composer quality`
 
-Update `STATUS.md` only to record harness completion and move Part 2B2B to In Progress.
+If all pass:
+
+- mark Part 2B2B1 complete;
+- move Part 2B2B2 to In Progress.
 
 Do not modify `NEXT.md`.
 
@@ -166,12 +159,13 @@ Do not modify `NEXT.md`.
 
 Return only:
 
-- process-isolation approach
-- synchronization approach
 - fixture strategy
-- worker protocol
-- proof test
-- production changes
+- race synchronization
+- worker results
+- Event-row result
+- Outbox result
+- idempotency/result-payload result
+- production changes, if any
 - files changed
 - tests
 - blockers

@@ -50,6 +50,7 @@ final class ConcurrentLaravelWorkerTest extends TestCase
             $lines = array_values(array_filter(explode("\n", $worker->getOutput())));
             self::assertSame(['ok' => true, 'exists' => true], json_decode((string) end($lines), true, 512, JSON_THROW_ON_ERROR));
         }
+        DB::purge();
     }
 
     /** @return array{Process, InputStream} */

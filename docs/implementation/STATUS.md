@@ -107,21 +107,20 @@
 
 ## In Progress
 
-- [x] Batch Event Ingestion — Part 2B2A: independently booted PostgreSQL worker-process harness with deterministic pipe barrier and structured results.
-- [ ] Batch Event Ingestion — Part 2B2B: deterministic batch race verification.
+- [ ] Batch Event Ingestion — Part 2B2B1: committed fixture and identical-idempotency race verification.
 
 ## Remaining Milestone 5
 
-- [ ] Batch Event Ingestion — Part 2B2B: deterministic batch race verification.
+- [ ] Batch Event Ingestion — Part 2B2B2: external-ID race and rollback verification.
 - [ ] Milestone 5 final completion review.
 
 ## Known Verification Gap
 
-- [ ] Batch concurrency hardening is implemented, but deterministic multi-process PostgreSQL verification remains pending.
+- [ ] Batch concurrency worker execution is available, but deterministic batch race scenarios are not yet fully verified.
 
 ## Next Recommended Task
 
-Build a small reusable multi-process PostgreSQL concurrency test harness that boots independent Laravel processes and provides deterministic synchronization without using the quarantined forked-PDO approach.
+Create the committed Event Source hierarchy fixture for independent workers and verify the identical batch-idempotency race end-to-end.
 
 ## Status Update Rules
 
