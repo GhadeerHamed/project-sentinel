@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\GetApplicationController;
 use App\Http\Controllers\Api\V1\GetEnvironmentController;
 use App\Http\Controllers\Api\V1\GetEventController;
 use App\Http\Controllers\Api\V1\GetProjectController;
+use App\Http\Controllers\Api\V1\IngestEventBatchController;
 use App\Http\Controllers\Api\V1\IngestEventController;
 use App\Http\Controllers\Api\V1\InviteMembershipController;
 use App\Http\Controllers\Api\V1\ListAccessibleOrganizationsController;
@@ -116,6 +117,8 @@ Route::prefix('api/v1')
     ->as('api.v1.')
     ->middleware('event_source')
     ->group(function (): void {
+        Route::post('/organizations/{organization}/events/batch', IngestEventBatchController::class)
+            ->name('organizations.events.batch');
         Route::post('/organizations/{organization}/events', IngestEventController::class)
             ->name('organizations.events.store');
     });

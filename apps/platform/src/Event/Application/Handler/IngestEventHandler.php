@@ -114,7 +114,7 @@ final readonly class IngestEventHandler
         ));
     }
 
-    private function assertActiveHierarchy(EventSourceIdentity $sourceIdentity): void
+    public function assertActiveHierarchy(EventSourceIdentity $sourceIdentity): void
     {
         $organization = $this->organizations->getById($sourceIdentity->organizationId());
 

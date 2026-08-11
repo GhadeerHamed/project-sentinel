@@ -107,17 +107,20 @@
 
 ## In Progress
 
-- [ ] Batch Event Ingestion — Part 2B1: transactional batch handler.
+- [x] Batch Event Ingestion — Part 3: bearer-authenticated batch endpoint with ordered Event responses and batch handler integration.
 
 ## Remaining Milestone 5
 
-- [ ] Batch Event Ingestion — Part 2B2: concurrency hardening.
-- [ ] Batch Event Ingestion — Part 3: HTTP endpoint and integration verification.
+- [ ] Deterministic PostgreSQL batch-concurrency verification.
 - [ ] Milestone 5 final completion review.
+
+## Known Verification Gap
+
+- [ ] Batch concurrency hardening is implemented, but deterministic multi-process PostgreSQL race coverage remains pending because the existing forked-PDO concurrency harness is unreliable and quarantined.
 
 ## Next Recommended Task
 
-Implement the non-HTTP transactional batch ingestion handler using shared normalization, batch idempotency replay payloads, external-ID duplicate resolution, immutable Event persistence, and transactional `event.accepted` Outbox writes.
+Expose the completed batch-ingestion application path through the canonical bearer-authenticated HTTP endpoint, preserving atomic batch semantics, validation, idempotency, duplicate handling, and `202 Accepted`.
 
 ## Status Update Rules
 
