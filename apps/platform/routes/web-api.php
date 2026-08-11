@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\InviteMembershipController;
 use App\Http\Controllers\Api\V1\ListAccessibleOrganizationsController;
 use App\Http\Controllers\Api\V1\ListApplicationsController;
 use App\Http\Controllers\Api\V1\ListEnvironmentsController;
+use App\Http\Controllers\Api\V1\ListEventsController;
 use App\Http\Controllers\Api\V1\ListProjectsController;
 use App\Http\Controllers\Api\V1\ReactivateMembershipController;
 use App\Http\Controllers\Api\V1\RemoveMembershipController;
@@ -60,6 +61,7 @@ Route::prefix('api/v1')
         Route::post('/organizations/{organization}/projects/{project}/applications/{application}/environments/{environment}/event-sources/{eventSource}/credentials/{credential}/revoke', RevokeEventSourceCredentialController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.applications.environments.event-sources.credentials.revoke');
+        Route::get('/organizations/{organization}/events', ListEventsController::class)->middleware(ResolveTenantContext::class)->name('organizations.events.index');
         Route::get('/organizations/{organization}/projects/{project}/applications/{application}/environments', ListEnvironmentsController::class)
             ->middleware(ResolveTenantContext::class)
             ->name('organizations.projects.applications.environments.index');

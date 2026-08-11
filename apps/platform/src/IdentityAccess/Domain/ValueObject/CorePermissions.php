@@ -26,6 +26,7 @@ final class CorePermissions
             self::archiveEnvironment(),
             self::createEventSource(),
             self::revokeEventSourceCredential(),
+            self::readEvents(),
         ];
     }
 
@@ -105,5 +106,10 @@ final class CorePermissions
     public static function revokeEventSourceCredential(): PermissionCode
     {
         return PermissionCode::fromString('event_source.credential.revoke');
+    }
+
+    public static function readEvents(): PermissionCode
+    {
+        return PermissionCode::fromString('event.read');
     }
 }

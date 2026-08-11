@@ -1,174 +1,203 @@
 # Current Task
 
-Implement the Event Source credential revocation vertical slice.
+Implement the List Events vertical slice.
 
 ## Required
 
-Follow the reconciled Event Source, Event API, credential-security, and Milestone 5 documentation.
+Follow the reconciled Event module, Events API, Event schema, security, and Milestone 5 documentation.
 
-Implement only credential revocation.
+This is a read-only human API.
 
-Do not implement Event Source deactivation or credential rotation.
+Do not modify Event ingestion behavior.
 
 ## Permission
 
 Use:
 
-`event_source.credential.revoke`
+`event.read`
 
 Requirements:
 
 - add it to `CorePermissions` if not already present;
 - ensure new `organization_owner` Roles receive it;
 - backfill existing `organization_owner` Roles;
-- authorize using effective Organization permissions;
-- use an operation-specific credential-revocation Policy;
+- authorize through an operation-specific List Events Policy;
 - reuse `OrganizationPermissionAuthorizer`.
+
+Tenant membership alone is insufficient.
 
 Do not authorize by Role name.
 
 ## Authentication
 
-This is a human administrative operation.
-
 Require:
 
-- browser/session authentication;
-- authenticated human identity;
+- human browser/session authentication;
 - resolved `TenantContext`;
-- `event_source.credential.revoke`.
+- `event.read`.
 
-Do not allow Event Source bearer authentication to authorize credential revocation.
+Do not use Event Source bearer authentication for Event browsing.
 
-## Hierarchy
+## Route
 
-Validate the complete canonical hierarchy:
+Expose:
 
-Organization
-→ Project
-→ Application
-→ Environment
-→ Event Source
-→ Credential
+`GET /api/v1/organizations/{organization}/events`
 
-Requirements:
-
-- Project belongs to Organization;
-- Application belongs to Project;
-- Environment belongs to Application;
-- Event Source belongs to the Environment hierarchy;
-- Credential belongs to the Event Source;
-- every lookup is tenant scoped;
-- cross-Organization or cross-parent references return tenant-safe not found.
-
-Do not perform global credential lookup followed by ownership validation.
-
-## Lifecycle
-
-Canonical credential transition:
-
-`active` → `revoked`
-
-On successful revocation:
-
-- set `status = revoked`;
-- set server-owned `revoked_at`;
-- prevent the credential from authenticating immediately.
-
-Already revoked credentials must follow the documented invalid-transition/conflict behavior.
-
-Do not introduce:
-
-- credential reactivation;
-- credential rotation;
-- credential replacement;
-- multiple credentials;
-- source deactivation.
-
-## Application Layer
-
-Implement the minimum framework-independent:
-
-- command;
-- result where needed;
-- Policy;
-- handler;
-- repository capability required by this slice.
-
-The operation must:
-
-1. authorize the human actor;
-2. validate tenant and hierarchy ownership;
-3. resolve the active credential;
-4. revoke it;
-5. persist the transition;
-6. record Audit action `event_source.credential.revoke`;
-7. commit atomically.
-
-Use the existing Clock for `revoked_at`.
-
-Do not create an Outbox record.
-
-## Persistence
-
-Reuse the existing Event Source credential table.
-
-Do not create a second credential model or table.
-
-Ensure revocation persistence is race-safe.
-
-Two concurrent attempts must never produce inconsistent state.
-
-Use the smallest persistence mechanism consistent with the existing repository architecture.
-
-## HTTP
-
-Expose exactly the canonical nested revocation route defined by the reconciled documentation.
-
-Do not invent a different route.
-
-Require:
-
-- session authentication;
-- TenantContext;
-- `event_source.credential.revoke`.
+The route Organization must match `TenantContext`.
 
 Keep the controller thin.
 
-Do not accept client-controlled:
+## Read Model
 
-- status;
-- revoked_at;
-- Organization or parent ownership;
-- credential secret.
+Events are immutable and this operation is read-only.
 
-Return the documented success representation/status.
+Do not hydrate Event aggregates.
 
-Do not return the bearer credential or credential hash.
+Implement the minimum framework-independent:
 
-## Authentication Invalidation
+- Event list DTO;
+- query/read contract;
+- filter input;
+- paginated result where required.
 
-After revocation, the existing Event Source bearer middleware must reject that credential.
+Use a PostgreSQL projection selecting only public API fields.
 
-Verify this through an integration/feature test using the actual authentication path.
+Avoid N+1 queries.
 
-Do not add caching that can keep revoked credentials valid.
+Keep persistence aggregate mapping separate from read projection mapping.
 
-## Audit
+## Public Representation
 
-Record:
+Return only canonical documented Event fields.
 
-`event_source.credential.revoke`
+Include where documented:
 
-Audit must include only safe identifiers/context.
+- `id`
+- `project_id`
+- `application_id`
+- `environment_id`
+- `event_source_id`
+- `event_type`
+- `category`
+- `schema_version`
+- `severity`
+- `external_event_id`
+- `occurred_at`
+- `received_at`
+- `created_at`
+- correlation/causation/trace identifiers where public
 
-Never include:
+Follow the reconciled API contract for payload/attributes visibility in list responses.
 
-- plaintext bearer secret;
-- secret hash;
-- Authorization header.
+Do not expose:
 
-A failed revocation must not leave a successful Audit record.
+- Event Source credential data;
+- credential identifiers unless explicitly part of the public Event contract;
+- secret hashes;
+- internal idempotency records;
+- Outbox internals.
+
+## Tenant Scope
+
+Every query must be scoped by:
+
+`organization_id`
+
+Never perform an unscoped Event query followed by tenant filtering.
+
+Hierarchy filters must also be tenant-safe.
+
+When filtering by Project/Application/Environment/Event Source:
+
+- validate ownership according to the documented read contract;
+- archived Registry resources remain valid historical filters;
+- cross-Organization or invalid parent relationships must not expose existence.
+
+Historical Event visibility must not depend on the current active state of archived Project, Application, or Environment resources.
+
+## Filters
+
+Support exactly the filters defined by the reconciled Events API.
+
+At minimum verify and implement the documented contract for:
+
+- Project;
+- Application;
+- Environment;
+- Event Source;
+- `event_type`;
+- `category`;
+- severity;
+- `occurred_at` range;
+- `received_at` range.
+
+Do not invent additional filtering.
+
+Validate:
+
+- supported Event types;
+- supported categories;
+- supported severity values;
+- timestamp format and range semantics.
+
+If hierarchy filters are combined, enforce their relationships.
+
+## Historical Visibility
+
+Accepted Events are immutable historical evidence.
+
+Therefore:
+
+- Events remain readable when their Project is archived;
+- Events remain readable when their Application is archived;
+- Events remain readable when their Environment is archived;
+- revoked Event Source credentials do not hide previously accepted Events.
+
+The current Organization must still be accessible through normal `TenantContext` rules.
+
+## Ordering
+
+Canonical ordering:
+
+`occurred_at DESC, id DESC`
+
+This is not `created_at` ordering.
+
+Do not reuse `CreatedAtIdCursor` if doing so changes the canonical ordering semantics.
+
+Reuse shared cursor primitives only where genuinely compatible.
+
+If a dedicated Event cursor is required, keep it minimal and based on:
+
+- `occurred_at`
+- Event UUID
+
+## Cursor Pagination
+
+Use stable keyset pagination.
+
+Requirements:
+
+- no offset pagination;
+- cursor preserves canonical ordering;
+- cursor is opaque;
+- malformed cursors are rejected;
+- cursor scope includes the active filter set;
+- a cursor generated for one filter set cannot be reused with another;
+- identical `occurred_at` timestamps paginate deterministically through Event ID.
+
+Do not duplicate generic cursor machinery unnecessarily.
+
+## Payload and Attributes
+
+Follow the reconciled List Events API contract exactly.
+
+If list responses intentionally omit or reduce payload/attributes for efficiency, preserve that decision.
+
+Do not automatically return full Event payloads merely because Get Event does.
+
+Do not implement Policy-filtered detail behavior intended only for Get Event unless the List contract requires it.
 
 ## Security
 
@@ -176,53 +205,60 @@ Verify:
 
 - unauthenticated human rejected;
 - unauthorized member rejected;
-- Event Source bearer credential cannot revoke itself;
-- cross-Organization references return 404;
-- cross-Project/Application/Environment/Event Source references return 404;
-- credential belonging to another Event Source cannot be revoked;
-- plaintext credential is never exposed;
-- credential hash is never exposed;
-- revoked credential immediately fails Event Source authentication.
+- Event Source bearer credential cannot use the human browsing endpoint;
+- cross-tenant Events never appear;
+- cross-tenant hierarchy filters do not disclose resources;
+- archived parents preserve historical visibility;
+- source credential revocation does not remove historical Event visibility;
+- credential secrets/hashes never appear.
 
 ## Tests
 
 Cover at minimum:
 
-- authorized revocation;
-- owner permission bootstrap;
-- existing owner permission backfill;
-- unauthorized human;
+- authorized listing;
+- unauthorized member;
 - unauthenticated request;
-- Event Source bearer auth cannot authorize revocation;
-- cross-Organization hierarchy;
-- wrong Project/Application/Environment ownership;
-- credential belonging to another Event Source;
-- active → revoked transition;
-- `revoked_at` persisted;
-- already revoked credential rejected according to canonical semantics;
-- revoked credential fails bearer authentication;
-- Audit record written;
-- Audit contains no secret/hash;
-- no Outbox record written;
-- persistence failure rolls back Audit/state;
-- concurrent revoke attempts remain consistent.
+- Event Source bearer auth rejected for browsing;
+- only tenant Events returned;
+- Project filter;
+- Application filter;
+- Environment filter;
+- Event Source filter;
+- event type filter;
+- category filter;
+- severity filter;
+- occurred-at range;
+- received-at range;
+- invalid filter values;
+- invalid cross-parent hierarchy filters;
+- archived Project historical visibility;
+- archived Application historical visibility;
+- archived Environment historical visibility;
+- Events from a source with revoked credential remain visible;
+- canonical `occurred_at DESC, id DESC` ordering;
+- equal `occurred_at` values order deterministically by ID;
+- cursor pagination;
+- malformed cursor rejection;
+- cursor/filter mismatch rejection;
+- canonical public representation;
+- no credential or internal idempotency data exposed;
+- no aggregate hydration on the read path;
+- owner receives `event.read` through provisioning/backfill.
 
 ## Excluded
 
 Do not add:
 
-- Event Source deactivation;
-- Event Source list/get;
-- credential rotation;
-- credential replacement;
-- credential retrieval;
-- multiple credentials;
-- List Events;
-- Get Event;
-- batch ingestion;
-- Event processing;
-- Signals;
-- Alerts.
+- Get Event.
+- Event update/delete.
+- Event timeline API.
+- batch ingestion.
+- Event Source list/get.
+- Signal derivation.
+- Alert evaluation.
+- Outbox dispatcher.
+- search projections outside this Event read contract.
 
 ## Verification
 
@@ -237,12 +273,13 @@ Update `STATUS.md`; do not modify `NEXT.md`.
 Return only:
 
 - permission used
-- route
-- hierarchy behavior
-- lifecycle behavior
-- authentication invalidation
-- Audit behavior
-- Outbox behavior
+- endpoint
+- tenant/hierarchy behavior
+- filters implemented
+- historical visibility
+- read-model approach
+- ordering/cursor behavior
+- response behavior
 - owner permission bootstrap
 - files changed
 - tests
