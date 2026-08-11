@@ -107,20 +107,16 @@
 
 ## In Progress
 
-- [ ] Batch Event Ingestion — Part 2B2B1: committed fixture and identical-idempotency race verification.
+- [x] Batch Event Ingestion — Part 2B2B2: deterministic equivalent/conflicting external-ID race verification, losing-batch rollback, and exactly-once Outbox persistence.
+- [ ] Milestone 5 final completion review.
 
 ## Remaining Milestone 5
 
-- [ ] Batch Event Ingestion — Part 2B2B2: external-ID race and rollback verification.
-- [ ] Milestone 5 final completion review.
-
-## Known Verification Gap
-
-- [ ] Batch concurrency worker execution is available, but deterministic batch race scenarios are not yet fully verified.
+- [ ] None.
 
 ## Next Recommended Task
 
-Create the committed Event Source hierarchy fixture for independent workers and verify the identical batch-idempotency race end-to-end.
+Complete the Milestone 5 final completion review.
 
 ## Status Update Rules
 

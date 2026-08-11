@@ -8,6 +8,7 @@ use Sentinel\Event\Application\Authentication\EventSourceIdentity;
 use Sentinel\Event\Application\Command\IngestEventBatchCommand;
 use Sentinel\Event\Application\Command\IngestEventBatchItem;
 use Sentinel\Event\Application\Handler\IngestEventBatchHandler;
+use Sentinel\Event\Domain\Exception\EventExternalIdConflict;
 use Sentinel\Event\Domain\Repository\EventSourceRepository;
 use Sentinel\Event\Domain\ValueObject\EventSourceId;
 use Sentinel\Shared\Domain\Error\ApplicationOperationFailure;
@@ -37,7 +38,7 @@ try {
     DB::disconnect();
 } catch (Throwable $exception) {
     DB::disconnect();
-    $error = $exception instanceof ApplicationOperationFailure ? $exception->category()->value : 'worker_failed';
+    $error = $exception instanceof EventExternalIdConflict ? 'event.external_id_conflict' : ($exception instanceof ApplicationOperationFailure ? $exception->category()->value : 'worker_failed');
     fwrite(STDOUT, json_encode(['ok' => false, 'error' => $error], JSON_THROW_ON_ERROR)."\n");
     exit(1);
 }

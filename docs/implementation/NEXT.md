@@ -1,101 +1,142 @@
 # Current Task
 
-Implement Batch Event Ingestion — Part 2B2B1: committed fixture and identical-idempotency race verification.
+Complete Batch Event Ingestion — Part 2B2B2: external-ID race and rollback verification.
 
 ## Goal
 
-Use the existing multi-process concurrency harness and `ingest_event_batch` worker instruction to verify one race only:
+Use the existing deterministic multi-process PostgreSQL harness to verify the remaining external-ID concurrency behavior.
 
-two concurrent identical batch requests using the same idempotency key.
+Do not modify HTTP behavior.
 
-Do not implement the external-ID race scenarios yet.
+Prefer no production changes unless a deterministic race exposes a real correctness defect.
 
 ## Existing Infrastructure
 
 Reuse:
 
+- committed active Event Source hierarchy fixture;
 - `ConcurrentLaravelWorker`;
-- independently booted Laravel workers;
-- deterministic ready/release synchronization;
-- suite-safe DB disconnect/purge behavior;
 - `ingest_event_batch` worker instruction;
-- production `IngestEventBatchHandler`.
+- independent Laravel worker processes;
+- ready/release synchronization barrier;
+- production `IngestEventBatchHandler`;
+- `saveIfExternalEventIdAbsent`;
+- transactional batch idempotency;
+- existing Event and Outbox persistence.
 
-Do not redesign any of these.
+Do not redesign the harness.
 
-## Committed Fixture
+## Race 1 — Equivalent External ID
 
-Create the smallest reusable test fixture containing an active:
+Launch two concurrent workers with:
 
-Organization
-→ Project
-→ Application
-→ Environment
-→ Event Source
-
-The fixture must satisfy all production handler requirements.
-
-Requirements:
-
-- persist real PostgreSQL rows;
-- commit them before workers launch;
-- provide safe IDs required by worker instructions;
-- do not require bearer credentials because the worker invokes the application handler directly;
-- avoid human/session setup not required by batch ingestion.
-
-Prefer a reusable test helper if it will also serve Part 2B2B2.
-
-Do not add production fixture code.
-
-## Race
-
-Launch two workers with:
-
+- different batch idempotency keys;
 - same Organization;
 - same Event Source;
-- same ordered batch;
-- same `Idempotency-Key`;
-- same normalized batch content.
+- same `external_event_id`;
+- equivalent canonical Event content.
 
-Both workers must reach the existing deterministic barrier before execution begins.
+Release both workers concurrently.
 
-Release them together.
+Verify:
 
-## Expected Result
+- both requests succeed;
+- both resolve to the same Sentinel Event ID;
+- exactly one physical Event exists for the contested external ID;
+- exactly one `event.accepted` Outbox record exists for that Event;
+- each batch idempotency operation completes with the same logical Event ID;
+- no raw PostgreSQL uniqueness error escapes.
 
-Verify both workers succeed.
+This must exercise the actual production race boundary rather than a sequential pre-check.
 
-Both must return exactly the same ordered Event IDs.
+## Race 2 — Conflicting External ID
 
-For a batch of N unique new logical Events, verify:
+Launch two concurrent workers with:
 
-- exactly N physical Event rows exist;
-- not 2N;
-- exactly N `event.accepted` Outbox rows exist;
-- exactly one completed `event.ingest.batch` idempotency operation exists;
-- stored `result_payload.event_ids` matches the returned ordered Event IDs.
+- different batch idempotency keys;
+- same Organization;
+- same Event Source;
+- same `external_event_id`;
+- different normalized canonical Event content.
 
-No duplicate Event or Outbox rows may exist.
+Do not control which worker wins.
 
-## Replay Payload
+Verify:
 
-Verify the persisted idempotency result:
+- exactly one request succeeds;
+- exactly one request fails with canonical:
 
-- contains the complete ordered `event_ids`;
-- contains no partial state;
-- preserves the exact batch ordering.
+`event.external_id_conflict`
 
-Do not expose internal idempotency fields through worker results.
+- exactly one physical Event exists for the contested external ID;
+- exactly one `event.accepted` Outbox record exists for the winning Event;
+- no SQLSTATE, PDO, or raw PostgreSQL uniqueness error escapes.
 
-## Worker Safety
+## Race 3 — Losing Batch Atomicity
 
-Worker outputs must contain only safe structured values:
+For the conflicting worker, use a multi-item batch.
 
-- success/failure;
-- ordered Event IDs;
-- canonical error category if failure occurs.
+Its ordered batch must include:
 
-No SQL errors, credentials, hashes, or stack traces.
+1. one unrelated new Event;
+2. the contested conflicting external-ID Event.
+
+Arrange the batch so the unrelated Event may be written before the external-ID race is resolved.
+
+Verify that when this worker loses:
+
+- its unrelated Event does not remain;
+- its unrelated `event.accepted` Outbox record does not remain;
+- its conflicting Event does not remain;
+- its batch idempotency operation is not successfully completed;
+- no completed replay payload remains for the failed batch.
+
+The winning transaction must remain fully committed.
+
+## Equivalent-Race Idempotency
+
+For the equivalent race, verify both distinct batch idempotency records complete successfully.
+
+Each stored:
+
+`result_payload.event_ids`
+
+must resolve to the same logical Sentinel Event.
+
+Do not require both requests to share an idempotency record because their keys differ.
+
+## Conflicting-Race Idempotency
+
+For the losing conflicting request:
+
+- do not mark the operation successfully completed;
+- do not expose a completed replay result;
+- preserve canonical retry/conflict behavior according to the existing idempotency contract.
+
+## Outbox Guarantees
+
+Across all scenarios verify:
+
+- one physical newly accepted Event produces exactly one `event.accepted`;
+- equivalent races do not duplicate Outbox records;
+- losing conflicting transactions leave no surviving Outbox records;
+- no `event.ingested` records are produced.
+
+This verifies Outbox persistence only.
+
+Do not implement the dispatcher.
+
+## Error Safety
+
+Worker output for the losing request must expose only the canonical application error.
+
+It must not expose:
+
+- SQLSTATE;
+- constraint names;
+- PDO exceptions;
+- PostgreSQL messages;
+- stack traces containing persistence internals.
 
 ## Production Changes
 
@@ -103,46 +144,45 @@ Expected:
 
 none.
 
-If this race exposes a real production defect:
+If the tests expose a real race defect:
 
-1. preserve the failing test;
-2. make the smallest correction;
-3. rerun the race;
-4. report the correction.
+1. retain the deterministic failing test;
+2. make the smallest production correction;
+3. rerun all three race scenarios;
+4. report exactly what was corrected.
 
-Do not broaden scope.
+Do not introduce:
 
-## Tests
+- Redis locks;
+- application-global locks;
+- coarse Organization locks;
+- new concurrency architecture.
 
-Add deterministic PostgreSQL integration coverage for:
+## Regression
 
-- committed hierarchy visible to both workers;
-- simultaneous identical batch execution;
-- both workers returning the same IDs;
-- one physical Event set;
-- one Outbox record per logical new Event;
-- one completed batch idempotency record;
-- correct ordered `result_payload`.
+Confirm these remain green:
 
-Also confirm the existing concurrency harness proof remains green.
+- identical-idempotency concurrency test;
+- concurrency harness proof test;
+- normal batch handler tests;
+- batch HTTP tests;
+- single-event ingestion tests.
 
 ## Excluded
 
-Do not implement:
+Do not add:
 
-- equivalent external-ID race;
-- conflicting external-ID race;
-- losing multi-item rollback race;
 - HTTP changes;
-- production concurrency infrastructure;
-- Redis/global locks;
+- new batch semantics;
+- partial success;
+- new concurrency infrastructure unless strictly necessary;
 - Outbox dispatcher;
 - Signals;
 - Alerts.
 
 ## Verification
 
-Run focused concurrency tests.
+Run focused deterministic concurrency tests.
 
 Then run:
 
@@ -150,8 +190,9 @@ Then run:
 
 If all pass:
 
-- mark Part 2B2B1 complete;
-- move Part 2B2B2 to In Progress.
+- mark Part 2B2B2 complete;
+- clear all remaining batch-concurrency verification gaps;
+- move Milestone 5 final completion review to In Progress.
 
 Do not modify `NEXT.md`.
 
@@ -159,15 +200,16 @@ Do not modify `NEXT.md`.
 
 Return only:
 
-- fixture strategy
-- race synchronization
-- worker results
-- Event-row result
-- Outbox result
-- idempotency/result-payload result
+- equivalent external-ID race result
+- equivalent-race idempotency result
+- conflicting external-ID race result
+- losing-batch rollback result
+- conflicting-race idempotency result
+- Outbox guarantees
 - production changes, if any
 - files changed
 - tests
+- Part 2B2B2 completion status
 - blockers
 
-Maximum 12 lines.
+Maximum 15 lines.
