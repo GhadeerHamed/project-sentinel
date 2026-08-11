@@ -1,208 +1,164 @@
 # Current Task
 
-Implement Batch Event Ingestion — Part 3: HTTP endpoint and end-to-end API integration.
+Implement Batch Event Ingestion — Part 2B2A: deterministic PostgreSQL concurrency test harness.
 
 ## Goal
 
-Expose the already implemented batch-ingestion application flow through the canonical HTTP API.
+Create the smallest reusable testing foundation needed to run two or more truly independent Laravel application processes concurrently against the PostgreSQL test database.
 
-Do not change batch domain or persistence semantics unless HTTP integration reveals a concrete defect.
+Do not add the actual batch-ingestion race scenarios yet.
 
-## Authentication
+## Problem
 
-Use existing Event Source bearer authentication.
+The previous concurrency harness is quarantined because forked PDO connections do not reliably model independent application requests or lock synchronization.
 
-Do not use:
+The new harness must not share an inherited PDO connection between workers.
 
-- human session authentication;
-- Membership authorization;
-- human TenantContext.
+Each worker must:
 
-The authenticated Event Source determines all hierarchy/source ownership.
+- run in its own PHP process;
+- bootstrap Laravel independently;
+- create its own database connections;
+- execute application code against the same prepared test fixture.
 
-## Route
+## Scope
 
-Expose:
+Implement testing infrastructure only.
 
-`POST /api/v1/organizations/{organization}/events/batch`
+Do not modify production Event ingestion behavior unless required solely to expose an existing application entry point to the test worker.
 
-Require:
+Prefer zero production-code changes.
 
-- `Authorization: Bearer <Event Source credential>`
-- `Idempotency-Key`
+## Worker Process
 
-The route Organization must match the authenticated Event Source Organization.
+Provide a test-only mechanism capable of launching an independent PHP/Laravel worker.
 
-## Request
+The worker must be able to:
 
-Accept a JSON object containing the documented ordered Event collection.
+1. boot the application;
+2. receive a small serialized test instruction;
+3. resolve required services from the container;
+4. wait at a deterministic synchronization barrier;
+5. execute the requested application operation;
+6. return a structured success/error result to the parent test process.
 
-Support:
+Do not invoke HTTP unless required by the later race test.
 
-- minimum 1 Event;
-- maximum 100 Events.
+Application-handler execution is sufficient.
 
-Each item uses the same canonical input contract as single-event ingestion.
+## Process Isolation
 
-Do not allow client-controlled:
+Workers must not use:
 
-- Event ID;
-- Organization ID;
-- Project ID;
-- Application ID;
-- Environment ID;
-- Event Source ID;
-- category;
-- received_at;
-- created_at.
+- `pcntl_fork()` with inherited Laravel/PDO state;
+- inherited PDO connections;
+- shared in-process transactions.
 
-## Validation
+Use separate OS-level PHP processes.
 
-Reuse existing single/batch normalization rules.
+The implementation may use the project's existing process facilities or Symfony Process if already available through Laravel dependencies.
 
-Validate:
+Do not add a heavyweight dependency solely for this harness.
 
-- batch cardinality;
-- schema version `1`;
-- supported event types;
-- severity;
-- occurred_at;
-- JSON-object payload;
-- flat scalar attributes;
-- per-Event 64 KiB limit;
-- optional external_event_id;
-- optional correlation/causation/trace identifiers.
+## Deterministic Barrier
 
-Do not duplicate domain validation in the controller.
+Provide a deterministic coordination mechanism so multiple workers can reach a known execution point before proceeding.
 
-## Application Integration
+Suitable approaches include test-only:
 
-Invoke the existing `IngestEventBatchHandler`.
+- PostgreSQL advisory locks;
+- a small database-backed barrier;
+- another deterministic PostgreSQL coordination primitive.
 
-Preserve existing semantics:
+Do not use arbitrary:
 
-- atomic batch behavior;
-- batch-level idempotency;
-- ordered replay result payload;
-- equivalent external-ID reuse;
-- conflicting external-ID rejection;
-- immutable persistence;
-- one `event.accepted` Outbox record per newly created Event.
+- `sleep()`;
+- timing assumptions;
+- polling loops without a deterministic synchronization condition.
 
-Do not implement persistence logic inside HTTP classes.
+The barrier must work across independent database connections/processes.
 
-## Response
+## Fixture Model
 
-Return:
+The parent test process must be able to:
 
-`202 Accepted`
+1. create a realistic Organization → Project → Application → Environment → Event Source fixture;
+2. commit that fixture;
+3. launch workers against the committed fixture.
 
-Return the canonical documented batch response.
+Workers must not depend on uncommitted parent-test transaction state.
 
-Requirements:
+Account for the existing Laravel database-test strategy.
 
-- preserve original input order;
-- one logical Event representation/result per input item;
-- repeated logical Event IDs are allowed when equivalent duplicates occur;
-- idempotent replay returns the same logical ordered result;
-- response must not imply downstream processing completed.
+If transactional test traits prevent child-process visibility, use the smallest dedicated integration-test setup that commits fixture data safely and cleans it afterward.
 
-Do not expose:
+## Structured Worker Result
 
-- credentials;
-- hashes;
-- idempotency internals;
-- normalized duplicate hashes;
-- Outbox internals.
+The parent must receive a deterministic structured result containing at minimum:
 
-## Error Behavior
+- success/failure;
+- result identifiers where applicable;
+- canonical application error code where applicable;
+- safe diagnostic information.
 
-Use existing canonical API exception rendering.
+Do not serialize:
 
-Verify appropriate behavior for:
+- bearer secrets;
+- credential hashes;
+- Authorization headers;
+- full exception traces containing secrets.
 
-- unauthenticated/invalid bearer credential;
-- revoked credential;
-- inactive Event Source;
-- route Organization mismatch;
-- empty batch;
-- >100 Events;
-- invalid Event item;
-- unsupported schema/type;
-- oversized Event;
-- idempotency mismatch;
-- conflicting external_event_id.
+## Proof Test
 
-Do not expose raw PostgreSQL exceptions.
+Add one small proof-of-harness integration test.
 
-## Controller
+The proof must demonstrate that:
 
-Keep the controller thin.
+- two independent PHP processes boot successfully;
+- both connect independently to PostgreSQL;
+- both observe the same committed fixture/state;
+- both reach the deterministic barrier;
+- both proceed after release;
+- both return structured results;
+- the test does not rely on sleeps.
 
-Use dedicated:
+The proof does not need to exercise Event ingestion races yet.
 
-- request validation;
-- application command mapping;
-- API resource/presenter.
+## Reusability
 
-Reuse existing Event resource mapping where genuinely compatible.
+Keep the harness generic enough for later concurrency verification involving:
 
-## Tests
+- idempotency;
+- optimistic concurrency;
+- unique-resource races.
 
-Cover at minimum:
+Do not make the generic harness depend on Event-specific domain classes.
 
-- successful one-item batch;
-- successful multi-item batch;
-- 100-item request;
-- empty batch rejected;
-- 101-item batch rejected;
-- bearer authentication required;
-- revoked credential rejected;
-- route Organization mismatch rejected;
-- canonical validation failures;
-- `202 Accepted`;
-- response preserves input order;
-- equivalent repeated external IDs map to the same Event ID;
-- idempotency replay returns the same ordered logical result;
-- replay creates no duplicate Events;
-- replay creates no duplicate Outbox records;
-- idempotency mismatch conflicts;
-- conflicting external ID returns canonical conflict;
-- one invalid item causes no partial writes;
-- canonical response exposes no internal/security fields;
-- existing single-event ingestion endpoint remains green.
-
-## Concurrency Verification
-
-Do not attempt to build a new concurrency test harness in this task.
-
-The existing deterministic multi-process PostgreSQL concurrency verification gap remains explicitly tracked in `STATUS.md`.
-
-Do not mark Milestone 5 complete.
+Event-specific worker commands/adapters may be added later in Part 2B2B.
 
 ## Excluded
 
 Do not add:
 
-- new batch persistence semantics;
-- partial success;
-- streaming ingestion;
-- concurrency harness;
+- batch race scenarios;
+- HTTP batch tests;
+- production locks;
+- Redis locks;
+- schema changes to production tables;
+- Event/Outbox behavior changes;
 - Outbox dispatcher;
 - Signals;
 - Alerts.
 
 ## Verification
 
-Run focused API tests and:
+Run the focused concurrency-harness test.
+
+Then run:
 
 `docker compose exec app composer quality`
 
-After success:
-
-- mark Part 3 complete;
-- keep deterministic batch-concurrency verification open;
-- set Milestone 5 final review as next only after explicitly accounting for that verification gap.
+Update `STATUS.md` only to record harness completion and move Part 2B2B to In Progress.
 
 Do not modify `NEXT.md`.
 
@@ -210,17 +166,14 @@ Do not modify `NEXT.md`.
 
 Return only:
 
-- endpoint
-- authentication
-- request validation
-- handler integration
-- response behavior
-- idempotency replay
-- duplicate behavior
-- atomic failure behavior
+- process-isolation approach
+- synchronization approach
+- fixture strategy
+- worker protocol
+- proof test
+- production changes
 - files changed
 - tests
-- remaining verification gap
 - blockers
 
-Maximum 15 lines.
+Maximum 12 lines.

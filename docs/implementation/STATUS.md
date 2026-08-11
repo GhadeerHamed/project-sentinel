@@ -107,20 +107,21 @@
 
 ## In Progress
 
-- [x] Batch Event Ingestion — Part 3: bearer-authenticated batch endpoint with ordered Event responses and batch handler integration.
+- [x] Batch Event Ingestion — Part 2B2A: independently booted PostgreSQL worker-process harness with deterministic pipe barrier and structured results.
+- [ ] Batch Event Ingestion — Part 2B2B: deterministic batch race verification.
 
 ## Remaining Milestone 5
 
-- [ ] Deterministic PostgreSQL batch-concurrency verification.
+- [ ] Batch Event Ingestion — Part 2B2B: deterministic batch race verification.
 - [ ] Milestone 5 final completion review.
 
 ## Known Verification Gap
 
-- [ ] Batch concurrency hardening is implemented, but deterministic multi-process PostgreSQL race coverage remains pending because the existing forked-PDO concurrency harness is unreliable and quarantined.
+- [ ] Batch concurrency hardening is implemented, but deterministic multi-process PostgreSQL verification remains pending.
 
 ## Next Recommended Task
 
-Expose the completed batch-ingestion application path through the canonical bearer-authenticated HTTP endpoint, preserving atomic batch semantics, validation, idempotency, duplicate handling, and `202 Accepted`.
+Build a small reusable multi-process PostgreSQL concurrency test harness that boots independent Laravel processes and provides deterministic synchronization without using the quarantined forked-PDO approach.
 
 ## Status Update Rules
 
