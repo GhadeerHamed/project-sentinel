@@ -104,19 +104,24 @@
 - [x] Event Source credential revocation vertical slice with effective-permission authorization, tenant-safe hierarchy validation, atomic `active` → `revoked` persistence, secret-free Audit, and immediate bearer invalidation.
 - [x] List Events vertical slice with human `event.read` authorization, tenant-scoped public projection, canonical filters, and `occurred_at DESC, id DESC` cursor pagination.
 - [x] Get Event vertical slice with human `event.read` authorization, tenant-scoped detail projection, historical visibility, explicit payload-and-attributes Policy, and authenticated HTTP endpoint.
+- [x] Batch Event Ingestion — Part 2B2B2: deterministic equivalent/conflicting external-ID race verification, losing-batch rollback, and exactly-once Outbox persistence.
+
+## Milestone 5 Complete
+
+- [x] Milestone 5 — Event Ingestion complete: secure `api_client` Event Sources, issuance and credential revocation, immutable source-derived Event ingestion, idempotency and external-ID safety, Event reads, bounded atomic batch ingestion with deterministic replay, transactional `event.accepted` Outbox persistence, and deterministic multi-process PostgreSQL concurrency verification.
+- [x] Milestone 5 ends with durable transactional `event.accepted` Outbox persistence. Operational Outbox dispatch is deferred as the shared prerequisite before Milestone 6 consumes accepted Events.
+
+## Current Activity
+
+**Shared Outbox Dispatcher Foundation**
 
 ## In Progress
 
-- [x] Batch Event Ingestion — Part 2B2B2: deterministic equivalent/conflicting external-ID race verification, losing-batch rollback, and exactly-once Outbox persistence.
-- [ ] Milestone 5 final completion review.
-
-## Remaining Milestone 5
-
-- [ ] None.
+- [ ] Outbox Dispatcher canonical contract review.
 
 ## Next Recommended Task
 
-Complete the Milestone 5 final completion review.
+Define the shared Outbox dispatcher contract for claiming, ordering, delivery guarantees, retries, failure handling, worker concurrency, consumer idempotency, observability, and cleanup before implementing the dispatcher.
 
 ## Status Update Rules
 

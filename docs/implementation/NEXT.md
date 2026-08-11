@@ -1,215 +1,332 @@
 # Current Task
 
-Complete Batch Event Ingestion — Part 2B2B2: external-ID race and rollback verification.
+Review and reconcile the Shared Outbox Dispatcher contract before implementation.
+
+## Required
+
+This is an architecture and documentation review only.
+
+Do not modify:
+
+- application code;
+- migrations;
+- tests;
+- `STATUS.md`;
+- `NEXT.md`.
+
+Review documentation directly relevant to:
+
+- Outbox architecture;
+- event-driven architecture;
+- Domain Events;
+- queue/workers;
+- retries;
+- transactional boundaries;
+- observability;
+- failure handling;
+- Event → Signal / Alerting handoff;
+- Milestone 6 prerequisites.
 
 ## Goal
 
-Use the existing deterministic multi-process PostgreSQL harness to verify the remaining external-ID concurrency behavior.
+Define the minimum production-safe shared mechanism that turns durable Outbox rows into asynchronous application event delivery.
 
-Do not modify HTTP behavior.
+The dispatcher must remain domain-neutral.
 
-Prefer no production changes unless a deterministic race exposes a real correctness defect.
+Do not design it specifically for `event.accepted`.
 
-## Existing Infrastructure
+## Existing Boundary
 
-Reuse:
+Preserve:
 
-- committed active Event Source hierarchy fixture;
-- `ConcurrentLaravelWorker`;
-- `ingest_event_batch` worker instruction;
-- independent Laravel worker processes;
-- ready/release synchronization barrier;
-- production `IngestEventBatchHandler`;
-- `saveIfExternalEventIdAbsent`;
-- transactional batch idempotency;
-- existing Event and Outbox persistence.
+- Domain mutation and Outbox persistence occur in one database transaction.
+- Producers do not directly invoke downstream consumers.
+- Milestone 5 already persists `event.accepted`.
+- Outbox dispatch happens asynchronously after transaction commit.
 
-Do not redesign the harness.
+Do not weaken the transactional Outbox guarantee.
 
-## Race 1 — Equivalent External ID
+## Outbox State Model
 
-Launch two concurrent workers with:
+Determine the canonical persisted dispatch lifecycle.
 
-- different batch idempotency keys;
-- same Organization;
-- same Event Source;
-- same `external_event_id`;
-- equivalent canonical Event content.
+Review whether current documentation requires or implies fields such as:
 
-Release both workers concurrently.
+- pending;
+- claimed/processing;
+- dispatched/published;
+- failed/dead;
+- attempts;
+- available_at;
+- claimed_at;
+- claimed_by;
+- dispatched_at;
+- failed_at;
+- last_error.
 
-Verify:
+Choose the smallest state model needed for reliable MVP dispatch.
 
-- both requests succeed;
-- both resolve to the same Sentinel Event ID;
-- exactly one physical Event exists for the contested external ID;
-- exactly one `event.accepted` Outbox record exists for that Event;
-- each batch idempotency operation completes with the same logical Event ID;
-- no raw PostgreSQL uniqueness error escapes.
+Do not invent an overly complex workflow.
 
-This must exercise the actual production race boundary rather than a sequential pre-check.
+## Claiming
 
-## Race 2 — Conflicting External ID
+Define how workers claim rows safely.
 
-Launch two concurrent workers with:
+Resolve:
 
-- different batch idempotency keys;
-- same Organization;
-- same Event Source;
-- same `external_event_id`;
-- different normalized canonical Event content.
+- batch size;
+- ordering;
+- PostgreSQL locking strategy;
+- whether to use `FOR UPDATE SKIP LOCKED`;
+- lease/claim ownership;
+- abandoned-claim recovery;
+- worker crash behavior.
 
-Do not control which worker wins.
+Multiple dispatcher workers must be able to run concurrently without processing the same row simultaneously.
 
-Verify:
+Avoid global application locks.
 
-- exactly one request succeeds;
-- exactly one request fails with canonical:
+## Ordering
 
-`event.external_id_conflict`
+Determine required ordering guarantees.
 
-- exactly one physical Event exists for the contested external ID;
-- exactly one `event.accepted` Outbox record exists for the winning Event;
-- no SQLSTATE, PDO, or raw PostgreSQL uniqueness error escapes.
+Clarify whether the platform requires:
 
-## Race 3 — Losing Batch Atomicity
+- global ordering;
+- per Organization ordering;
+- per aggregate ordering;
+- or only stable best-effort processing order.
 
-For the conflicting worker, use a multi-item batch.
+Do not promise stronger ordering than the architecture actually requires.
 
-Its ordered batch must include:
+## Delivery Guarantee
 
-1. one unrelated new Event;
-2. the contested conflicting external-ID Event.
+Define the canonical delivery semantic.
 
-Arrange the batch so the unrelated Event may be written before the external-ID race is resolved.
+Expected model should be evaluated explicitly:
 
-Verify that when this worker loses:
+`at-least-once delivery`
 
-- its unrelated Event does not remain;
-- its unrelated `event.accepted` Outbox record does not remain;
-- its conflicting Event does not remain;
-- its batch idempotency operation is not successfully completed;
-- no completed replay payload remains for the failed batch.
+Determine:
 
-The winning transaction must remain fully committed.
+- whether exactly-once delivery is intentionally not guaranteed;
+- how duplicate delivery is handled;
+- what responsibilities belong to the dispatcher;
+- what responsibilities belong to consumers.
 
-## Equivalent-Race Idempotency
+Do not rely on in-memory deduplication.
 
-For the equivalent race, verify both distinct batch idempotency records complete successfully.
+## Consumer Idempotency
 
-Each stored:
+Define the contract expected from event consumers.
 
-`result_payload.event_ids`
+Determine whether consumers must persist a stable processed-message key such as:
 
-must resolve to the same logical Sentinel Event.
+- Outbox message ID;
+- Domain Event ID;
+- another documented identifier.
 
-Do not require both requests to share an idempotency record because their keys differ.
+Clarify the transaction boundary between:
 
-## Conflicting-Race Idempotency
+- duplicate detection;
+- consumer side effects;
+- processed-message recording.
 
-For the losing conflicting request:
+This must support later `event.accepted` consumers safely.
 
-- do not mark the operation successfully completed;
-- do not expose a completed replay result;
-- preserve canonical retry/conflict behavior according to the existing idempotency contract.
+## Dispatch Transport
 
-## Outbox Guarantees
+Determine the first MVP transport.
 
-Across all scenarios verify:
+Review whether canonical architecture expects:
 
-- one physical newly accepted Event produces exactly one `event.accepted`;
-- equivalent races do not duplicate Outbox records;
-- losing conflicting transactions leave no surviving Outbox records;
-- no `event.ingested` records are produced.
+- Laravel queue jobs;
+- Redis queue;
+- direct internal application dispatch;
+- another broker abstraction.
 
-This verifies Outbox persistence only.
+Preserve runtime independence at the core boundary.
 
-Do not implement the dispatcher.
+Do not introduce Kafka/RabbitMQ solely because they may be useful later.
 
-## Error Safety
+## Dispatcher → Consumer Boundary
 
-Worker output for the losing request must expose only the canonical application error.
+Define what the dispatcher publishes.
 
-It must not expose:
+Confirm the canonical envelope includes where documented:
 
-- SQLSTATE;
-- constraint names;
-- PDO exceptions;
-- PostgreSQL messages;
-- stack traces containing persistence internals.
+- Outbox message ID;
+- event name/type;
+- event version;
+- Organization ID;
+- aggregate type;
+- aggregate ID;
+- aggregate version;
+- occurred_at;
+- correlation ID;
+- causation ID;
+- payload.
 
-## Production Changes
+Consumers must not depend on raw Outbox database rows.
 
-Expected:
+## Success
 
-none.
+Define when an Outbox record is considered successfully dispatched.
 
-If the tests expose a real race defect:
+Distinguish between:
 
-1. retain the deterministic failing test;
-2. make the smallest production correction;
-3. rerun all three race scenarios;
-4. report exactly what was corrected.
+- successfully enqueued for asynchronous consumption;
+- successfully consumed downstream.
 
-Do not introduce:
+The Outbox dispatcher should not falsely imply downstream business processing completed.
 
-- Redis locks;
-- application-global locks;
-- coarse Organization locks;
-- new concurrency architecture.
+## Retry Policy
 
-## Regression
+Define MVP retry behavior.
 
-Confirm these remain green:
+Resolve:
 
-- identical-idempotency concurrency test;
-- concurrency harness proof test;
-- normal batch handler tests;
-- batch HTTP tests;
-- single-event ingestion tests.
+- attempt count;
+- retry delay/backoff;
+- retryable failures;
+- non-retryable failures if applicable;
+- maximum attempts;
+- dead-letter/dead state behavior.
 
-## Excluded
+Keep the policy simple and explicit.
 
-Do not add:
+## Worker Crash Recovery
 
-- HTTP changes;
-- new batch semantics;
-- partial success;
-- new concurrency infrastructure unless strictly necessary;
-- Outbox dispatcher;
-- Signals;
-- Alerts.
+Resolve cases where:
 
-## Verification
+1. a row is claimed;
+2. the worker crashes before dispatch;
+3. the worker crashes after enqueue but before marking success.
 
-Run focused deterministic concurrency tests.
+The design must tolerate duplicate dispatch.
 
-Then run:
+Do not attempt distributed exactly-once semantics.
 
-`docker compose exec app composer quality`
+## Failure Storage
 
-If all pass:
+Determine what failure information may be persisted.
 
-- mark Part 2B2B2 complete;
-- clear all remaining batch-concurrency verification gaps;
-- move Milestone 5 final completion review to In Progress.
+Allowed failure metadata should be safe and bounded.
 
-Do not modify `NEXT.md`.
+Do not persist:
+
+- secrets;
+- credentials;
+- Authorization headers;
+- arbitrary unbounded exception dumps.
+
+Define canonical error truncation/sanitization if needed.
+
+## Scheduling
+
+Determine:
+
+- dispatcher execution model;
+- queue worker vs scheduled polling;
+- polling interval if documented;
+- empty-poll behavior;
+- wake-up strategy.
+
+Prefer the smallest mechanism compatible with the existing Laravel + Redis deployment.
+
+## Observability
+
+Define the minimum operational signals required.
+
+At minimum evaluate:
+
+- pending count;
+- oldest pending age;
+- dispatch throughput;
+- retry count;
+- failed/dead count.
+
+Do not build dashboards in this task.
+
+## Cleanup / Retention
+
+Determine whether successfully dispatched Outbox rows:
+
+- remain indefinitely;
+- are archived;
+- are deleted after a retention window.
+
+If retention belongs to a later capability, say so explicitly.
+
+Do not implement cleanup yet unless required for the dispatcher foundation.
+
+## Security / Tenant Isolation
+
+Confirm:
+
+- dispatcher is platform-internal;
+- no human tenant permission is involved;
+- Organization context remains present in the event envelope;
+- one tenant's failure must not expose another tenant's data;
+- logged failure data remains sanitized.
+
+## Milestone 6 Boundary
+
+Determine exactly what must exist before the first Milestone 6 consumer can be implemented.
+
+Expected sequence:
+
+Outbox persistence
+→ dispatcher
+→ transport
+→ idempotent consumer
+→ `event.accepted` processing
+
+Do not implement Signal or Alert behavior in this task.
+
+## First Implementation Slice
+
+Recommend the smallest first implementation task.
+
+Prefer separating:
+
+1. Outbox claiming/state foundation;
+2. dispatcher/transport;
+3. consumer idempotency foundation;
+
+if one task would be too large.
+
+## Decision Precedence
+
+When documentation conflicts, use:
+
+1. ADR / explicit architecture decisions.
+2. shared platform/module contracts.
+3. architecture documentation.
+4. deployment/queue documentation.
+5. database documentation.
+6. functional/roadmap examples.
+
+State conflicts explicitly.
 
 ## Reporting
 
 Return only:
 
-- equivalent external-ID race result
-- equivalent-race idempotency result
-- conflicting external-ID race result
-- losing-batch rollback result
-- conflicting-race idempotency result
-- Outbox guarantees
-- production changes, if any
-- files changed
-- tests
-- Part 2B2B2 completion status
+- Outbox state model
+- claiming strategy
+- ordering guarantee
+- delivery guarantee
+- consumer idempotency contract
+- transport decision
+- success semantics
+- retry/dead-letter policy
+- crash-recovery behavior
+- observability requirements
+- retention decision
+- security/tenant behavior
+- documentation corrections required
+- recommended implementation slices
 - blockers
 
-Maximum 15 lines.
+Maximum 25 lines.

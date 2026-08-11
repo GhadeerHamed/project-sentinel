@@ -321,7 +321,7 @@ Invalid Events must not enter authoritative processing.
 
 ## Batch Ingestion
 
-`POST /api/v1/organizations/{organization}/events/batch` accepts an ordered JSON object containing `events`, with at most 100 canonical Event envelopes. It uses the same bearer authentication and source-derived hierarchy as single ingestion. `Idempotency-Key` is required for the complete ordered batch and is scoped by Organization, authenticated Event Source, operation `event.ingest_batch`, key, and normalized batch hash.
+`POST /api/v1/organizations/{organization}/events/batch` accepts an ordered JSON object containing `events`, with at most 100 canonical Event envelopes. It uses the same bearer authentication and source-derived hierarchy as single ingestion. `Idempotency-Key` is required for the complete ordered batch and is scoped by Organization, authenticated Event Source, operation `event.ingest.batch`, key, and normalized batch hash.
 
 The 64 KiB `payload` plus `attributes` limit applies independently to each Event. Each item applies the same optional `external_event_id` uniqueness rule as single ingestion within `(organization_id, event_source_id, external_event_id)`.
 

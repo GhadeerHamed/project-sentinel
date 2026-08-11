@@ -234,7 +234,7 @@ Idempotency-Key: {key}
 
 The request body is an object with one `events` array containing 1–100 single-Event envelopes. Each envelope follows the single-ingestion required and optional fields and must not contain hierarchy or source identifiers. The 64 KiB `payload` plus `attributes` limit applies per Event.
 
-The batch key is required and scoped by Organization, authenticated Event Source, operation `event.ingest_batch`, key, and normalized ordered-batch hash. The operation is atomic: any invalid item rejects the complete request and persists no Event or Outbox record. Every item applies independent `external_event_id` duplicate detection. On success, return `202 Accepted` with Event resources in input order; an idempotency retry returns the same logical result. Each newly created Event persists one `event.accepted` Outbox record in the batch transaction; duplicate items do not publish another record. Partial success and streaming are deferred.
+The batch key is required and scoped by Organization, authenticated Event Source, operation `event.ingest.batch`, key, and normalized ordered-batch hash. The operation is atomic: any invalid item rejects the complete request and persists no Event or Outbox record. Every item applies independent `external_event_id` duplicate detection. On success, return `202 Accepted` with Event resources in input order; an idempotency retry returns the same logical result. Each newly created Event persists one `event.accepted` Outbox record in the batch transaction; duplicate items do not publish another record. Partial success and streaming are deferred.
 
 ---
 

@@ -139,14 +139,14 @@ Future source types may include:
 
 ## `event_ingestion_records`
 
-Represents one received single or bounded-batch ingestion request. `operation` is `event.ingest` for a single Event or `event.ingest_batch` for the ordered batch; batch idempotency covers the complete normalized array while `external_event_id` duplicate detection remains per Event.
+Represents one received single or bounded-batch ingestion request. `operation` is `event.ingest` for a single Event or `event.ingest.batch` for the ordered batch; batch idempotency covers the complete normalized array while `external_event_id` duplicate detection remains per Event.
 
 | Column                | Type        | Rules       |
 | --------------------- | ----------- | ----------- |
 | `id`                  | UUID        | Primary key |
 | `organization_id`     | UUID        | Required    |
 | `event_source_id`     | UUID        | Required    |
-| `operation`           | VARCHAR     | Required: `event.ingest` or `event.ingest_batch` |
+| `operation`           | VARCHAR     | Required: `event.ingest` or `event.ingest.batch` |
 | `idempotency_key`     | VARCHAR     | Required    |
 | `request_fingerprint` | VARCHAR     | Required    |
 | `status`              | VARCHAR     | Required    |
