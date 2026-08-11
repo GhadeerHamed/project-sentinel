@@ -103,20 +103,20 @@
 - [x] Remaining Milestone 5 contract reconciliation: credential-only revocation, source-derived ingestion hierarchy, bearer-only authentication, Event reads, atomic bounded batches, and Outbox publisher boundary.
 - [x] Event Source credential revocation vertical slice with effective-permission authorization, tenant-safe hierarchy validation, atomic `active` → `revoked` persistence, secret-free Audit, and immediate bearer invalidation.
 - [x] List Events vertical slice with human `event.read` authorization, tenant-scoped public projection, canonical filters, and `occurred_at DESC, id DESC` cursor pagination.
+- [x] Get Event vertical slice with human `event.read` authorization, tenant-scoped detail projection, historical visibility, explicit payload-and-attributes Policy, and authenticated HTTP endpoint.
 
 ## In Progress
 
-- [ ] Get Event vertical slice.
+- [ ] Bounded batch Event ingestion.
 
 ## Remaining Milestone 5
 
-- [ ] Get Event.
 - [ ] Bounded batch Event ingestion.
 - [ ] Milestone 5 final completion review.
 
 ## Next Recommended Task
 
-Implement Get Event with human `event.read` authorization, Organization-scoped projection retrieval, and Policy-filtered direct detail visibility.
+Implement bounded batch Event ingestion with all-or-nothing validation, atomic persistence and Outbox publication, source-scoped idempotency/deduplication, and bearer-only authentication.
 
 ## Status Update Rules
 

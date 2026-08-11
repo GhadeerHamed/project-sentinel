@@ -14,8 +14,10 @@ use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayCreat
 use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayGetEnvironmentPolicy;
 use App\Infrastructure\Environment\Policy\ActiveMembershipWithPermissionMayListEnvironmentsPolicy;
 use App\Infrastructure\Event\Policy\ActiveMembershipWithPermissionMayCreateEventSourcePolicy;
+use App\Infrastructure\Event\Policy\ActiveMembershipWithPermissionMayGetEventPolicy;
 use App\Infrastructure\Event\Policy\ActiveMembershipWithPermissionMayListEventsPolicy;
 use App\Infrastructure\Event\Policy\ActiveMembershipWithPermissionMayRevokeEventSourceCredentialPolicy;
+use App\Infrastructure\Event\Policy\EventReadPermissionGrantsDetailVisibilityPolicy;
 use App\Infrastructure\Identifier\LaravelUuidV7Generator;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayAssignRolePolicy;
 use App\Infrastructure\IdentityAccess\Policy\ActiveMembershipWithPermissionMayInviteMembershipPolicy;
@@ -32,6 +34,7 @@ use App\Infrastructure\Persistence\Application\Repositories\PgsqlApplicationRepo
 use App\Infrastructure\Persistence\Environment\Queries\PgsqlEnvironmentListQuery;
 use App\Infrastructure\Persistence\Environment\Queries\PgsqlEnvironmentLookupQuery;
 use App\Infrastructure\Persistence\Environment\Repositories\PgsqlEnvironmentRepository;
+use App\Infrastructure\Persistence\Event\Queries\PgsqlEventDetailQuery;
 use App\Infrastructure\Persistence\Event\Queries\PgsqlEventListQuery;
 use App\Infrastructure\Persistence\Event\Repositories\PgsqlEventRepository;
 use App\Infrastructure\Persistence\Event\Repositories\PgsqlEventSourceCredentialRepository;
@@ -73,9 +76,12 @@ use Sentinel\Environment\Application\Query\EnvironmentListQuery;
 use Sentinel\Environment\Application\Query\EnvironmentLookupQuery;
 use Sentinel\Environment\Domain\Repository\EnvironmentRepository;
 use Sentinel\Event\Application\Authentication\EventSourceBearerAuthenticator;
+use Sentinel\Event\Application\Policy\EventDetailVisibilityPolicy;
 use Sentinel\Event\Application\Policy\EventListingPolicy;
+use Sentinel\Event\Application\Policy\EventRetrievalPolicy;
 use Sentinel\Event\Application\Policy\EventSourceCredentialRevocationPolicy;
 use Sentinel\Event\Application\Policy\EventSourceRegistrationPolicy;
+use Sentinel\Event\Application\Query\EventDetailQuery;
 use Sentinel\Event\Application\Query\EventListQuery;
 use Sentinel\Event\Domain\Repository\EventRepository;
 use Sentinel\Event\Domain\Repository\EventSourceCredentialRepository;
@@ -159,6 +165,9 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->singleton(EventSourceCredentialRevocationPolicy::class, ActiveMembershipWithPermissionMayRevokeEventSourceCredentialPolicy::class);
         $this->app->singleton(EventListQuery::class, PgsqlEventListQuery::class);
         $this->app->singleton(EventListingPolicy::class, ActiveMembershipWithPermissionMayListEventsPolicy::class);
+        $this->app->singleton(EventDetailQuery::class, PgsqlEventDetailQuery::class);
+        $this->app->singleton(EventRetrievalPolicy::class, ActiveMembershipWithPermissionMayGetEventPolicy::class);
+        $this->app->singleton(EventDetailVisibilityPolicy::class, EventReadPermissionGrantsDetailVisibilityPolicy::class);
 
         $this->app->singleton(IdempotencyRepository::class, PgsqlIdempotencyRepository::class);
 

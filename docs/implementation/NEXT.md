@@ -1,6 +1,6 @@
 # Current Task
 
-Implement the List Events vertical slice.
+Implement the Get Event vertical slice.
 
 ## Required
 
@@ -18,15 +18,11 @@ Use:
 
 Requirements:
 
-- add it to `CorePermissions` if not already present;
-- ensure new `organization_owner` Roles receive it;
-- backfill existing `organization_owner` Roles;
-- authorize through an operation-specific List Events Policy;
+- reuse the existing Core permission;
+- authorize through an operation-specific Get Event Policy;
 - reuse `OrganizationPermissionAuthorizer`.
 
-Tenant membership alone is insufficient.
-
-Do not authorize by Role name.
+Do not introduce another Event read permission.
 
 ## Authentication
 
@@ -36,42 +32,65 @@ Require:
 - resolved `TenantContext`;
 - `event.read`.
 
-Do not use Event Source bearer authentication for Event browsing.
+Do not allow Event Source bearer authentication to use this endpoint.
 
 ## Route
 
 Expose:
 
-`GET /api/v1/organizations/{organization}/events`
+`GET /api/v1/organizations/{organization}/events/{event}`
 
 The route Organization must match `TenantContext`.
 
+Do not require Project/Application/Environment route nesting for direct Event retrieval.
+
 Keep the controller thin.
+
+## Tenant Scope
+
+Resolve the Event directly using:
+
+- `organization_id`;
+- Event ID.
+
+Never perform a global Event lookup followed by tenant validation.
+
+A valid Event ID belonging to another Organization must return tenant-safe not found.
+
+## Historical Visibility
+
+Accepted Events are immutable historical evidence.
+
+Therefore an authorized Event remains readable when:
+
+- its Project is archived;
+- its Application is archived;
+- its Environment is archived;
+- its Event Source credential has been revoked.
+
+Do not require current parent resources to remain active for historical retrieval.
+
+The Organization itself must still be accessible through normal `TenantContext` rules.
 
 ## Read Model
 
-Events are immutable and this operation is read-only.
+Do not hydrate the Event aggregate.
 
-Do not hydrate Event aggregates.
+Reuse existing Event read infrastructure where appropriate.
 
-Implement the minimum framework-independent:
+Implement only the smallest framework-independent detail capability required:
 
-- Event list DTO;
-- query/read contract;
-- filter input;
-- paginated result where required.
+- Event detail DTO if the list DTO is insufficient;
+- tenant-scoped query contract;
+- PostgreSQL projection.
 
-Use a PostgreSQL projection selecting only public API fields.
+Select only fields required by the canonical detail API.
 
-Avoid N+1 queries.
+Keep aggregate persistence mapping separate from read projection mapping.
 
-Keep persistence aggregate mapping separate from read projection mapping.
+## Public Detail Representation
 
-## Public Representation
-
-Return only canonical documented Event fields.
-
-Include where documented:
+Return the documented immutable Event fields, including where canonical:
 
 - `id`
 - `project_id`
@@ -86,118 +105,47 @@ Include where documented:
 - `occurred_at`
 - `received_at`
 - `created_at`
-- correlation/causation/trace identifiers where public
-
-Follow the reconciled API contract for payload/attributes visibility in list responses.
+- `correlation_id`
+- `causation_id`
+- `trace_id`
+- `payload`
+- `attributes`
 
 Do not expose:
 
-- Event Source credential data;
-- credential identifiers unless explicitly part of the public Event contract;
-- secret hashes;
-- internal idempotency records;
+- bearer credentials;
+- credential IDs unless explicitly part of the Event contract;
+- credential hashes;
+- idempotency records;
+- normalized-event hashes used internally for duplicate detection;
 - Outbox internals.
-
-## Tenant Scope
-
-Every query must be scoped by:
-
-`organization_id`
-
-Never perform an unscoped Event query followed by tenant filtering.
-
-Hierarchy filters must also be tenant-safe.
-
-When filtering by Project/Application/Environment/Event Source:
-
-- validate ownership according to the documented read contract;
-- archived Registry resources remain valid historical filters;
-- cross-Organization or invalid parent relationships must not expose existence.
-
-Historical Event visibility must not depend on the current active state of archived Project, Application, or Environment resources.
-
-## Filters
-
-Support exactly the filters defined by the reconciled Events API.
-
-At minimum verify and implement the documented contract for:
-
-- Project;
-- Application;
-- Environment;
-- Event Source;
-- `event_type`;
-- `category`;
-- severity;
-- `occurred_at` range;
-- `received_at` range.
-
-Do not invent additional filtering.
-
-Validate:
-
-- supported Event types;
-- supported categories;
-- supported severity values;
-- timestamp format and range semantics.
-
-If hierarchy filters are combined, enforce their relationships.
-
-## Historical Visibility
-
-Accepted Events are immutable historical evidence.
-
-Therefore:
-
-- Events remain readable when their Project is archived;
-- Events remain readable when their Application is archived;
-- Events remain readable when their Environment is archived;
-- revoked Event Source credentials do not hide previously accepted Events.
-
-The current Organization must still be accessible through normal `TenantContext` rules.
-
-## Ordering
-
-Canonical ordering:
-
-`occurred_at DESC, id DESC`
-
-This is not `created_at` ordering.
-
-Do not reuse `CreatedAtIdCursor` if doing so changes the canonical ordering semantics.
-
-Reuse shared cursor primitives only where genuinely compatible.
-
-If a dedicated Event cursor is required, keep it minimal and based on:
-
-- `occurred_at`
-- Event UUID
-
-## Cursor Pagination
-
-Use stable keyset pagination.
-
-Requirements:
-
-- no offset pagination;
-- cursor preserves canonical ordering;
-- cursor is opaque;
-- malformed cursors are rejected;
-- cursor scope includes the active filter set;
-- a cursor generated for one filter set cannot be reused with another;
-- identical `occurred_at` timestamps paginate deterministically through Event ID.
-
-Do not duplicate generic cursor machinery unnecessarily.
 
 ## Payload and Attributes
 
-Follow the reconciled List Events API contract exactly.
+The reconciled Get Event contract allows detail payload and attributes using Policy-filtered visibility.
 
-If list responses intentionally omit or reduce payload/attributes for efficiency, preserve that decision.
+Implement the documented Policy boundary explicitly.
 
-Do not automatically return full Event payloads merely because Get Event does.
+Do not simply expose raw persistence columns from the controller.
 
-Do not implement Policy-filtered detail behavior intended only for Get Event unless the List contract requires it.
+The application/presentation layer must control which Event detail fields are returned.
+
+If the current MVP Policy permits full payload/attributes to any actor with `event.read`, represent that rule explicitly rather than bypassing the Policy abstraction.
+
+Do not mutate or transform the stored canonical Event evidence.
+
+## Immutability
+
+Get Event is read-only.
+
+Do not add:
+
+- ETag mutation semantics;
+- Event update;
+- Event delete;
+- processing-state mutation.
+
+The retrieved Event represents the originally accepted evidence.
 
 ## Security
 
@@ -205,60 +153,50 @@ Verify:
 
 - unauthenticated human rejected;
 - unauthorized member rejected;
-- Event Source bearer credential cannot use the human browsing endpoint;
-- cross-tenant Events never appear;
-- cross-tenant hierarchy filters do not disclose resources;
-- archived parents preserve historical visibility;
-- source credential revocation does not remove historical Event visibility;
-- credential secrets/hashes never appear.
+- Event Source bearer auth rejected;
+- cross-tenant Event ID returns not found;
+- archived parents do not hide the Event;
+- revoked Event Source credentials do not hide historical Events;
+- payload/attributes follow the documented visibility Policy;
+- credential or idempotency internals never appear.
 
 ## Tests
 
 Cover at minimum:
 
-- authorized listing;
-- unauthorized member;
+- authorized Event retrieval;
+- `event.read` authorization;
 - unauthenticated request;
-- Event Source bearer auth rejected for browsing;
-- only tenant Events returned;
-- Project filter;
-- Application filter;
-- Environment filter;
-- Event Source filter;
-- event type filter;
-- category filter;
-- severity filter;
-- occurred-at range;
-- received-at range;
-- invalid filter values;
-- invalid cross-parent hierarchy filters;
-- archived Project historical visibility;
-- archived Application historical visibility;
-- archived Environment historical visibility;
-- Events from a source with revoked credential remain visible;
-- canonical `occurred_at DESC, id DESC` ordering;
-- equal `occurred_at` values order deterministically by ID;
-- cursor pagination;
-- malformed cursor rejection;
-- cursor/filter mismatch rejection;
-- canonical public representation;
-- no credential or internal idempotency data exposed;
-- no aggregate hydration on the read path;
-- owner receives `event.read` through provisioning/backfill.
+- unauthorized member;
+- Event Source bearer auth rejected;
+- missing Event;
+- cross-Organization Event returns tenant-safe not found;
+- canonical Event public fields;
+- payload detail visibility;
+- attributes detail visibility;
+- internal duplicate hash is not exposed;
+- idempotency data is not exposed;
+- Outbox data is not exposed;
+- credential data is not exposed;
+- archived Project historical retrieval;
+- archived Application historical retrieval;
+- archived Environment historical retrieval;
+- Event remains visible after source credential revocation;
+- read path does not hydrate the Event aggregate.
 
 ## Excluded
 
 Do not add:
 
-- Get Event.
 - Event update/delete.
-- Event timeline API.
+- Event timeline.
+- additional Event filters.
 - batch ingestion.
-- Event Source list/get.
-- Signal derivation.
+- Event Source management.
+- Signal processing.
 - Alert evaluation.
 - Outbox dispatcher.
-- search projections outside this Event read contract.
+- generic Search integration.
 
 ## Verification
 
@@ -274,15 +212,13 @@ Return only:
 
 - permission used
 - endpoint
-- tenant/hierarchy behavior
-- filters implemented
+- tenant lookup behavior
 - historical visibility
 - read-model approach
-- ordering/cursor behavior
+- payload/attributes visibility
 - response behavior
-- owner permission bootstrap
 - files changed
 - tests
 - blockers
 
-Maximum 15 lines.
+Maximum 12 lines.
